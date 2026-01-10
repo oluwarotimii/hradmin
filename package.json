@@ -56,5 +56,8 @@
       "scripts": {
             "dev": "vite",
             "build": "vite build"
+      },
+      "optionalDependencies": {
+            "@rollup/rollup-linux-x64-gnu": "^4.55.1"
       }
 }
