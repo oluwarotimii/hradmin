@@ -17,6 +17,7 @@ import { EmployeesView } from "./components/EmployeesView";
 import { PerformanceView } from "./components/PerformanceView";
 import { RecruitmentView } from "./components/RecruitmentView";
 import { ReportsView } from "./components/ReportsView";
+import { Login } from "./components/Login";
 import { mockNotifications, mockStaffData } from "./data/staffData";
 import { 
   LayoutDashboard, 
@@ -172,6 +173,18 @@ export default function App() {
     return `${day}${ordinal} ${month} ${year}. ${hours}:${minutes}`;
   });
   const unreadNotifications = mockNotifications.filter(n => !n.read).length;
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    setIsLoggedIn(loggedIn);
+  }, []);
+
+  const handleLogin = (username: string, password: string) => {
+    localStorage.setItem('isLoggedIn', 'true');
+    setIsLoggedIn(true);
+  };
 
   // Handle global search with multiple categories
   const handleSearch = (query: string) => {
@@ -563,7 +576,7 @@ export default function App() {
   const pageInfo = getPageTitle();
 
   return (
-    <div className="app-layout">
+    <div className="app-layout" style={{ backgroundColor: '#f8fafc' }}>
       <Sidebar activeView={activeView} onNavigate={setActiveView} />
       <main className="main-content">
         {/* Header */}
