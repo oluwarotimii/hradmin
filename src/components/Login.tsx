@@ -1,8 +1,4 @@
 import { useState } from "react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 
 interface LoginProps {
   onLogin: (username: string, password: string) => void;
@@ -23,62 +19,154 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg border-0 bg-white">
-        <CardHeader className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <CardTitle className="text-2xl font-bold text-blue-900">HR Dashboard Login</CardTitle>
-          <CardDescription className="text-gray-600">
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+      backgroundColor: '#f8fafc',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      <div style={{
+        backgroundColor: '#ffffff',
+        padding: '2rem',
+        borderRadius: '0.75rem',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        width: '100%',
+        maxWidth: '400px'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <h1 style={{
+            fontSize: '1.875rem',
+            fontWeight: 'bold',
+            color: '#1e293b',
+            marginBottom: '0.5rem'
+          }}>
+            HR Dashboard Login
+          </h1>
+          <p style={{
+            color: '#64748b',
+            fontSize: '0.875rem'
+          }}>
             Enter your credentials to access the dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-blue-900 font-medium">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                className="border-blue-200 focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-blue-900 font-medium">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="border-blue-200 focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
-            {error && (
-              <div className="text-red-600 text-sm text-center bg-red-50 p-2 rounded">
-                {error}
-              </div>
-            )}
-            <Button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-            >
-              Sign In
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm text-gray-500">
-            Demo credentials: admin / password
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              color: '#374151',
+              marginBottom: '0.5rem'
+            }}>
+              Username
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                backgroundColor: '#ffffff',
+                transition: 'border-color 0.2s, box-shadow 0.2s'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#3b82f6';
+                e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#d1d5db';
+                e.target.style.boxShadow = 'none';
+              }}
+              required
+            />
           </div>
-        </CardContent>
-      </Card>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              color: '#374151',
+              marginBottom: '0.5rem'
+            }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                backgroundColor: '#ffffff',
+                transition: 'border-color 0.2s, box-shadow 0.2s'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#3b82f6';
+                e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#d1d5db';
+                e.target.style.boxShadow = 'none';
+              }}
+              required
+            />
+          </div>
+
+          {error && (
+            <div style={{
+              backgroundColor: '#fef2f2',
+              color: '#dc2626',
+              padding: '0.75rem',
+              borderRadius: '0.375rem',
+              fontSize: '0.875rem',
+              marginBottom: '1rem',
+              border: '1px solid #fecaca'
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            style={{
+              width: '100%',
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              padding: '0.75rem 1rem',
+              borderRadius: '0.375rem',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#1d4ed8'}
+            onMouseOut={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#2563eb'}
+          >
+            Sign In
+          </button>
+        </form>
+
+        <div style={{
+          textAlign: 'center',
+          marginTop: '1.5rem',
+          fontSize: '0.75rem',
+          color: '#9ca3af'
+        }}>
+          Demo credentials: admin / password
+        </div>
+      </div>
     </div>
   );
 }

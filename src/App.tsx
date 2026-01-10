@@ -17,7 +17,6 @@ import { EmployeesView } from "./components/EmployeesView";
 import { PerformanceView } from "./components/PerformanceView";
 import { RecruitmentView } from "./components/RecruitmentView";
 import { ReportsView } from "./components/ReportsView";
-import { Login } from "./components/Login";
 import { mockNotifications, mockStaffData } from "./data/staffData";
 import { 
   LayoutDashboard, 
@@ -35,6 +34,7 @@ import {
   Building,
   Sun
 } from "lucide-react";
+import { Login } from "./components/Login";
 
 interface SidebarProps {
   activeView: string;
@@ -153,6 +153,7 @@ function Sidebar({ activeView, onNavigate }: SidebarProps) {
 }
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeView, setActiveView] = useState("dashboard");
   const [activeTab, setActiveTab] = useState("overview");
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
@@ -174,16 +175,23 @@ export default function App() {
   });
   const unreadNotifications = mockNotifications.filter(n => !n.read).length;
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
+  // Check login status on mount
   useEffect(() => {
     const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
     setIsLoggedIn(loggedIn);
   }, []);
 
   const handleLogin = (username: string, password: string) => {
-    localStorage.setItem('isLoggedIn', 'true');
-    setIsLoggedIn(true);
+    // In a real app, this would be an API call
+    if (username === 'admin' && password === 'password') {
+      localStorage.setItem('isLoggedIn', 'true');
+      setIsLoggedIn(true);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    setIsLoggedIn(false);
   };
 
   // Handle global search with multiple categories
@@ -575,8 +583,12 @@ export default function App() {
 
   const pageInfo = getPageTitle();
 
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
-    <div className="app-layout" style={{ backgroundColor: '#f8fafc' }}>
+    <div className="app-layout">
       <Sidebar activeView={activeView} onNavigate={setActiveView} />
       <main className="main-content">
         {/* Header */}
@@ -786,6 +798,9 @@ export default function App() {
                 {unreadNotifications > 0 && (
                   <span className="badge badge-sm badge-error">{unreadNotifications}</span>
                 )}
+              </button>
+              <button className="btn btn-ghost" onClick={handleLogout} style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
+                Logout
               </button>
               <div className="avatar">AD</div>
             </div>
