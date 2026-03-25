@@ -192,6 +192,44 @@ const SettingsView = () => {
     }
   };
 
+  const handleSaveAutoMarkSettings = async () => {
+    if (!selectedBranchId) {
+      setError('Please select a branch');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_ENDPOINT}/attendance/settings/auto-mark`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          branchId: Number(selectedBranchId),
+          autoMarkAbsentEnabled: branchForm.auto_mark_absent_enabled,
+          autoMarkAbsentTime: branchForm.auto_mark_absent_time,
+          autoMarkAbsentTimezone: branchForm.auto_mark_absent_timezone,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSuccessMessage('Auto-mark settings saved successfully');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setError(data.message || 'Failed to save auto-mark settings');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: '1.5rem', background: colors.surfaceMuted, minHeight: '100%' }}>
       {/* Header */}
@@ -496,10 +534,10 @@ const SettingsView = () => {
               </div>
             )}
 
-            {/* Save Button */}
+            {/* Save Button - Auto-Mark Tab */}
             <button
               style={{ ...btnPrimary, opacity: loading ? 0.7 : 1 }}
-              onClick={handleSaveBranchSettings}
+              onClick={handleSaveAutoMarkSettings}
               disabled={loading || branchSettingsLoading}
             >
               {loading ? (
@@ -551,8 +589,7 @@ const WorkingDaysTab = ({
       if (!token) {
         throw new Error('No auth token');
       }
-      // Correct endpoint: /api/branch-working-days/:branchId/working-days
-      const response = await fetch(`http://localhost:3000/api/branch-working-days/${selectedBranchId}/working-days`, {
+      const response = await fetch(`${API_ENDPOINT}/branch-working-days/${selectedBranchId}/working-days`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -600,8 +637,7 @@ const WorkingDaysTab = ({
     setError(null);
     try {
       const token = localStorage.getItem('authToken');
-      // Correct endpoint: /api/branch-working-days/:branchId/working-days
-      const response = await fetch(`http://localhost:3000/api/branch-working-days/${selectedBranchId}/working-days`, {
+      const response = await fetch(`${API_ENDPOINT}/branch-working-days/${selectedBranchId}/working-days`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

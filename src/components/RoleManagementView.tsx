@@ -656,15 +656,18 @@ const ModalWrapper = ({ title, onClose, children }: { title: string; onClose: ()
       }}
     />
     {/* Modal */}
-    <div style={{
-      position: 'fixed', top: '50%', left: '50%',
-      transform: 'translate(-50%, -50%)',
-      width: 'min(42rem, 95vw)', maxHeight: '90vh',
-      background: 'white', borderRadius: '0.875rem',
-      boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-      zIndex: 50, display: 'flex', flexDirection: 'column',
-      animation: 'modalIn 0.2s ease'
-    }}>
+    <div 
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'fixed', top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 'min(42rem, 95vw)', maxHeight: '90vh',
+        background: 'white', borderRadius: '0.875rem',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        zIndex: 50, display: 'flex', flexDirection: 'column',
+        animation: 'modalIn 0.2s ease'
+      }}
+    >
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',

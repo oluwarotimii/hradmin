@@ -125,7 +125,13 @@ export const updateBranchAttendanceSettings = async (
       };
     }
 
-    const response = await axios.patch(`${API_ENDPOINT}/attendance/settings`, request, {
+    // Backend expects { branchId, settings } format
+    const payload = {
+      branchId: request.branchId,
+      settings: request.settings
+    };
+
+    const response = await axios.patch(`${API_ENDPOINT}/attendance/settings`, payload, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
