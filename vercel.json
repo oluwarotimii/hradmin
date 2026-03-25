@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "framework": "vite",
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "env": {
+    "VITE_API_URL": "https://hrapi.tripa.com.ng/api"
+  }
+}
