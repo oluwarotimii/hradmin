@@ -8,7 +8,7 @@ pnpm-lock.yaml
 
 # Build output
 build/
-dist/
+
 *.local
 
 # Environment files

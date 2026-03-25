@@ -1,8 +1,8 @@
 {
-      "name": "Femtech HR App",
+      "name": "Femtech HR Admin",
       "version": "1.0.0",
       "private": true,
-      "description": "Femtech Human Resource Management PWA",
+      "description": "Femtech Human Resource Admin Dashboard",
       "main": "server.js",
       "scripts": {
             "dev": "vite",
