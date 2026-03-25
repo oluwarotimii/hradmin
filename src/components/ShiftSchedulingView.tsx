@@ -21,6 +21,62 @@ import {
   Moon, Coffee, Timer, ChevronRight, X, Save, Sparkles
 } from 'lucide-react';
 
+// ─── Modal Components (defined outside to prevent re-renders) ─────────────
+const Modal = ({ children, onClose, width = '34rem' }: { children: React.ReactNode; onClose: () => void; width?: string }) => (
+  <>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 40, backdropFilter: 'blur(2px)' }} />
+    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: `min(${width}, calc(100vw - 2rem))`, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: '#ffffff', borderRadius: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.2), 0 4px 16px rgba(15,23,42,0.1)', zIndex: 50, overflow: 'hidden' }}>
+      {children}
+    </div>
+  </>
+);
+
+const ModalHeader = ({ title, sub, accentColor, icon: Icon, onClose }: any) => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', flexShrink: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '10px', background: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={16} color="#fff" />
+      </div>
+      <div>
+        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>{title}</h3>
+        <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b', marginTop: '0.1rem' }}>{sub}</p>
+      </div>
+    </div>
+    <button onClick={onClose} style={{ width: '2rem', height: '2rem', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }} onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+      <X size={18} />
+    </button>
+  </div>
+);
+
+const ModalBody = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+    {children}
+  </div>
+);
+
+const ModalFooter = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc', flexShrink: 0 }}>
+    {children}
+  </div>
+);
+
+const FormField = ({ label, required, children, hint }: any) => (
+  <div>
+    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem' }}>{label}{required && <span style={{ color: '#dc2626', marginLeft: 3 }}>*</span>}</label>
+    {children}
+    {hint && <p style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.3rem' }}>{hint}</p>}
+  </div>
+);
+
+const DayPill = ({ day, active, onClick }: { day: string; active: boolean; onClick: () => void }) => {
+  const labelMap: Record<string, string> = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+  const label = labelMap[day];
+  const baseStyle: React.CSSProperties = { padding: '0.35rem 0.65rem', background: active ? '#3b82f6' : '#f1f5f9', color: active ? '#fff' : '#475569', border: 'none', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' };
+  return (
+    <button type="button" onClick={onClick} style={baseStyle} onMouseEnter={e => (e.currentTarget.style.background = active ? '#2563eb' : '#e2e8f0')} onMouseLeave={e => (e.currentTarget.style.background = active ? '#3b82f6' : '#f1f5f9')}>{label}</button>
+  );
+};
+
 interface StaffMember {
   id: number;
   name: string;
@@ -214,6 +270,14 @@ const ShiftSchedulingView = () => {
     recurrence_end_date: '',
   });
 
+  // Assignment filters state
+  const [assignmentFilters, setAssignmentFilters] = useState({
+    employee: '',
+    department: '',
+    branch: '',
+    status: 'all',
+  });
+
   const [showExceptionModal, setShowExceptionModal] = useState(false);
   const [editingException, setEditingException] = useState<ShiftException | null>(null);
   const [exceptionForm, setExceptionForm] = useState<CreateShiftExceptionRequest & { exception_type_id?: number }>({
@@ -292,8 +356,14 @@ const ShiftSchedulingView = () => {
           })));
         }
       } else if (activeTab === 'assignments') {
-        const res = await shiftSchedulingService.getEmployeeShiftAssignments();
-        if (res.success && res.data) setAssignments(res.data.employeeShiftAssignments || []);
+        console.log('[ShiftSchedulingView] Loading all assignments (fetching all pages)...');
+        // Fetch all assignments by getting all pages
+        const res = await shiftSchedulingService.getEmployeeShiftAssignments(1, 1000);
+        if (res.success && res.data) {
+          const allAssignments = res.data.employeeShiftAssignments || [];
+          console.log('[ShiftSchedulingView] Loaded', allAssignments.length, 'assignments');
+          setAssignments(allAssignments);
+        }
       } else if (activeTab === 'exceptions') {
         const res = await shiftSchedulingService.getAllShiftExceptions();
         if (res.success && res.data) setExceptions(res.data.exceptions || []);
@@ -389,13 +459,76 @@ const ShiftSchedulingView = () => {
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     const conflict = detectConflict(assignmentForm.user_id, assignmentForm.effective_from, assignmentForm.effective_to || '');
-    if (conflict) { setError('This employee already has an active shift during this period.'); return; }
+    if (conflict) { 
+      setError('This employee already has an active shift assignment during this period. Please check the dates or use a different employee.'); 
+      return; 
+    }
     setLoading(true);
     try {
-      const res = await shiftSchedulingService.assignShiftToEmployee({ user_id: assignmentForm.user_id, shift_template_id: assignmentForm.shift_template_id, effective_from: assignmentForm.effective_from, effective_to: assignmentForm.effective_to || null });
-      if (res.success) { setSuccessMessage('Assignment created'); setShowAssignmentModal(false); resetAssignmentForm(); loadData(); setTimeout(() => setSuccessMessage(null), 3000); }
+      const res = await shiftSchedulingService.assignShiftToEmployee({ 
+        user_id: assignmentForm.user_id, 
+        shift_template_id: assignmentForm.shift_template_id, 
+        effective_from: assignmentForm.effective_from, 
+        effective_to: assignmentForm.effective_to || null 
+      });
+      if (res.success) { 
+        setSuccessMessage('Assignment created'); 
+        setShowAssignmentModal(false); 
+        resetAssignmentForm(); 
+        loadData(); 
+        setTimeout(() => setSuccessMessage(null), 3000); 
+      }
       else setError(res.message || 'Failed');
     } catch (err: any) { setError(err.message || 'Failed'); } finally { setLoading(false); }
+  };
+
+  const handleUpdateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAssignment) return;
+    
+    const conflict = detectConflict(assignmentForm.user_id, assignmentForm.effective_from, assignmentForm.effective_to || '', editingAssignment.id);
+    if (conflict) { 
+      setError('This employee already has another active shift assignment during this period. Please adjust the dates.'); 
+      return; 
+    }
+    
+    setLoading(true);
+    try {
+      // Build update payload with only changed fields
+      const updateData: any = {};
+      
+      // Only include fields that have meaningful values
+      if (assignmentForm.shift_template_id && assignmentForm.shift_template_id !== 0) {
+        updateData.shift_template_id = assignmentForm.shift_template_id;
+      }
+      if (assignmentForm.effective_from) {
+        updateData.effective_from = assignmentForm.effective_from;
+      }
+      if (assignmentForm.effective_to !== undefined) {
+        updateData.effective_to = assignmentForm.effective_to || null;
+      }
+      if (assignmentForm.assignment_type) {
+        updateData.assignment_type = assignmentForm.assignment_type;
+      }
+      if (assignmentForm.recurrence_pattern && assignmentForm.recurrence_pattern !== 'none') {
+        updateData.recurrence_pattern = assignmentForm.recurrence_pattern;
+      }
+      
+      console.log('[ShiftSchedulingView] Updating assignment with data:', updateData);
+      
+      const res = await shiftSchedulingService.updateEmployeeShiftAssignment(editingAssignment.id, updateData);
+      if (res.success) { 
+        setSuccessMessage('Assignment updated successfully'); 
+        setShowAssignmentModal(false); 
+        resetAssignmentForm(); 
+        loadData(); 
+        setTimeout(() => setSuccessMessage(null), 3000); 
+      }
+      else setError(res.message || 'Failed to update');
+    } catch (err: any) { 
+      console.error('[ShiftSchedulingView] Update error:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to update assignment'); 
+    } finally { setLoading(false); }
   };
 
   const resetAssignmentForm = () => {
@@ -557,18 +690,39 @@ const ShiftSchedulingView = () => {
   };
 
   const calculateBulkExceptionDates = () => {
-    const dates: Date[] = [];
-    const start = new Date(bulkExceptionConfig.start_date);
-    const end = new Date(bulkExceptionConfig.end_date);
-    const sel = bulkExceptionConfig.recurrence_days;
-    let cur = new Date(start);
-    while (cur <= end) {
-      const d = cur.toLocaleDateString('en-US', { weekday: 'lowercase' });
-      if (bulkExceptionConfig.recurrence_pattern === 'daily' || sel.includes(d)) dates.push(new Date(cur));
-      cur.setDate(cur.getDate() + 1);
+    try {
+      const dates: Date[] = [];
+      const start = new Date(bulkExceptionConfig.start_date);
+      const end = new Date(bulkExceptionConfig.end_date);
+      const sel = bulkExceptionConfig.recurrence_days;
+      let cur = new Date(start);
+      
+      // Map short day names to full day names
+      const dayMap: Record<string, string> = {
+        'sun': 'sunday',
+        'mon': 'monday',
+        'tue': 'tuesday',
+        'wed': 'wednesday',
+        'thu': 'thursday',
+        'fri': 'friday',
+        'sat': 'saturday'
+      };
+      
+      while (cur <= end) {
+        const shortDay = cur.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+        const fullDay = dayMap[shortDay];
+        if (bulkExceptionConfig.recurrence_pattern === 'daily' || sel.includes(fullDay)) {
+          dates.push(new Date(cur));
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      setBulkExceptionDates(dates);
+      return dates;
+    } catch (error) {
+      console.error('[ShiftSchedulingView] Error calculating bulk exception dates:', error);
+      setError('Invalid date range selected. Please check your start and end dates.');
+      return [];
     }
-    setBulkExceptionDates(dates);
-    return dates;
   };
 
   const handleCreateBulkExceptions = async () => {
@@ -698,53 +852,6 @@ const ShiftSchedulingView = () => {
     </tr>
   );
 
-  // ─── Modal shell ─────────────────────────────────────────────────────────
-  const Modal = ({ children, onClose, width = '34rem' }: { children: React.ReactNode; onClose: () => void; width?: string }) => (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 40, backdropFilter: 'blur(2px)' }} />
-      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: `min(${width}, calc(100vw - 2rem))`, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: colors.surface, borderRadius: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.2), 0 4px 16px rgba(15,23,42,0.1)', zIndex: 50, overflow: 'hidden' }}>
-        {children}
-      </div>
-    </>
-  );
-
-  const ModalHeader = ({ title, sub, accentColor, icon: Icon, onClose }: any) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem', borderBottom: `1px solid ${colors.border}`, background: colors.surfaceAlt, flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '10px', background: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={16} color="#fff" />
-        </div>
-        <div>
-          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: colors.textPrimary }}>{title}</h3>
-          <p style={{ margin: 0, fontSize: '0.78rem', color: colors.textMuted, marginTop: '0.1rem' }}>{sub}</p>
-        </div>
-      </div>
-      <button onClick={onClose} style={{ ...btnGhost, color: colors.textMuted }} onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceMuted)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-        <X size={18} />
-      </button>
-    </div>
-  );
-
-  const ModalBody = ({ children }: { children: React.ReactNode }) => (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-      {children}
-    </div>
-  );
-
-  const ModalFooter = ({ children }: { children: React.ReactNode }) => (
-    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', padding: '1rem 1.5rem', borderTop: `1px solid ${colors.border}`, background: colors.surfaceAlt, flexShrink: 0 }}>
-      {children}
-    </div>
-  );
-
-  const FormField = ({ label, required, children, hint }: any) => (
-    <div>
-      <label style={labelStyle}>{label}{required && <span style={{ color: colors.danger, marginLeft: 3 }}>*</span>}</label>
-      {children}
-      {hint && <p style={{ fontSize: '0.72rem', color: colors.textMuted, marginTop: '0.3rem' }}>{hint}</p>}
-    </div>
-  );
-
   // ─── Tabs ────────────────────────────────────────────────────────────────
   const tabs: { key: typeof activeTab; label: string; icon: React.ElementType }[] = [
     { key: 'templates',   label: 'Templates',       icon: Settings    },
@@ -856,17 +963,52 @@ const ShiftSchedulingView = () => {
     </div>
   );
 
-  const renderAssignmentsTab = () => (
+  const renderAssignmentsTab = () => {
+    // Filter assignments based on selected filters
+    const filteredAssignments = assignments.filter(a => {
+      const staff = staffMembers.find(s => s.id === a.user_id);
+      
+      // Employee filter
+      if (assignmentFilters.employee && a.user_id.toString() !== assignmentFilters.employee) {
+        return false;
+      }
+      
+      // Department filter
+      if (assignmentFilters.department && staff?.department !== assignmentFilters.department) {
+        return false;
+      }
+      
+      // Branch filter
+      if (assignmentFilters.branch) {
+        const branch = branches.find(b => b.id === parseInt(assignmentFilters.branch));
+        if (staff?.branch_id !== branch?.id) {
+          return false;
+        }
+      }
+      
+      // Status filter
+      if (assignmentFilters.status !== 'all' && a.status !== assignmentFilters.status) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    // Get unique departments and branches for filter dropdowns
+    const departments = [...new Set(staffMembers.map(s => s.department).filter(Boolean))];
+    const branchesList = branches;
+
+    return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Info Box */}
       <div style={{ padding: '1rem', background: colors.purplePale, border: `1px solid ${colors.purpleBorder}`, borderRadius: '8px' }}>
         <p style={{ margin: 0, fontSize: '0.85rem', color: colors.textPrimary, lineHeight: 1.5 }}>
-          <strong>What this does:</strong> Assign shift templates to staff members. 
+          <strong>What this does:</strong> Assign shift templates to staff members.
           Use <strong>Bulk Assign</strong> to assign the same shift to multiple staff at once.
           Assignments determine when staff should clock in/out and are used to calculate late arrivals.
         </p>
       </div>
-      
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: colors.textPrimary }}>Employee Assignments</h2>
@@ -876,24 +1018,95 @@ const ShiftSchedulingView = () => {
           <button style={btnPrimary} onClick={() => { resetAssignmentForm(); setShowAssignmentModal(true); }}
             onMouseEnter={e => (e.currentTarget.style.background = '#1d3a9e')}
             onMouseLeave={e => (e.currentTarget.style.background = colors.primary)}>
-            <Plus size={15} /> Assign Shift
+            <Plus size={15} /> New Assignment
           </button>
-          <button 
-            style={{ ...btnPrimary, background: colors.purple }} 
-            onClick={() => setShowBulkAssignModal(true)}
-            onMouseEnter={e => (e.currentTarget.style.background = '#6d28d9')}
-            onMouseLeave={e => (e.currentTarget.style.background = colors.purple)}
-          >
+          <button style={btnOutline} onClick={() => { setShowBulkAssignModal(true); }}
+            onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceAlt)}>
             <Users size={15} /> Bulk Assign
           </button>
         </div>
       </div>
 
+      {/* Filters */}
+      <div style={{ ...card, padding: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
+        {/* Employee Filter */}
+        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+          <label style={labelStyle}>Employee</label>
+          <select
+            style={inputStyle}
+            value={assignmentFilters.employee}
+            onChange={e => setAssignmentFilters({ ...assignmentFilters, employee: e.target.value })}
+          >
+            <option value="">All Employees</option>
+            {staffMembers.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Department Filter */}
+        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+          <label style={labelStyle}>Department</label>
+          <select
+            style={inputStyle}
+            value={assignmentFilters.department}
+            onChange={e => setAssignmentFilters({ ...assignmentFilters, department: e.target.value })}
+          >
+            <option value="">All Departments</option>
+            {departments.map(dept => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Branch Filter */}
+        <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+          <label style={labelStyle}>Branch</label>
+          <select
+            style={inputStyle}
+            value={assignmentFilters.branch}
+            onChange={e => setAssignmentFilters({ ...assignmentFilters, branch: e.target.value })}
+          >
+            <option value="">All Branches</option>
+            {branchesList.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status Filter */}
+        <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+          <label style={labelStyle}>Status</label>
+          <select
+            style={inputStyle}
+            value={assignmentFilters.status}
+            onChange={e => setAssignmentFilters({ ...assignmentFilters, status: e.target.value })}
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="expired">Expired</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        {/* Clear Filters */}
+        <button
+          type="button"
+          style={{ ...btnOutline, padding: '0.5rem 0.875rem', marginBottom: '0' }}
+          onClick={() => setAssignmentFilters({ employee: '', department: '', branch: '', status: 'all' })}
+          onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceAlt)}
+        >
+          <X size={14} /> Clear
+        </button>
+      </div>
+
+      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px,1fr))', gap: '0.75rem' }}>
-        <StatCard icon={Users}       label="Total"    value={stats.totalAssignments}  accent={colors.primary} pale={colors.primaryPale} />
-        <StatCard icon={CheckCircle} label="Active"   value={stats.activeAssignments} accent={colors.success} pale={colors.successPale} />
-        <StatCard icon={TrendingUp}  label="Coverage" value={`${stats.coverageRate}%`} accent={colors.purple}  pale={colors.purplePale}  />
-        <StatCard icon={Building}    label="Staff"    value={staffMembers.length}     accent={colors.accent}  pale={colors.accentPale}  />
+        <StatCard icon={Users} label="Total Assignments" value={filteredAssignments.length} accent={colors.primary} pale={colors.primaryPale} />
+        <StatCard icon={CheckCircle} label="Active" value={filteredAssignments.filter(a => a.status === 'active').length} accent={colors.success} pale={colors.successPale} />
+        <StatCard icon={AlertCircle} label="Pending" value={filteredAssignments.filter(a => a.status === 'pending').length} accent={colors.warning} pale={colors.warningPale} />
+        <StatCard icon={Timer} label="Coverage" value={`${staffMembers.filter(s => filteredAssignments.some(a => a.user_id === s.id && a.status === 'active')).length}/${staffMembers.length}`} accent={colors.purple} pale={colors.purplePale} />
       </div>
 
       <TableWrap>
@@ -908,9 +1121,25 @@ const ShiftSchedulingView = () => {
           </tr>
         </thead>
         <tbody>
-          {loading ? <LoadingRow /> : assignments.length === 0 ? (
-            <EmptyState icon={Users} title="No assignments yet" sub="Assign shifts to employees to get started" />
-          ) : assignments.map(a => {
+          {loading ? <LoadingRow /> : filteredAssignments.length === 0 ? (
+            <EmptyState 
+              icon={Users} 
+              title={assignments.length === 0 ? "No assignments yet" : "No matching assignments"} 
+              sub={assignments.length === 0 ? "Assign shifts to employees to get started" : "Try adjusting your filters"} 
+              action={assignments.length === 0 ? (
+                <button style={btnPrimary} onClick={() => { resetAssignmentForm(); setShowAssignmentModal(true); }}>
+                  <Plus size={14} /> Create Assignment
+                </button>
+              ) : (
+                <button 
+                  style={btnOutline} 
+                  onClick={() => setAssignmentFilters({ employee: '', department: '', branch: '', status: 'all' })}
+                >
+                  <X size={14} /> Clear Filters
+                </button>
+              )}
+            />
+          ) : filteredAssignments.map(a => {
             const tmpl = templates.find(t => t.id === a.shift_template_id);
             const staff = staffMembers.find(s => s.id === a.user_id);
             const st = tmpl ? getShiftType(tmpl.start_time, tmpl.end_time) : null;
@@ -972,6 +1201,7 @@ const ShiftSchedulingView = () => {
       </TableWrap>
     </div>
   );
+  };
 
   const renderExceptionsTab = () => {
     const filtered = exceptionFilter === 'all' ? exceptions : exceptions.filter(ex => ex.status === exceptionFilter);
@@ -1261,19 +1491,38 @@ const ShiftSchedulingView = () => {
 
       {/* ── Assignment Modal ────────────────────────────────────────────── */}
       {showAssignmentModal && (
-        <Modal onClose={() => { setShowAssignmentModal(false); resetAssignmentForm(); }}>
-          <ModalHeader title={`${editingAssignment ? 'Edit' : 'Create'} Assignment`} sub="Assign a shift template to an employee" accentColor={colors.primary} icon={Users} onClose={() => { setShowAssignmentModal(false); resetAssignmentForm(); }} />
-          <form onSubmit={handleCreateAssignment} style={{ display: 'contents' }}>
+        <Modal onClose={() => { setShowAssignmentModal(false); resetAssignmentForm(); setError(null); }}>
+          <ModalHeader title={`${editingAssignment ? 'Edit' : 'Create'} Assignment`} sub="Assign a shift template to an employee" accentColor={colors.primary} icon={Users} onClose={() => { setShowAssignmentModal(false); resetAssignmentForm(); setError(null); }} />
+          <form onSubmit={editingAssignment ? handleUpdateAssignment : handleCreateAssignment} style={{ display: 'contents' }}>
             <ModalBody>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                {/* Error Alert - Shows inside modal for better visibility */}
+                {error && (
+                  <div style={{ padding: '0.875rem 1.1rem', background: colors.dangerPale, border: `1px solid ${colors.dangerBorder}`, borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
+                    <AlertCircle size={16} color={colors.danger} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <p style={{ margin: 0, fontSize: '0.825rem', fontWeight: 500, color: '#7f1d1d', flex: 1, lineHeight: 1.4 }}>{error}</p>
+                    <button type="button" onClick={() => setError(null)} style={{ ...btnGhost, color: colors.danger, padding: '0.2rem' }}><X size={14} /></button>
+                  </div>
+                )}
+                
                 <FormField label="Employee" required>
-                  <select style={inputStyle} value={assignmentForm.user_id || ''} onChange={e => setAssignmentForm({ ...assignmentForm, user_id: Number(e.target.value) })} required>
+                  <select 
+                    style={inputStyle} 
+                    value={editingAssignment ? (assignmentForm.user_id || editingAssignment.user_id) : (assignmentForm.user_id || '')} 
+                    onChange={e => setAssignmentForm({ ...assignmentForm, user_id: Number(e.target.value) })} 
+                    required
+                  >
                     <option value="">Select Employee</option>
                     {staffMembers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </FormField>
                 <FormField label="Shift Template" required>
-                  <select style={inputStyle} value={assignmentForm.shift_template_id || ''} onChange={e => setAssignmentForm({ ...assignmentForm, shift_template_id: Number(e.target.value) })} required>
+                  <select 
+                    style={inputStyle} 
+                    value={editingAssignment ? (assignmentForm.shift_template_id || editingAssignment.shift_template_id) : (assignmentForm.shift_template_id || '')} 
+                    onChange={e => setAssignmentForm({ ...assignmentForm, shift_template_id: Number(e.target.value) })} 
+                    required
+                  >
                     <option value="">Select Template</option>
                     {templates.map(t => {
                       const h = calculateHours(t.start_time, t.end_time, t.break_duration_minutes);
@@ -1283,22 +1532,46 @@ const ShiftSchedulingView = () => {
                 </FormField>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
                   <FormField label="Effective From" required>
-                    <input style={inputStyle} type="date" value={assignmentForm.effective_from} onChange={e => setAssignmentForm({ ...assignmentForm, effective_from: e.target.value })} required />
+                    <input 
+                      style={inputStyle} 
+                      type="date" 
+                      value={editingAssignment ? (assignmentForm.effective_from || editingAssignment.effective_from) : assignmentForm.effective_from} 
+                      onChange={e => setAssignmentForm({ ...assignmentForm, effective_from: e.target.value })} 
+                      required 
+                    />
                   </FormField>
                   <FormField label="Effective To">
-                    <input style={inputStyle} type="date" value={assignmentForm.effective_to} onChange={e => setAssignmentForm({ ...assignmentForm, effective_to: e.target.value })} />
+                    <input 
+                      style={inputStyle} 
+                      type="date" 
+                      value={editingAssignment ? (assignmentForm.effective_to || editingAssignment.effective_to || '') : assignmentForm.effective_to} 
+                      onChange={e => setAssignmentForm({ ...assignmentForm, effective_to: e.target.value })} 
+                    />
                   </FormField>
                 </div>
-                {assignmentForm.effective_to && (
+                {editingAssignment && (
+                  <FormField label="Assignment Type">
+                    <select 
+                      style={inputStyle} 
+                      value={assignmentForm.assignment_type || editingAssignment.assignment_type} 
+                      onChange={e => setAssignmentForm({ ...assignmentForm, assignment_type: e.target.value as any })}
+                    >
+                      <option value="permanent">Permanent</option>
+                      <option value="temporary">Temporary</option>
+                      <option value="rotating">Rotating</option>
+                    </select>
+                  </FormField>
+                )}
+                {(assignmentForm.effective_to || (editingAssignment && assignmentForm.effective_to !== undefined)) && (
                   <div style={{ padding: '0.75rem 1rem', background: colors.warningPale, border: `1px solid ${colors.warningBorder}`, borderRadius: '8px' }}>
                     <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 600, color: colors.warning }}>Temporary Assignment</p>
-                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: '#92400e' }}>Expires on {new Date(assignmentForm.effective_to).toLocaleDateString()}</p>
+                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: '#92400e' }}>Expires on {new Date(assignmentForm.effective_to || editingAssignment?.effective_to || '').toLocaleDateString()}</p>
                   </div>
                 )}
               </div>
             </ModalBody>
             <ModalFooter>
-              <button type="button" style={btnOutline} onClick={() => { setShowAssignmentModal(false); resetAssignmentForm(); }}>Cancel</button>
+              <button type="button" style={btnOutline} onClick={() => { setShowAssignmentModal(false); resetAssignmentForm(); setError(null); }}>Cancel</button>
               <button type="submit" style={btnPrimary} disabled={loading}>
                 {loading ? <><RotateCcw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</> : <><Save size={14} />{editingAssignment ? 'Update Assignment' : 'Create Assignment'}</>}
               </button>
@@ -1309,10 +1582,19 @@ const ShiftSchedulingView = () => {
 
       {/* ── Exception Modal ─────────────────────────────────────────────── */}
       {showExceptionModal && (
-        <Modal onClose={() => { setShowExceptionModal(false); resetExceptionForm(); }} width="36rem">
-          <ModalHeader title={`${editingException ? 'Edit' : 'Create'} Shift Exception`} sub={isRecurringException ? 'Recurring schedule override for multiple dates' : 'One-time schedule override for a specific date'} accentColor={colors.purple} icon={Calendar} onClose={() => { setShowExceptionModal(false); resetExceptionForm(); }} />
+        <Modal onClose={() => { setShowExceptionModal(false); resetExceptionForm(); setError(null); }} width="36rem">
+          <ModalHeader title={`${editingException ? 'Edit' : 'Create'} Shift Exception`} sub={isRecurringException ? 'Recurring schedule override for multiple dates' : 'One-time schedule override for a specific date'} accentColor={colors.purple} icon={Calendar} onClose={() => { setShowExceptionModal(false); resetExceptionForm(); setError(null); }} />
           <ModalBody>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+              {/* Error Alert - Shows inside modal for better visibility */}
+              {error && (
+                <div style={{ padding: '0.875rem 1.1rem', background: colors.dangerPale, border: `1px solid ${colors.dangerBorder}`, borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
+                  <AlertCircle size={16} color={colors.danger} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <p style={{ margin: 0, fontSize: '0.825rem', fontWeight: 500, color: '#7f1d1d', flex: 1, lineHeight: 1.4 }}>{error}</p>
+                  <button type="button" onClick={() => setError(null)} style={{ ...btnGhost, color: colors.danger, padding: '0.2rem' }}><X size={14} /></button>
+                </div>
+              )}
+              
               {/* Bulk mode toggle */}
               {!editingException && (
                 <div style={{ padding: '1rem', background: colors.purplePale, border: `1px solid ${colors.purpleBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

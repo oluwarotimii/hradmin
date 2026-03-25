@@ -613,31 +613,48 @@ export const apiServices = {
   },
 
   // Employee Shift Assignment methods
-  async getEmployeeShiftAssignments() {
+  async getEmployeeShiftAssignments(page: number = 1, limit: number = 1000) {
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
         throw new Error('Authentication token not found');
       }
 
+      console.log('[API Services] Fetching employee shift assignments from:', `${API_ENDPOINT}/shift-scheduling/employee-shift-assignments`, 'page:', page, 'limit:', limit);
+      
       const response = await axios.get(`${API_ENDPOINT}/shift-scheduling/employee-shift-assignments`, {
+        params: { page, limit },
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         }
       });
 
+      console.log('[API Services] Raw response:', response.data);
+      console.log('[API Services] Response data structure:', {
+        hasData: !!response.data.data,
+        hasShiftAssignments: !!response.data.data?.shiftAssignments,
+        hasEmployeeShiftAssignments: !!response.data.data?.employeeShiftAssignments,
+        assignmentsCount: response.data.data?.shiftAssignments?.length || response.data.data?.employeeShiftAssignments?.length || 0,
+        hasPagination: !!response.data.data?.pagination
+      });
+
       return {
         success: true,
         message: "Employee shift assignments retrieved successfully",
-        data: { employeeShiftAssignments: response.data.data?.employeeShiftAssignments || response.data.employeeShiftAssignments || [] }
+        data: { 
+          // Backend returns shiftAssignments, handle both formats
+          employeeShiftAssignments: response.data.data?.shiftAssignments || response.data.data?.employeeShiftAssignments || response.data.shiftAssignments || response.data.employeeShiftAssignments || [],
+          pagination: response.data.data?.pagination || null
+        }
       };
     } catch (error: any) {
-      console.error('Error fetching employee shift assignments:', error);
+      console.error('[API Services] Error fetching employee shift assignments:', error);
+      console.error('[API Services] Error response:', error.response?.data);
       return {
         success: false,
         message: error.response?.data?.message || error.message || 'Failed to fetch employee shift assignments',
-        data: { employeeShiftAssignments: [] }
+        data: { employeeShiftAssignments: [], pagination: null }
       };
     }
   },

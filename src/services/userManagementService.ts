@@ -162,9 +162,23 @@ export const getUserById = async (userId: number): Promise<{ success: boolean; u
       user = response.data;
     }
 
+    // Normalize user object - convert snake_case to camelCase
+    const normalizedUser: User = {
+      id: user.id,
+      firstName: user.first_name || user.firstName || '',
+      lastName: user.last_name || user.lastName || '',
+      email: user.email || '',
+      roleId: user.role_id || user.roleId || 0,
+      branchId: user.branch_id || user.branchId || 0,
+      departmentId: user.department_id || user.departmentId || 0,
+      isActive: user.status === 'active' || user.isActive || false,
+      createdAt: user.created_at || user.createdAt || '',
+      updatedAt: user.updated_at || user.updatedAt || ''
+    };
+
     return {
       success: true,
-      user: user,
+      user: normalizedUser,
     };
   } catch (error: any) {
     console.error('Error fetching user:', error);

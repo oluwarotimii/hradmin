@@ -230,11 +230,11 @@ const UserManagementView = () => {
       if (userResponse.success && userResponse.user) {
         const freshUser = userResponse.user;
         setEditingUser(freshUser);
-        setFirstName(freshUser.first_name || freshUser.firstName || '');
-        setLastName(freshUser.last_name || freshUser.lastName || '');
-        setEmail(freshUser.email || '');
-        setRoleId(freshUser.role_id || freshUser.roleId || 0);
-        setBranchId(freshUser.branch_id || freshUser.branchId || 0);
+        setFirstName(freshUser.firstName);
+        setLastName(freshUser.lastName);
+        setEmail(freshUser.email);
+        setRoleId(freshUser.roleId);
+        setBranchId(freshUser.branchId);
         setPassword('');
         setShowEditForm(true);
       } else {

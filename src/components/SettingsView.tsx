@@ -534,6 +534,7 @@ const WorkingDaysTab = ({
 }: any) => {
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [localSuccessMessage, setLocalSuccessMessage] = useState<string | null>(null);
 
   // Load working days when branch changes
   useEffect(() => {
@@ -550,20 +551,21 @@ const WorkingDaysTab = ({
       if (!token) {
         throw new Error('No auth token');
       }
-      const response = await fetch(`http://localhost:3000/api/branches/${selectedBranchId}/working-days`, {
+      // Correct endpoint: /api/branch-working-days/:branchId/working-days
+      const response = await fetch(`http://localhost:3000/api/branch-working-days/${selectedBranchId}/working-days`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         }
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to load working days');
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success && data.data.workingDays) {
         // Map API response to our state
         const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -598,7 +600,8 @@ const WorkingDaysTab = ({
     setError(null);
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`http://localhost:3000/api/branches/${selectedBranchId}/working-days`, {
+      // Correct endpoint: /api/branch-working-days/:branchId/working-days
+      const response = await fetch(`http://localhost:3000/api/branch-working-days/${selectedBranchId}/working-days`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -615,10 +618,10 @@ const WorkingDaysTab = ({
         })
       });
       const data = await response.json();
-      
+
       if (data.success) {
-        setSuccessMessage('Working days saved successfully');
-        setTimeout(() => setSuccessMessage(null), 3000);
+        setLocalSuccessMessage('Working days saved successfully');
+        setTimeout(() => setLocalSuccessMessage(null), 3000);
       } else {
         setError(data.message || 'Failed to save working days');
       }
@@ -741,9 +744,9 @@ const WorkingDaysTab = ({
             {localError}
           </div>
         )}
-        {successMessage && (
+        {localSuccessMessage && (
           <div style={{ padding: '0.75rem', background: colors.successPale, border: `1px solid ${colors.successBorder}`, borderRadius: '8px', color: colors.success, fontSize: '0.875rem', marginBottom: '1rem' }}>
-            {successMessage}
+            {localSuccessMessage}
           </div>
         )}
 
