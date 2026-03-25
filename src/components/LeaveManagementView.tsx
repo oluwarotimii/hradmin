@@ -265,8 +265,8 @@ const LeaveManagementView = () => {
           setTotalPages(0);
         }
 
-        // Fetch leave balances for current user (assuming user ID 1 for demo)
-        const balancesResponse = await getUserLeaveBalance(1);
+        // Fetch leave balances for current user
+        const balancesResponse = await getUserLeaveBalance(); // No userId = uses my-allocations endpoint
         if (balancesResponse.success && balancesResponse.leaveBalances) {
           // Transform API response to match our UI interface
           const transformedBalances = balancesResponse.leaveBalances.map(balance => ({

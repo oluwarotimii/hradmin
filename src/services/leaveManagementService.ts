@@ -864,8 +864,8 @@ export const updateLeaveRequestStatus = async (leaveRequestId: number, status: '
   }
 };
 
-// Get user leave balance
-export const getUserLeaveBalance = async (userId: number): Promise<{ success: boolean; leaveBalances?: LeaveBalance[]; message?: string }> => {
+// Get user leave balance (allocations for current user)
+export const getUserLeaveBalance = async (userId?: number): Promise<{ success: boolean; leaveBalances?: any[]; message?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -875,7 +875,13 @@ export const getUserLeaveBalance = async (userId: number): Promise<{ success: bo
       };
     }
 
-    const response = await axios.get(`${API_ENDPOINT}/leave/balances/user/${userId}`, {
+    // Use my-allocations endpoint which gets current user's allocations
+    // If userId is provided, use the allocations endpoint with filter
+    const url = userId 
+      ? `${API_ENDPOINT}/leave/allocations?userId=${userId}&limit=100`
+      : `${API_ENDPOINT}/leave/allocations/my-allocations`;
+
+    const response = await axios.get(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -884,19 +890,11 @@ export const getUserLeaveBalance = async (userId: number): Promise<{ success: bo
 
     // Handle different possible response formats
     let leaveBalances = [];
-    if (Array.isArray(response.data)) {
-      // If response is directly an array
+    if (response.data && response.data.data) {
+      // Extract from data wrapper
+      leaveBalances = response.data.data.allocations || response.data.data.leaveAllocations || [];
+    } else if (Array.isArray(response.data)) {
       leaveBalances = response.data;
-    } else if (response.data && typeof response.data === 'object') {
-      // If response has a data wrapper
-      if (response.data.data && Array.isArray(response.data.data.leaveBalances)) {
-        leaveBalances = response.data.data.leaveBalances;
-      } else if (response.data.leaveBalances && Array.isArray(response.data.leaveBalances)) {
-        leaveBalances = response.data.leaveBalances;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        // If data contains an array directly
-        leaveBalances = response.data.data;
-      }
     }
 
     return {
