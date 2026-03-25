@@ -253,6 +253,7 @@ const ShiftSchedulingView = () => {
     start_time: '08:00:00',
     end_time: '17:00:00',
     break_duration_minutes: 60,
+    effective_from: new Date().toISOString().split('T')[0],
     recurrence_pattern: 'weekly',
     recurrence_days: '["monday","tuesday","wednesday","thursday","friday"]',
   });
@@ -417,9 +418,13 @@ const ShiftSchedulingView = () => {
     e.preventDefault(); setLoading(true);
     try {
       const res = await shiftSchedulingService.createShiftTemplate({
-        name: templateForm.name, start_time: templateForm.start_time,
-        end_time: templateForm.end_time, break_duration_minutes: templateForm.break_duration_minutes,
-        recurrence_pattern: templateForm.recurrence_pattern, recurrence_days: templateForm.recurrence_days,
+        name: templateForm.name,
+        start_time: templateForm.start_time,
+        end_time: templateForm.end_time,
+        break_duration_minutes: templateForm.break_duration_minutes,
+        effective_from: templateForm.effective_from,
+        recurrence_pattern: templateForm.recurrence_pattern,
+        recurrence_days: templateForm.recurrence_days,
       });
       if (res.success) { setSuccessMessage('Shift template created successfully'); setShowTemplateModal(false); resetTemplateForm(); loadData(); setTimeout(() => setSuccessMessage(null), 3000); }
       else setError(res.message || 'Failed to create template');
@@ -445,7 +450,7 @@ const ShiftSchedulingView = () => {
   };
 
   const resetTemplateForm = () => {
-    setTemplateForm({ name: '', start_time: '08:00:00', end_time: '17:00:00', break_duration_minutes: 60, recurrence_pattern: 'weekly', recurrence_days: '["monday","tuesday","wednesday","thursday","friday"]' });
+    setTemplateForm({ name: '', start_time: '08:00:00', end_time: '17:00:00', break_duration_minutes: 60, effective_from: new Date().toISOString().split('T')[0], recurrence_pattern: 'weekly', recurrence_days: '["monday","tuesday","wednesday","thursday","friday"]' });
     setEditingTemplate(null);
   };
 
@@ -1445,11 +1450,19 @@ const ShiftSchedulingView = () => {
 
       {/* ── Template Modal ─────────────────────────────────────────────── */}
       {showTemplateModal && (
-        <Modal onClose={() => { setShowTemplateModal(false); resetTemplateForm(); }}>
-          <ModalHeader title={`${editingTemplate ? 'Edit' : 'Create'} Shift Template`} sub="Define a reusable shift pattern" accentColor={colors.primary} icon={Settings} onClose={() => { setShowTemplateModal(false); resetTemplateForm(); }} />
+        <Modal onClose={() => { setShowTemplateModal(false); resetTemplateForm(); setError(null); }}>
+          <ModalHeader title={`${editingTemplate ? 'Edit' : 'Create'} Shift Template`} sub="Define a reusable shift pattern" accentColor={colors.primary} icon={Settings} onClose={() => { setShowTemplateModal(false); resetTemplateForm(); setError(null); }} />
           <form onSubmit={editingTemplate ? handleUpdateTemplate : handleCreateTemplate} style={{ display: 'contents' }}>
             <ModalBody>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                {/* Error Alert - Shows inside modal for better visibility */}
+                {error && (
+                  <div style={{ padding: '0.875rem 1.1rem', background: colors.dangerPale, border: `1px solid ${colors.dangerBorder}`, borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
+                    <AlertCircle size={16} color={colors.danger} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <p style={{ margin: 0, fontSize: '0.825rem', fontWeight: 500, color: '#7f1d1d', flex: 1, lineHeight: 1.4 }}>{error}</p>
+                    <button type="button" onClick={() => setError(null)} style={{ ...btnGhost, color: colors.danger, padding: '0.2rem' }}><X size={14} /></button>
+                  </div>
+                )}
                 <FormField label="Template Name" required>
                   <input style={inputStyle} type="text" value={templateForm.name} onChange={e => setTemplateForm({ ...templateForm, name: e.target.value })} placeholder="e.g. Morning Shift, Standard Hours, Night Rotation" required />
                 </FormField>
@@ -1463,6 +1476,9 @@ const ShiftSchedulingView = () => {
                 </div>
                 <FormField label="Break Duration (minutes)" hint="Recommended: 60 for 8-hour shifts">
                   <input style={inputStyle} type="number" value={templateForm.break_duration_minutes} onChange={e => setTemplateForm({ ...templateForm, break_duration_minutes: Number(e.target.value) })} min={0} max={180} />
+                </FormField>
+                <FormField label="Effective From Date" required hint="When does this template become active?">
+                  <input style={inputStyle} type="date" value={templateForm.effective_from} onChange={e => setTemplateForm({ ...templateForm, effective_from: e.target.value })} required />
                 </FormField>
                 <FormField label="Recurrence Pattern">
                   <select style={inputStyle} value={templateForm.recurrence_pattern} onChange={e => setTemplateForm({ ...templateForm, recurrence_pattern: e.target.value })}>
@@ -1480,7 +1496,7 @@ const ShiftSchedulingView = () => {
               </div>
             </ModalBody>
             <ModalFooter>
-              <button type="button" style={btnOutline} onClick={() => { setShowTemplateModal(false); resetTemplateForm(); }}>Cancel</button>
+              <button type="button" style={btnOutline} onClick={() => { setShowTemplateModal(false); resetTemplateForm(); setError(null); }}>Cancel</button>
               <button type="submit" style={btnPrimary} disabled={loading}>
                 {loading ? <><RotateCcw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</> : <><Save size={14} />{editingTemplate ? 'Update Template' : 'Create Template'}</>}
               </button>
