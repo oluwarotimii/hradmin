@@ -1,6 +1,6 @@
 // StaffLocationAssignmentView.tsx
 // Admin interface for managing staff location assignments
-// Redesigned to match app design system with enhanced visuals
+// Redesigned with new design system + multiple locations support
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -15,12 +15,109 @@ import {
   AlertCircle,
   RefreshCw,
   UserCheck,
-  Map
+  Map,
+  ChevronDown,
+  Info
 } from 'lucide-react';
 import { getAllStaff } from '../services/staffManagementService';
 import { getAllAttendanceLocations, AttendanceLocation } from '../services/attendanceService';
+import { getAllBranches } from '../services/branchManagementService';
 import axios from 'axios';
 import { API_ENDPOINT } from '../config/config';
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+  primary:       '#1e40af',
+  primaryLight:  '#3b82f6',
+  primaryPale:   '#eff6ff',
+  primaryBorder: '#bfdbfe',
+  success:       '#059669',
+  successPale:   '#ecfdf5',
+  successBorder: '#a7f3d0',
+  warning:       '#d97706',
+  warningPale:   '#fffbeb',
+  warningBorder: '#fde68a',
+  danger:        '#dc2626',
+  dangerPale:    '#fef2f2',
+  dangerBorder:  '#fecaca',
+  purple:        '#7c3aed',
+  purplePale:    '#f5f3ff',
+  purpleBorder:  '#ddd6fe',
+  surface:       '#ffffff',
+  surfaceAlt:    '#f8fafc',
+  surfaceMuted:  '#f1f5f9',
+  border:        '#e2e8f0',
+  borderStrong:  '#cbd5e1',
+  text:          '#0f172a',
+  textSub:       '#475569',
+  textMuted:     '#94a3b8',
+};
+
+// ─── Shared styles ────────────────────────────────────────────────────────────
+const card: React.CSSProperties = {
+  background: T.surface,
+  border: `1px solid ${T.border}`,
+  borderRadius: '14px',
+  boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
+};
+
+const inputS: React.CSSProperties = {
+  padding: '0.55rem 0.875rem',
+  border: `1.5px solid ${T.border}`,
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  color: T.text,
+  background: T.surface,
+  outline: 'none',
+  fontFamily: 'inherit',
+  transition: 'border-color 0.15s',
+};
+
+const labelS: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.82rem',
+  fontWeight: 600,
+  color: T.text,
+  marginBottom: '0.4rem',
+};
+
+const btnP: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  padding: '0.6rem 1.2rem',
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  border: 'none',
+  background: T.primary,
+  color: '#fff',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  transition: 'all 0.15s',
+  boxShadow: '0 2px 8px rgba(30,64,175,0.2)',
+};
+
+const btnOutline: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  padding: '0.6rem 1.2rem',
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  border: `1.5px solid ${T.border}`,
+  background: T.surface,
+  color: T.textSub,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  transition: 'all 0.15s',
+};
+
+const avatarPalette = ['#1e40af','#0369a1','#059669','#7c3aed','#d97706','#be185d','#0891b2','#0d9488'];
+const getAvatarColor = (name: string) => avatarPalette[(name?.charCodeAt(0) || 0) % avatarPalette.length];
 
 interface StaffMember {
   user_id: number;
@@ -28,9 +125,11 @@ interface StaffMember {
   full_name: string;
   email: string;
   branch_id?: number;
+  branch_name?: string;
   department?: string;
   assigned_location_id?: number;
   location_name?: string;
+  location_assignments?: number[] | string;
   location_notes?: string;
   status: string;
 }
@@ -44,6 +143,7 @@ const StaffLocationAssignmentView: React.FC = () => {
   // Data state
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [locations, setLocations] = useState<AttendanceLocation[]>([]);
+  const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
 
   // Filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,6 +166,9 @@ const StaffLocationAssignmentView: React.FC = () => {
     location_notes: ''
   });
 
+  // Location dropdown hover state
+  const [hoveredStaffId, setHoveredStaffId] = useState<number | null>(null);
+
   // Load data
   useEffect(() => {
     loadData();
@@ -76,21 +179,29 @@ const StaffLocationAssignmentView: React.FC = () => {
     setError(null);
 
     try {
-      const [staffRes, locationsRes] = await Promise.all([
-        getAllStaff(1, 1000),
-        getAllAttendanceLocations()
+      // Load from staff-location-assignments endpoint which has all the data we need
+      const [assignmentsRes, locationsRes, branchesRes] = await Promise.all([
+        axios.get(`${API_ENDPOINT}/staff-location-assignments`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        }),
+        getAllAttendanceLocations(),
+        getAllBranches()
       ]);
 
-      if (staffRes.success && staffRes.staff) {
-        setStaffMembers(staffRes.staff.map((s: any) => ({
+      if (assignmentsRes.data.success && assignmentsRes.data.data.assignments) {
+        setStaffMembers(assignmentsRes.data.data.assignments.map((s: any) => ({
           user_id: s.user_id,
           employee_id: s.employee_id,
           full_name: s.full_name,
           email: s.email,
           branch_id: s.branch_id,
+          branch_name: s.branch_name,
           department: s.department,
           assigned_location_id: s.assigned_location_id,
           location_name: s.location_name,
+          location_assignments: s.location_assignments,
           location_notes: s.location_notes,
           status: s.status
         })));
@@ -98,6 +209,13 @@ const StaffLocationAssignmentView: React.FC = () => {
 
       if (locationsRes.success && locationsRes.locations) {
         setLocations(locationsRes.locations);
+      }
+
+      if (branchesRes.success && branchesRes.branches) {
+        setBranches(branchesRes.branches.map((b: any) => ({
+          id: b.id,
+          name: b.name
+        })));
       }
     } catch (err: any) {
       console.error('Error loading data:', err);
@@ -116,12 +234,42 @@ const StaffLocationAssignmentView: React.FC = () => {
 
     const matchesBranch = !selectedBranch || staff.branch_id === selectedBranch;
 
+    const hasAnyLocation = staff.assigned_location_id || 
+      (staff.location_assignments && 
+        (Array.isArray(staff.location_assignments) ? staff.location_assignments.length > 0 : staff.location_assignments !== '[]'));
+    
     const matchesLocationFilter = filterHasLocation === 'all' ||
-      (filterHasLocation === 'assigned' && staff.assigned_location_id) ||
-      (filterHasLocation === 'unassigned' && !staff.assigned_location_id);
+      (filterHasLocation === 'assigned' && hasAnyLocation) ||
+      (filterHasLocation === 'unassigned' && !hasAnyLocation);
 
     return matchesSearch && matchesBranch && matchesLocationFilter;
   });
+
+  // Parse location assignments
+  const parseLocationAssignments = (staff: StaffMember): number[] => {
+    if (!staff.location_assignments) return [];
+    if (Array.isArray(staff.location_assignments)) return staff.location_assignments;
+    try {
+      const parsed = JSON.parse(staff.location_assignments);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // Get all location names for a staff member
+  const getLocationNames = (staff: StaffMember): string[] => {
+    const assignmentIds = parseLocationAssignments(staff);
+    if (assignmentIds.length === 0 && staff.assigned_location_id) {
+      // Fallback to single assigned_location_id
+      const loc = locations.find(l => l.id === staff.assigned_location_id);
+      return loc ? [loc.name] : ['Unknown location'];
+    }
+    return assignmentIds.map(id => {
+      const loc = locations.find(l => l.id === id);
+      return loc ? loc.name : null;
+    }).filter(Boolean) as string[];
+  };
 
   // Pagination
   const totalPages = Math.ceil(filteredStaff.length / pageSize);
@@ -137,7 +285,11 @@ const StaffLocationAssignmentView: React.FC = () => {
 
   // Calculate statistics
   const totalStaff = staffMembers.length;
-  const assignedCount = staffMembers.filter(s => s.assigned_location_id).length;
+  const assignedCount = staffMembers.filter(s => 
+    s.assigned_location_id || 
+    (s.location_assignments && 
+      (Array.isArray(s.location_assignments) ? s.location_assignments.length > 0 : s.location_assignments !== '[]'))
+  ).length;
   const unassignedCount = totalStaff - assignedCount;
   const assignmentRate = totalStaff > 0 ? Math.round((assignedCount / totalStaff) * 100) : 0;
 
@@ -152,34 +304,32 @@ const StaffLocationAssignmentView: React.FC = () => {
         editForm,
         {
           headers: {
-            'Content-Type': 'application/json'
-          }
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+            'Content-Type': 'application/json',
+          },
         }
       );
 
-      const result = response.data;
-
-      if (result.success) {
+      if (response.data.success) {
         setSuccessMessage('Location assignment updated successfully');
         setEditingStaffId(null);
         loadData();
         setTimeout(() => setSuccessMessage(null), 3000);
       } else {
-        throw new Error(result.message || 'Failed to update assignment');
+        setError(response.data.message || 'Failed to update assignment');
       }
     } catch (err: any) {
       console.error('Update error:', err);
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to update assignment';
-      setError(errorMsg);
+      setError(err.response?.data?.message || 'Failed to update assignment');
     } finally {
       setSaving(false);
     }
   };
 
-  // Handle bulk update
-  const handleBulkUpdate = async () => {
+  // Handle bulk assignment
+  const handleBulkAssignment = async () => {
     if (!bulkLocationId || selectedStaff.length === 0) {
-      setError('Please select a location and staff members');
+      setError('Please select a location and at least one staff member');
       return;
     }
 
@@ -187,36 +337,49 @@ const StaffLocationAssignmentView: React.FC = () => {
     setError(null);
 
     try {
-      const assignments = selectedStaff.map(userId => ({
-        user_id: userId,
-        assigned_location_id: Number(bulkLocationId)
-      }));
+      // Get current staff data to append to existing locations
+      const currentStaffData = staffMembers.filter(s => selectedStaff.includes(s.user_id));
+      
+      const assignments = currentStaffData.map(staff => {
+        // Get existing locations
+        const existingLocations = parseLocationAssignments(staff);
+        
+        // Add new location if not already assigned
+        const updatedLocations = existingLocations.includes(bulkLocationId as number)
+          ? existingLocations
+          : [...existingLocations, bulkLocationId as number];
+        
+        return {
+          user_id: staff.user_id,
+          assigned_location_id: staff.assigned_location_id || bulkLocationId,
+          location_assignments: updatedLocations,
+          location_notes: staff.location_notes
+        };
+      });
 
       const response = await axios.post(
         `${API_ENDPOINT}/staff-location-assignments/bulk-update`,
         { assignments },
         {
           headers: {
-            'Content-Type': 'application/json'
-          }
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+            'Content-Type': 'application/json',
+          },
         }
       );
 
-      const result = response.data;
-
-      if (result.success) {
-        setSuccessMessage(`Updated ${selectedStaff.length} staff member(s)`);
+      if (response.data.success) {
+        setSuccessMessage(`Successfully assigned ${selectedStaff.length} staff member(s)`);
         setSelectedStaff([]);
         setBulkLocationId('');
         loadData();
         setTimeout(() => setSuccessMessage(null), 3000);
       } else {
-        throw new Error(result.message || 'Failed to update assignments');
+        setError(response.data.message || 'Failed to update assignments');
       }
     } catch (err: any) {
       console.error('Bulk update error:', err);
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to update assignments';
-      setError(errorMsg);
+      setError(err.response?.data?.message || 'Failed to update assignments');
     } finally {
       setSaving(false);
     }
@@ -231,858 +394,688 @@ const StaffLocationAssignmentView: React.FC = () => {
     );
   };
 
-  // Select all visible staff
+  // Select all on current page
   const toggleSelectAll = () => {
-    if (selectedStaff.length === paginatedStaff.length && paginatedStaff.length > 0) {
+    if (selectedStaff.length === paginatedStaff.length) {
       setSelectedStaff([]);
     } else {
       setSelectedStaff(paginatedStaff.map(s => s.user_id));
     }
   };
 
-  // Open edit modal
-  const openEditModal = (staff: StaffMember) => {
-    setEditingStaffId(staff.user_id);
-    setEditForm({
-      assigned_location_id: staff.assigned_location_id || 0,
-      location_notes: staff.location_notes || ''
-    });
-  };
-
-  // Cancel edit
-  const cancelEdit = () => {
-    setEditingStaffId(null);
-    setEditForm({ assigned_location_id: 0, location_notes: '' });
-  };
-
-  const rateColor = assignmentRate >= 80 ? '#10b981' : assignmentRate >= 50 ? '#f59e0b' : '#ef4444';
-  const rateBg = assignmentRate >= 80 ? '#ecfdf5' : assignmentRate >= 50 ? '#fffbeb' : '#fef2f2';
+  // Get unique branches for filter (from loaded branches state)
+  const branchOptions = branches;
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontFamily: "'DM Sans', 'Geist', system-ui, sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
-
-        .sla-wrap * {
-          font-family: 'DM Sans', sans-serif;
-          box-sizing: border-box;
+        @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .staff-row { animation: fadeUp 0.22s ease both; }
+        .staff-row:hover { background: ${T.surfaceMuted} !important; }
+        .input-focus:focus { border-color: ${T.primaryLight} !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important; }
+        .btn-primary-hover:hover { transform: translateY(-1px) !important; box-shadow: 0 4px 12px rgba(30,64,175,0.3) !important; }
+        .btn-outline-hover:hover { background: ${T.surfaceMuted} !important; border-color: ${T.borderStrong} !important; }
+        
+        /* Location dropdown */
+        .location-dropdown {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          z-index: 50;
+          min-width: 280px;
+          max-height: 280px;
+          overflow-y: auto;
+          background: ${T.surface};
+          border: 1px solid ${T.borderStrong};
+          border-radius: 10px;
+          box-shadow: 0 10px 40px rgba(15,23,42,0.15);
+          padding: 0.5rem;
+          animation: fadeUp 0.15s ease;
         }
-
-        .sla-wrap {
-          --brand: #1e40af;
-          --brand-light: #eff6ff;
-          --brand-mid: #bfdbfe;
-          --success: #10b981;
-          --success-bg: #ecfdf5;
-          --warn: #f59e0b;
-          --warn-bg: #fffbeb;
-          --danger: #ef4444;
-          --danger-bg: #fef2f2;
-          --surface: #ffffff;
-          --surface-2: #f8fafc;
-          --border: #e2e8f0;
-          --border-strong: #cbd5e1;
-          --text-primary: #0f172a;
-          --text-secondary: #475569;
-          --text-muted: #94a3b8;
-          --radius: 10px;
-          --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-          --shadow: 0 4px 12px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.04);
-          background: var(--surface-2);
-          padding: 2rem;
-          min-height: 100vh;
-        }
-
-        /* ── Header ── */
-        .sla-header {
-          margin-bottom: 2rem;
-        }
-        .sla-header h1 {
-          font-size: 1.6rem;
-          font-weight: 600;
-          color: var(--text-primary);
-          letter-spacing: -0.02em;
-          margin: 0 0 0.25rem;
-        }
-        .sla-header p {
-          color: var(--text-secondary);
-          font-size: 0.875rem;
-          margin: 0;
-        }
-
-        /* ── Alerts ── */
-        .sla-alert {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.75rem;
-          padding: 0.875rem 1rem;
-          border-radius: var(--radius);
-          border: 1px solid;
-          margin-bottom: 1rem;
-          font-size: 0.875rem;
-        }
-        .sla-alert.success { background: var(--success-bg); border-color: #6ee7b7; color: #065f46; }
-        .sla-alert.error   { background: var(--danger-bg);  border-color: #fca5a5; color: #7f1d1d; }
-        .sla-alert svg { flex-shrink: 0; margin-top: 1px; }
-        .sla-alert-close {
-          margin-left: auto;
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-size: 1.1rem;
-          line-height: 1;
-          opacity: 0.6;
-          color: inherit;
-          padding: 0;
-        }
-        .sla-alert-close:hover { opacity: 1; }
-
-        /* ── Stat Cards ── */
-        .sla-stats {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        @media (max-width: 900px) { .sla-stats { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 500px) { .sla-stats { grid-template-columns: 1fr; } }
-
-        .sla-stat-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 1.1rem 1.25rem;
-          box-shadow: var(--shadow-sm);
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          transition: box-shadow 0.18s, transform 0.18s;
-        }
-        .sla-stat-card:hover {
-          box-shadow: var(--shadow);
-          transform: translateY(-1px);
-        }
-        .sla-stat-icon {
-          width: 2.5rem;
-          height: 2.5rem;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        .sla-stat-label {
-          font-size: 0.7rem;
-          font-weight: 500;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          color: var(--text-muted);
-          margin-bottom: 0.15rem;
-        }
-        .sla-stat-value {
-          font-size: 1.6rem;
-          font-weight: 600;
-          color: var(--text-primary);
-          line-height: 1;
-          font-family: 'DM Mono', monospace;
-        }
-
-        /* ── Toolbar ── */
-        .sla-toolbar {
+        .location-dropdown-item {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          margin-bottom: 1rem;
-        }
-
-        /* ── Buttons ── */
-        .sla-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.5rem 0.9rem;
-          border-radius: 7px;
-          font-size: 0.8125rem;
-          font-weight: 500;
-          cursor: pointer;
-          border: 1px solid;
-          transition: all 0.15s;
-          white-space: nowrap;
-          font-family: 'DM Sans', sans-serif;
-          line-height: 1;
-        }
-        .sla-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .sla-btn-outline {
-          background: var(--surface);
-          border-color: var(--border-strong);
-          color: var(--text-secondary);
-        }
-        .sla-btn-outline:hover:not(:disabled) {
-          background: var(--surface-2);
-          border-color: #94a3b8;
-          color: var(--text-primary);
-        }
-        .sla-btn-primary {
-          background: var(--brand);
-          border-color: var(--brand);
-          color: #fff;
-        }
-        .sla-btn-primary:hover:not(:disabled) {
-          background: #1e3a8a;
-          border-color: #1e3a8a;
-        }
-        .sla-btn-sm { padding: 0.35rem 0.7rem; font-size: 0.775rem; }
-        .sla-btn-icon { padding: 0.35rem 0.45rem; }
-
-        /* ── Panel (card) ── */
-        .sla-panel {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          box-shadow: var(--shadow-sm);
-        }
-
-        /* ── Filter panel ── */
-        .sla-filters {
-          padding: 1.25rem;
-          margin-bottom: 1rem;
-        }
-        .sla-filters-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1rem;
-        }
-        @media (max-width: 700px) { .sla-filters-grid { grid-template-columns: 1fr; } }
-
-        .sla-field label {
-          display: block;
-          font-size: 0.75rem;
-          font-weight: 500;
-          color: var(--text-secondary);
-          margin-bottom: 0.4rem;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-        .sla-input-wrap { position: relative; }
-        .sla-input-icon {
-          position: absolute;
-          left: 0.75rem;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--text-muted);
-          pointer-events: none;
-        }
-        .sla-input {
-          width: 100%;
-          padding: 0.5rem 0.75rem;
-          border: 1px solid var(--border-strong);
-          border-radius: 7px;
-          font-size: 0.8125rem;
-          color: var(--text-primary);
-          background: var(--surface);
-          outline: none;
-          font-family: 'DM Sans', sans-serif;
-          transition: border-color 0.15s, box-shadow 0.15s;
-          appearance: none;
-        }
-        .sla-input:focus {
-          border-color: var(--brand);
-          box-shadow: 0 0 0 3px rgba(30,64,175,0.1);
-        }
-        .sla-input-has-icon { padding-left: 2.1rem; }
-        .sla-input-sm { padding: 0.3rem 0.6rem; font-size: 0.775rem; }
-
-        /* ── Bulk banner ── */
-        .sla-bulk-banner {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          padding: 0.875rem 1.25rem;
-          background: var(--brand-light);
-          border: 1px solid var(--brand-mid);
-          border-radius: var(--radius);
-          margin-bottom: 1rem;
-        }
-        .sla-bulk-info { display: flex; align-items: center; gap: 0.75rem; }
-        .sla-bulk-info-text strong {
-          display: block;
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--brand);
-        }
-        .sla-bulk-info-text span {
-          font-size: 0.75rem;
-          color: #3b5bdb;
-          opacity: 0.8;
-        }
-        .sla-bulk-actions { display: flex; align-items: center; gap: 0.5rem; }
-
-        /* ── Table ── */
-        .sla-table-wrap { overflow-x: auto; }
-        table.sla-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.8125rem;
-        }
-        .sla-table thead th {
-          padding: 0.65rem 1rem;
-          text-align: left;
-          font-size: 0.68rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.07em;
-          color: var(--text-muted);
-          background: var(--surface-2);
-          border-bottom: 1px solid var(--border);
-          white-space: nowrap;
-        }
-        .sla-table thead th:first-child { border-radius: 10px 0 0 0; }
-        .sla-table thead th:last-child  { border-radius: 0 10px 0 0; text-align: right; }
-
-        .sla-table tbody tr {
-          border-bottom: 1px solid var(--border);
-          transition: background 0.1s;
-        }
-        .sla-table tbody tr:last-child { border-bottom: none; }
-        .sla-table tbody tr:hover { background: #f8fafc; }
-        .sla-table tbody tr.editing { background: var(--brand-light); }
-
-        .sla-table td {
-          padding: 0.8rem 1rem;
-          color: var(--text-primary);
-          vertical-align: middle;
-        }
-        .sla-table td:last-child { text-align: right; }
-
-        /* Employee cell */
-        .sla-emp-name { font-weight: 500; color: var(--text-primary); margin-bottom: 0.1rem; }
-        .sla-emp-meta { font-size: 0.72rem; color: var(--text-muted); }
-
-        /* Branch badge */
-        .sla-branch-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          padding: 0.25rem 0.6rem;
-          background: var(--surface-2);
-          border: 1px solid var(--border);
-          border-radius: 20px;
-          font-size: 0.72rem;
-          font-weight: 500;
-          color: var(--text-secondary);
-        }
-
-        /* Location badge */
-        .sla-loc-assigned {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.28rem 0.65rem;
-          background: var(--success-bg);
-          border: 1px solid #a7f3d0;
-          border-radius: 20px;
-          font-size: 0.72rem;
-          font-weight: 500;
-          color: #065f46;
-        }
-        .sla-loc-dot {
-          width: 6px; height: 6px;
-          border-radius: 50%;
-          background: var(--success);
-          flex-shrink: 0;
-        }
-        .sla-loc-unassigned {
-          font-size: 0.72rem;
-          color: var(--text-muted);
-          font-style: italic;
-        }
-
-        /* Notes */
-        .sla-notes-text { font-size: 0.75rem; color: var(--text-secondary); }
-        .sla-notes-empty { font-size: 0.75rem; color: var(--text-muted); }
-
-        /* Action buttons in table */
-        .sla-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; }
-
-        /* Checkbox */
-        .sla-checkbox {
-          width: 1rem; height: 1rem;
-          border-radius: 4px;
-          border: 1.5px solid var(--border-strong);
-          cursor: pointer;
-          accent-color: var(--brand);
-        }
-
-        /* Empty state */
-        .sla-empty {
-          padding: 3rem 1rem;
-          text-align: center;
-          color: var(--text-muted);
-        }
-        .sla-empty-icon {
-          width: 3rem; height: 3rem;
-          margin: 0 auto 0.75rem;
-          opacity: 0.35;
-        }
-        .sla-empty p:first-of-type { font-weight: 500; color: var(--text-secondary); margin: 0 0 0.25rem; }
-        .sla-empty p:last-of-type  { font-size: 0.8125rem; margin: 0; }
-
-        /* ── Pagination ── */
-        .sla-pagination {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          padding: 0.875rem 1.25rem;
-          border-top: 1px solid var(--border);
-          flex-wrap: wrap;
-        }
-        .sla-pagination-info { font-size: 0.8rem; color: var(--text-muted); }
-        .sla-pagination-controls { display: flex; align-items: center; gap: 0.4rem; }
-        .sla-page-btn {
-          width: 2rem; height: 2rem;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
+          padding: 0.5rem 0.6rem;
           border-radius: 6px;
-          border: 1px solid var(--border-strong);
-          background: var(--surface);
-          font-size: 0.75rem;
-          font-weight: 500;
-          cursor: pointer;
-          color: var(--text-secondary);
-          transition: all 0.13s;
-          font-family: 'DM Mono', monospace;
+          font-size: 0.8rem;
+          color: ${T.text};
+          transition: background 0.12s;
         }
-        .sla-page-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text-primary); border-color: #94a3b8; }
-        .sla-page-btn.active { background: var(--brand); border-color: var(--brand); color: #fff; }
-        .sla-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .sla-page-text { padding: 0 0.3rem; font-size: 0.8rem; }
-
-        /* ── Info box ── */
-        .sla-info-box {
+        .location-dropdown-item:hover {
+          background: ${T.surfaceMuted};
+        }
+        .location-dropdown-icon {
+          width: 1.25rem;
+          height: 1.25rem;
+          border-radius: 4px;
           display: flex;
-          align-items: flex-start;
-          gap: 0.875rem;
-          padding: 1rem 1.25rem;
-          background: #fffbeb;
-          border: 1px solid #fde68a;
-          border-radius: var(--radius);
-          margin-top: 1rem;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
-        .sla-info-box h4 {
-          font-size: 0.8125rem;
-          font-weight: 600;
-          color: #92400e;
-          margin: 0 0 0.5rem;
-        }
-        .sla-info-box ul {
-          margin: 0;
-          padding: 0;
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
-        }
-        .sla-info-box li {
-          font-size: 0.78rem;
-          color: #92400e;
-          display: flex;
-          align-items: flex-start;
-          gap: 0.5rem;
-          opacity: 0.9;
-        }
-        .sla-info-dot { color: #d97706; flex-shrink: 0; margin-top: 1px; }
-
-        /* ── Spin ── */
-        @keyframes sla-spin { to { transform: rotate(360deg); } }
-        .sla-spin { animation: sla-spin 0.8s linear infinite; }
-
-        /* ── Select arrow fix ── */
-        .sla-select-wrap { position: relative; }
-        .sla-select-wrap::after {
-          content: '';
-          position: absolute;
-          right: 0.7rem;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 0;
-          height: 0;
-          border-left: 4px solid transparent;
-          border-right: 4px solid transparent;
-          border-top: 5px solid var(--text-muted);
-          pointer-events: none;
-        }
-        .sla-input.sla-select { padding-right: 2rem; cursor: pointer; }
       `}</style>
 
-      <div className="sla-wrap">
-        {/* ── Header ── */}
-        <div className="sla-header">
-          <h1>Staff Location Assignments</h1>
-          <p>Assign specific attendance locations to staff members for controlled check-in</p>
-        </div>
-
-        {/* ── Alerts ── */}
-        {successMessage && (
-          <div className="sla-alert success">
-            <CheckCircle size={16} color="#10b981" />
-            <span>{successMessage}</span>
-            <button className="sla-alert-close" onClick={() => setSuccessMessage(null)}>×</button>
-          </div>
-        )}
-        {error && (
-          <div className="sla-alert error">
-            <AlertCircle size={16} color="#ef4444" />
-            <span>{error}</span>
-            <button className="sla-alert-close" onClick={() => setError(null)}>×</button>
-          </div>
-        )}
-
-        {/* ── Stat Cards ── */}
-        <div className="sla-stats">
-          <div className="sla-stat-card">
-            <div className="sla-stat-icon" style={{ background: '#eff6ff' }}>
-              <Users size={18} color="#2563eb" />
-            </div>
-            <div>
-              <div className="sla-stat-label">Total Staff</div>
-              <div className="sla-stat-value">{totalStaff}</div>
-            </div>
-          </div>
-          <div className="sla-stat-card">
-            <div className="sla-stat-icon" style={{ background: '#ecfdf5' }}>
-              <UserCheck size={18} color="#10b981" />
-            </div>
-            <div>
-              <div className="sla-stat-label">Assigned</div>
-              <div className="sla-stat-value">{assignedCount}</div>
-            </div>
-          </div>
-          <div className="sla-stat-card">
-            <div className="sla-stat-icon" style={{ background: '#fffbeb' }}>
-              <MapPin size={18} color="#f59e0b" />
-            </div>
-            <div>
-              <div className="sla-stat-label">Unassigned</div>
-              <div className="sla-stat-value">{unassignedCount}</div>
-            </div>
-          </div>
-          <div className="sla-stat-card">
-            <div className="sla-stat-icon" style={{ background: rateBg }}>
-              <Map size={18} color={rateColor} />
-            </div>
-            <div>
-              <div className="sla-stat-label">Assignment Rate</div>
-              <div className="sla-stat-value" style={{ color: rateColor }}>{assignmentRate}%</div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Toolbar ── */}
-        <div className="sla-toolbar">
-          <button className="sla-btn sla-btn-outline" onClick={() => setShowFilters(!showFilters)}>
-            <Filter size={14} />
-            {showFilters ? 'Hide' : 'Show'} Filters
-          </button>
-          <button className="sla-btn sla-btn-outline" onClick={loadData} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'sla-spin' : ''} />
-            Refresh
+      {/* ── Error banner ──────────────────────────────────────────── */}
+      {error && (
+        <div style={{ 
+          padding: '0.75rem 1rem', 
+          background: T.dangerPale, 
+          border: `1px solid ${T.dangerBorder}`, 
+          borderRadius: '10px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.6rem' 
+        }}>
+          <AlertCircle size={16} color={T.danger} style={{ flexShrink: 0 }} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#7f1d1d', flex: 1 }}>{error}</p>
+          <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.danger, display: 'flex' }}>
+            <X size={15} />
           </button>
         </div>
+      )}
 
-        {/* ── Filters ── */}
-        {showFilters && (
-          <div className="sla-panel sla-filters" style={{ marginBottom: '1rem' }}>
-            <div className="sla-filters-grid">
-              <div className="sla-field">
-                <label>Search</label>
-                <div className="sla-input-wrap">
-                  <span className="sla-input-icon"><Search size={13} /></span>
-                  <input
-                    type="text"
-                    className="sla-input sla-input-has-icon"
-                    placeholder="Name, email, employee ID…"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="sla-field">
-                <label>Branch</label>
-                <div className="sla-select-wrap">
-                  <select
-                    className="sla-input sla-select"
-                    value={selectedBranch}
-                    onChange={e => setSelectedBranch(e.target.value ? Number(e.target.value) : '')}
-                  >
-                    <option value="">All Branches</option>
-                    {Array.from(new Set(staffMembers.map(s => s.branch_id))).map(branchId => (
-                      <option key={branchId} value={branchId}>Branch {branchId}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="sla-field">
-                <label>Location Status</label>
-                <div className="sla-select-wrap">
-                  <select
-                    className="sla-input sla-select"
-                    value={filterHasLocation}
-                    onChange={e => setFilterHasLocation(e.target.value as any)}
-                  >
-                    <option value="all">All Staff</option>
-                    <option value="assigned">Has Location Assigned</option>
-                    <option value="unassigned">No Location Assigned</option>
-                  </select>
-                </div>
-              </div>
+      {/* ── Success banner ───────────────────────────────────────── */}
+      {successMessage && (
+        <div style={{ 
+          padding: '0.75rem 1rem', 
+          background: T.successPale, 
+          border: `1px solid ${T.successBorder}`, 
+          borderRadius: '10px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.6rem' 
+        }}>
+          <CheckCircle size={16} color={T.success} style={{ flexShrink: 0 }} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#065f46', flex: 1 }}>{successMessage}</p>
+          <button onClick={() => setSuccessMessage(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.success, display: 'flex' }}>
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* ── Header ───────────────────────────────────────────────── */}
+      <div>
+        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: T.text }}>Staff Location Assignments</h1>
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem', color: T.textMuted }}>
+          Assign specific attendance locations to staff members for controlled check-in
+        </p>
+      </div>
+
+      {/* ── Stat Cards ────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+        {[
+          { label: 'Total Staff', value: totalStaff, icon: Users, accent: T.primary, pale: T.primaryPale },
+          { label: 'Assigned', value: assignedCount, icon: UserCheck, accent: T.success, pale: T.successPale },
+          { label: 'Unassigned', value: unassignedCount, icon: MapPin, accent: T.warning, pale: T.warningPale },
+          { label: 'Assignment Rate', value: `${assignmentRate}%`, icon: Map, accent: T.purple, pale: T.purplePale },
+        ].map(({ label, value, icon: Icon, accent, pale }) => (
+          <div key={label} style={{
+            ...card,
+            padding: '1.1rem 1.25rem',
+            borderTop: `3px solid ${accent}`,
+            background: pale,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+          }}>
+            <div>
+              <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '1.75rem', fontWeight: 800, color: T.text, lineHeight: 1 }}>{value}</p>
+            </div>
+            <div style={{ 
+              width: '2.75rem', 
+              height: '2.75rem', 
+              borderRadius: '10px', 
+              background: `${accent}1a`, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              flexShrink: 0 
+            }}>
+              <Icon size={18} color={accent} />
             </div>
           </div>
-        )}
+        ))}
+      </div>
 
-        {/* ── Bulk Banner ── */}
-        {selectedStaff.length > 0 && (
-          <div className="sla-bulk-banner">
-            <div className="sla-bulk-info">
-              <Users size={18} color="#1e40af" />
-              <div className="sla-bulk-info-text">
-                <strong>{selectedStaff.length} staff member{selectedStaff.length !== 1 ? 's' : ''} selected</strong>
-                <span>Choose a location below and click "Assign to All"</span>
+      {/* ── Toolbar ──────────────────────────────────────────────── */}
+      <div style={{ ...card, padding: '1rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          style={{ ...btnOutline, padding: '0.5rem 0.875rem', fontSize: '0.8rem' }}
+          className="btn-outline-hover"
+        >
+          <Filter size={14} />
+          {showFilters ? 'Hide' : 'Show'} Filters
+        </button>
+        <button
+          onClick={loadData}
+          disabled={loading}
+          style={{ 
+            ...btnOutline, 
+            padding: '0.5rem 0.875rem', 
+            fontSize: '0.8rem',
+            opacity: loading ? 0.6 : 1 
+          }}
+          className="btn-outline-hover"
+        >
+          <RefreshCw size={14} style={{ animation: loading ? 'spin 0.7s linear infinite' : 'none' }} />
+          Refresh
+        </button>
+      </div>
+
+      {/* ── Filters ──────────────────────────────────────────────── */}
+      {showFilters && (
+        <div style={{ ...card, padding: '1.25rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            {/* Search */}
+            <div>
+              <label style={labelS}>Search</label>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} color={T.textMuted} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  className="input-focus"
+                  type="text"
+                  placeholder="Name, email, or employee ID"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ ...inputS, width: '100%', boxSizing: 'border-box', paddingLeft: '2.2rem' }}
+                />
               </div>
             </div>
-            <div className="sla-bulk-actions">
-              <div className="sla-select-wrap">
-                <select
-                  className="sla-input sla-select sla-input-sm"
-                  style={{ minWidth: '12rem' }}
-                  value={bulkLocationId}
-                  onChange={e => setBulkLocationId(e.target.value ? Number(e.target.value) : '')}
-                >
-                  <option value="">Select Location</option>
-                  {locations.map(loc => (
-                    <option key={loc.id} value={loc.id}>{loc.name}</option>
-                  ))}
-                </select>
-              </div>
-              <button
-                className="sla-btn sla-btn-sm sla-btn-primary"
-                onClick={handleBulkUpdate}
-                disabled={saving || !bulkLocationId}
+
+            {/* Branch filter */}
+            <div>
+              <label style={labelS}>Branch</label>
+              <select
+                className="input-focus"
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value ? Number(e.target.value) : '')}
+                style={{ ...inputS, width: '100%', boxSizing: 'border-box', cursor: 'pointer' }}
               >
-                <Save size={13} />
-                {saving ? 'Saving…' : 'Assign to All'}
-              </button>
-              <button className="sla-btn sla-btn-sm sla-btn-outline sla-btn-icon" onClick={() => setSelectedStaff([])}>
-                <X size={14} />
-              </button>
+                <option value="">All Branches</option>
+                {branchOptions.map(branch => (
+                  <option key={branch.id} value={branch.id}>{branch.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Location assignment filter */}
+            <div>
+              <label style={labelS}>Location Status</label>
+              <select
+                className="input-focus"
+                value={filterHasLocation}
+                onChange={(e) => setFilterHasLocation(e.target.value as any)}
+                style={{ ...inputS, width: '100%', boxSizing: 'border-box', cursor: 'pointer' }}
+              >
+                <option value="all">All Staff</option>
+                <option value="assigned">With Location</option>
+                <option value="unassigned">Without Location</option>
+              </select>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── Table ── */}
-        <div className="sla-panel">
-          <div className="sla-table-wrap">
-            <table className="sla-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '2.5rem' }}>
-                    <input
-                      type="checkbox"
-                      className="sla-checkbox"
-                      checked={selectedStaff.length === paginatedStaff.length && paginatedStaff.length > 0}
-                      onChange={toggleSelectAll}
-                    />
-                  </th>
-                  <th>Employee</th>
-                  <th>Branch</th>
-                  <th>Assigned Location</th>
-                  <th>Notes</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedStaff.map(staff => (
-                  <tr key={staff.user_id} className={editingStaffId === staff.user_id ? 'editing' : ''}>
-                    <td>
+      {/* ── Bulk Actions ─────────────────────────────────────────── */}
+      {selectedStaff.length > 0 && (
+        <div style={{ 
+          ...card, 
+          padding: '1rem 1.25rem', 
+          background: T.primaryPale,
+          border: `1px solid ${T.primaryBorder}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: T.primary, fontSize: '0.85rem', fontWeight: 600 }}>
+            <Users size={16} />
+            {selectedStaff.length} staff member(s) selected
+          </div>
+          <select
+            className="input-focus"
+            value={bulkLocationId}
+            onChange={(e) => setBulkLocationId(e.target.value ? Number(e.target.value) : '')}
+            style={{ ...inputS, minWidth: '200px', cursor: 'pointer' }}
+          >
+            <option value="">Select location to assign...</option>
+            {locations.map(loc => (
+              <option key={loc.id} value={loc.id}>{loc.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleBulkAssignment}
+            disabled={saving || !bulkLocationId}
+            style={{ 
+              ...btnP, 
+              padding: '0.5rem 1rem',
+              fontSize: '0.8rem',
+              opacity: saving || !bulkLocationId ? 0.7 : 1,
+              cursor: saving || !bulkLocationId ? 'not-allowed' : 'pointer'
+            }}
+            className="btn-primary-hover"
+          >
+            <Save size={14} />
+            {saving ? 'Assigning...' : 'Assign to All'}
+          </button>
+          <button
+            onClick={() => setSelectedStaff([])}
+            style={{ ...btnOutline, padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+            className="btn-outline-hover"
+          >
+            <X size={14} />
+            Clear Selection
+          </button>
+        </div>
+      )}
+
+      {/* ── Staff Table ──────────────────────────────────────────── */}
+      <div style={{ ...card, overflow: 'hidden' }}>
+        {/* Table header */}
+        <div style={{ 
+          padding: '1rem 1.25rem', 
+          borderBottom: `1px solid ${T.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Staff Directory</h3>
+            <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: T.textMuted }}>
+              {loading ? 'Loading...' : `Showing ${paginatedStaff.length} of ${filteredStaff.length} members`}
+            </p>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedStaff.length === paginatedStaff.length && paginatedStaff.length > 0}
+                    onChange={toggleSelectAll}
+                    style={{ width: '1rem', height: '1rem', cursor: 'pointer', accentColor: T.primary }}
+                  />
+                </th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Staff Member</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Branch</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Locations</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedStaff.map((staff) => {
+                const avatarColor = getAvatarColor(staff.full_name);
+                const locationNames = getLocationNames(staff);
+                const isEditing = editingStaffId === staff.user_id;
+                const isHovered = hoveredStaffId === staff.user_id;
+
+                return (
+                  <tr
+                    key={staff.user_id}
+                    className="staff-row"
+                    style={{ 
+                      borderBottom: `1px solid ${T.border}`,
+                      transition: 'background 0.12s',
+                      position: 'relative'
+                    }}
+                  >
+                    {/* Checkbox */}
+                    <td style={{ padding: '1rem 1.25rem' }}>
                       <input
                         type="checkbox"
-                        className="sla-checkbox"
                         checked={selectedStaff.includes(staff.user_id)}
                         onChange={() => toggleStaffSelection(staff.user_id)}
+                        style={{ width: '1rem', height: '1rem', cursor: 'pointer', accentColor: T.primary }}
                       />
                     </td>
-                    <td>
-                      <div className="sla-emp-name">{staff.full_name}</div>
-                      <div className="sla-emp-meta">{staff.email}</div>
-                      {staff.employee_id && <div className="sla-emp-meta">#{staff.employee_id}</div>}
-                    </td>
-                    <td>
-                      <span className="sla-branch-badge">
-                        <Building size={11} />
-                        Branch {staff.branch_id}
-                      </span>
-                    </td>
-                    <td>
-                      {editingStaffId === staff.user_id ? (
-                        <div className="sla-select-wrap">
-                          <select
-                            className="sla-input sla-select sla-input-sm"
-                            style={{ minWidth: '11rem' }}
-                            value={editForm.assigned_location_id}
-                            onChange={e => setEditForm({ ...editForm, assigned_location_id: Number(e.target.value) })}
-                          >
-                            <option value="">No Location</option>
-                            {locations.map(loc => (
-                              <option key={loc.id} value={loc.id}>{loc.name}</option>
-                            ))}
-                          </select>
+
+                    {/* Staff info */}
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                          width: '2.5rem',
+                          height: '2.5rem',
+                          borderRadius: '10px',
+                          background: avatarColor,
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          boxShadow: `0 2px 8px ${avatarColor}55`,
+                        }}>
+                          {staff.full_name.split(' ').map(n => n[0]).slice(0, 2).join('')}
                         </div>
-                      ) : staff.assigned_location_id ? (
-                        <span className="sla-loc-assigned">
-                          <span className="sla-loc-dot" />
-                          {staff.location_name || `Location ${staff.assigned_location_id}`}
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem', color: T.text }}>
+                            {staff.full_name}
+                          </p>
+                          <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: T.textMuted }}>
+                            {staff.employee_id || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Branch */}
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: T.textSub }}>
+                        <Building size={14} color={T.textMuted} />
+                        {staff.branch_name || 'N/A'}
+                      </div>
+                      {staff.department && (
+                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: T.textMuted }}>
+                          {staff.department}
+                        </p>
+                      )}
+                    </td>
+
+                    {/* Location assignments with hover dropdown */}
+                    <td style={{ padding: '1rem 1.25rem', position: 'relative' }}>
+                      {locationNames.length > 0 ? (
+                        <div style={{ position: 'relative' }}>
+                          {/* Primary location badge */}
+                          <div
+                            onMouseEnter={() => locationNames.length > 1 && setHoveredStaffId(staff.user_id)}
+                            onMouseLeave={() => setHoveredStaffId(null)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              padding: '0.35rem 0.65rem',
+                              borderRadius: '6px',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              background: T.primaryPale,
+                              color: T.primary,
+                              border: `1px solid ${T.primaryBorder}`,
+                              cursor: locationNames.length > 1 ? 'pointer' : 'default',
+                              transition: 'all 0.12s',
+                            }}
+                          >
+                            <MapPin size={12} />
+                            <span>{locationNames[0]}</span>
+                            {locationNames.length > 1 && (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minWidth: '1.1rem',
+                                height: '1.1rem',
+                                borderRadius: '50%',
+                                background: T.primary,
+                                color: '#fff',
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                padding: '0 0.3rem',
+                              }}>
+                                +{locationNames.length - 1}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Dropdown for multiple locations */}
+                          {isHovered && locationNames.length > 1 && (
+                            <div className="location-dropdown">
+                              <div style={{
+                                padding: '0.4rem 0.6rem',
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                color: T.textMuted,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                borderBottom: `1px solid ${T.border}`
+                              }}>
+                                All Locations ({locationNames.length})
+                              </div>
+                              {locationNames.map((locName, idx) => {
+                                const loc = locations.find(l => l.name === locName);
+                                const color = loc?.color || T.primary;
+                                return (
+                                  <div key={idx} className="location-dropdown-item">
+                                    <div
+                                      className="location-dropdown-icon"
+                                      style={{ background: `${color}20` }}
+                                    >
+                                      <MapPin size={11} color={color} />
+                                    </div>
+                                    <span style={{ flex: 1 }}>{locName}</span>
+                                    {idx === 0 && (
+                                      <span style={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: 600,
+                                        color: T.textMuted,
+                                        padding: '0.1rem 0.35rem',
+                                        background: T.surfaceMuted,
+                                        borderRadius: '4px'
+                                      }}>
+                                        Primary
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: T.textMuted, fontStyle: 'italic' }}>
+                          No location assigned
                         </span>
-                      ) : (
-                        <span className="sla-loc-unassigned">Not assigned</span>
                       )}
                     </td>
-                    <td>
-                      {editingStaffId === staff.user_id ? (
-                        <input
-                          type="text"
-                          className="sla-input sla-input-sm"
-                          style={{ minWidth: '10rem' }}
+
+                    {/* Notes */}
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      {isEditing ? (
+                        <textarea
                           value={editForm.location_notes}
-                          onChange={e => setEditForm({ ...editForm, location_notes: e.target.value })}
-                          placeholder="Add a note…"
+                          onChange={(e) => setEditForm({ ...editForm, location_notes: e.target.value })}
+                          placeholder="Add notes..."
+                          rows={2}
+                          className="input-focus"
+                          style={{ 
+                            ...inputS, 
+                            width: '100%', 
+                            boxSizing: 'border-box',
+                            resize: 'vertical',
+                            minHeight: '60px'
+                          }}
                         />
-                      ) : staff.location_notes ? (
-                        <span className="sla-notes-text">{staff.location_notes}</span>
                       ) : (
-                        <span className="sla-notes-empty">—</span>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: T.textSub, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {staff.location_notes || <span style={{ color: T.textMuted, fontStyle: 'italic' }}>No notes</span>}
+                        </p>
                       )}
                     </td>
-                    <td>
-                      {editingStaffId === staff.user_id ? (
-                        <div className="sla-row-actions">
+
+                    {/* Actions */}
+                    <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
                           <button
-                            className="sla-btn sla-btn-sm sla-btn-primary"
                             onClick={() => handleUpdateAssignment(staff.user_id)}
                             disabled={saving}
+                            style={{ 
+                              ...btnP, 
+                              padding: '0.4rem 0.75rem',
+                              fontSize: '0.75rem',
+                              opacity: saving ? 0.7 : 1,
+                            }}
+                            className="btn-primary-hover"
                           >
                             <Save size={13} />
-                            {saving ? 'Saving…' : 'Save'}
+                            {saving ? 'Saving...' : 'Save'}
                           </button>
-                          <button className="sla-btn sla-btn-sm sla-btn-outline sla-btn-icon" onClick={cancelEdit}>
+                          <button
+                            onClick={() => setEditingStaffId(null)}
+                            disabled={saving}
+                            style={{ 
+                              ...btnOutline, 
+                              padding: '0.4rem 0.75rem',
+                              fontSize: '0.75rem',
+                            }}
+                            className="btn-outline-hover"
+                          >
                             <X size={13} />
+                            Cancel
                           </button>
                         </div>
                       ) : (
-                        <button className="sla-btn sla-btn-sm sla-btn-outline" onClick={() => openEditModal(staff)}>
-                          <MapPin size={13} />
-                          Assign
+                        <button
+                          onClick={() => {
+                            setEditingStaffId(staff.user_id);
+                            setEditForm({
+                              assigned_location_id: staff.assigned_location_id || 0,
+                              location_notes: staff.location_notes || ''
+                            });
+                          }}
+                          style={{ 
+                            ...btnOutline, 
+                            padding: '0.4rem 0.75rem',
+                            fontSize: '0.75rem',
+                          }}
+                          className="btn-outline-hover"
+                        >
+                          Edit
                         </button>
                       )}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {paginatedStaff.length === 0 && (
-              <div className="sla-empty">
-                <Users className="sla-empty-icon" />
-                <p>No staff members found</p>
-                <p>Adjust your filters or search criteria</p>
-              </div>
-            )}
-          </div>
-
-          {/* ── Pagination ── */}
-          {totalPages > 1 && (
-            <div className="sla-pagination">
-              <span className="sla-pagination-info">
-                Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredStaff.length)} of {filteredStaff.length}
-              </span>
-              <div className="sla-pagination-controls">
-                <div className="sla-select-wrap">
-                  <select
-                    className="sla-input sla-select sla-input-sm"
-                    value={pageSize}
-                    onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                    style={{ width: '7rem' }}
-                  >
-                    <option value={10}>10 / page</option>
-                    <option value={20}>20 / page</option>
-                    <option value={50}>50 / page</option>
-                    <option value={100}>100 / page</option>
-                  </select>
-                </div>
-                <button
-                  className="sla-btn sla-btn-sm sla-btn-outline"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  ← Prev
-                </button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum: number;
-                  if (totalPages <= 5) pageNum = i + 1;
-                  else if (currentPage <= 3) pageNum = i + 1;
-                  else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                  else pageNum = currentPage - 2 + i;
-                  return (
-                    <button
-                      key={pageNum}
-                      className={`sla-page-btn${currentPage === pageNum ? ' active' : ''}`}
-                      onClick={() => setCurrentPage(pageNum)}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-                <button
-                  className="sla-btn sla-btn-sm sla-btn-outline"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
-        {/* ── Info Box ── */}
-        <div className="sla-info-box">
-          <AlertCircle size={16} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
-          <div>
-            <h4>How Location Assignments Work</h4>
-            <ul>
-              <li>
-                <span className="sla-info-dot">•</span>
-                <span>Assigned staff can <strong>only</strong> check in at their assigned location when <strong>Strict Mode</strong> is enabled in Settings</span>
-              </li>
-              <li>
-                <span className="sla-info-dot">•</span>
-                <span>Staff without assignments use the branch-based legacy mode</span>
-              </li>
-              <li>
-                <span className="sla-info-dot">•</span>
-                <span>Use the bulk assign feature to quickly assign the same location to multiple staff</span>
-              </li>
-              <li>
-                <span className="sla-info-dot">•</span>
-                <span>Add notes to document why a staff member is assigned to a specific location</span>
-              </li>
-            </ul>
+        {/* Empty state */}
+        {paginatedStaff.length === 0 && (
+          <div style={{ padding: '3rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ 
+              width: '4rem', 
+              height: '4rem', 
+              borderRadius: '50%', 
+              background: T.primaryPale, 
+              border: `1px solid ${T.primaryBorder}`, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              <Users size={20} color={T.primary} />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ margin: 0, fontWeight: 600, color: T.text, fontSize: '0.95rem' }}>No staff members found</p>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: T.textMuted }}>
+                Try adjusting your search or filters
+              </p>
+            </div>
           </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{ 
+            padding: '0.875rem 1.25rem', 
+            borderTop: `1px solid ${T.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            background: T.surfaceAlt
+          }}>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: T.textMuted }}>
+              Showing <strong style={{ color: T.text }}>{(currentPage - 1) * pageSize + 1}</strong>–<strong style={{ color: T.text }}>{Math.min(currentPage * pageSize, filteredStaff.length)}</strong> of <strong style={{ color: T.text }}>{filteredStaff.length}</strong>
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{ 
+                  width: '2rem', 
+                  height: '2rem', 
+                  borderRadius: '7px', 
+                  border: `1px solid ${T.border}`, 
+                  background: T.surface, 
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer', 
+                  opacity: currentPage === 1 ? 0.4 : 1, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center' 
+                }}
+              >
+                <ChevronDown size={14} color={T.textSub} style={{ transform: 'rotate(90deg)' }} />
+              </button>
+              
+              <span style={{ fontSize: '0.8rem', color: T.text, fontWeight: 600, minWidth: '3rem', textAlign: 'center' }}>
+                {currentPage} / {totalPages}
+              </span>
+              
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                style={{ 
+                  width: '2rem', 
+                  height: '2rem', 
+                  borderRadius: '7px', 
+                  border: `1px solid ${T.border}`, 
+                  background: T.surface, 
+                  cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', 
+                  opacity: currentPage >= totalPages ? 0.4 : 1, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center' 
+                }}
+              >
+                <ChevronDown size={14} color={T.textSub} style={{ transform: 'rotate(-90deg)' }} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Info Box ────────────────────────────────────────────── */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'flex-start', 
+        gap: '0.875rem', 
+        padding: '1rem 1.25rem', 
+        background: T.warningPale, 
+        border: `1px solid ${T.warningBorder}`, 
+        borderRadius: '12px' 
+      }}>
+        <Info size={18} color={T.warning} style={{ flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: '#92400e' }}>About Location Assignments</h4>
+          <ul style={{ margin: '0.5rem 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <li style={{ fontSize: '0.78rem', color: '#92400e', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <span style={{ color: T.warning, marginTop: '2px' }}>•</span>
+              Staff can be assigned to multiple locations for flexible attendance tracking
+            </li>
+            <li style={{ fontSize: '0.78rem', color: '#92400e', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <span style={{ color: T.warning, marginTop: '2px' }}>•</span>
+              Hover over location badges to see all assigned locations
+            </li>
+            <li style={{ fontSize: '0.78rem', color: '#92400e', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <span style={{ color: T.warning, marginTop: '2px' }}>•</span>
+              Use bulk assignment to quickly assign the same location to multiple staff members
+            </li>
+          </ul>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

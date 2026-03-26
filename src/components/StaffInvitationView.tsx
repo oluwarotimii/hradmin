@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, User, Briefcase, Building, Send, RefreshCw, Trash2, Calendar, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { X, Mail, User, Briefcase, Building, Send, RefreshCw, Trash2, Calendar, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
 import {
   inviteStaff,
   getAllStaffInvitations,
@@ -32,6 +32,137 @@ interface StaffInvitation {
   acceptedAt?: string;
 }
 
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+  primary:       '#1e40af',
+  primaryLight:  '#3b82f6',
+  primaryPale:   '#eff6ff',
+  primaryBorder: '#bfdbfe',
+  success:       '#059669',
+  successPale:   '#ecfdf5',
+  successBorder: '#a7f3d0',
+  warning:       '#d97706',
+  warningPale:   '#fffbeb',
+  warningBorder: '#fde68a',
+  danger:        '#dc2626',
+  dangerPale:    '#fef2f2',
+  dangerBorder:  '#fecaca',
+  purple:        '#7c3aed',
+  purplePale:    '#f5f3ff',
+  purpleBorder:  '#ddd6fe',
+  surface:       '#ffffff',
+  surfaceAlt:    '#f8fafc',
+  surfaceMuted:  '#f1f5f9',
+  border:        '#e2e8f0',
+  borderStrong:  '#cbd5e1',
+  text:          '#0f172a',
+  textSub:       '#475569',
+  textMuted:     '#94a3b8',
+};
+
+// ─── Shared styles ────────────────────────────────────────────────────────────
+const card: React.CSSProperties = {
+  background: T.surface,
+  border: `1px solid ${T.border}`,
+  borderRadius: '14px',
+  boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
+};
+
+const inputS: React.CSSProperties = {
+  padding: '0.55rem 0.875rem',
+  border: `1.5px solid ${T.border}`,
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  color: T.text,
+  background: T.surface,
+  outline: 'none',
+  fontFamily: 'inherit',
+  transition: 'border-color 0.15s',
+};
+
+const labelS: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.82rem',
+  fontWeight: 600,
+  color: T.text,
+  marginBottom: '0.4rem',
+};
+
+const btnP: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  padding: '0.6rem 1.2rem',
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  border: 'none',
+  background: T.primary,
+  color: '#fff',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  transition: 'all 0.15s',
+  boxShadow: '0 2px 8px rgba(30,64,175,0.2)',
+};
+
+const btnOutline: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  padding: '0.6rem 1.2rem',
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  border: `1.5px solid ${T.border}`,
+  background: T.surface,
+  color: T.textSub,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  transition: 'all 0.15s',
+};
+
+const btnGhost: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '0.5rem',
+  borderRadius: '7px',
+  border: 'none',
+  background: 'transparent',
+  color: T.textMuted,
+  cursor: 'pointer',
+  transition: 'background 0.12s',
+};
+
+const statusBadge = (status: string): React.CSSProperties => {
+  const config: any = {
+    pending: { bg: T.warningPale, text: T.warning, border: T.warningBorder },
+    accepted: { bg: T.successPale, text: T.success, border: T.successBorder },
+    expired: { bg: T.dangerPale, text: T.danger, border: T.dangerBorder },
+    cancelled: { bg: T.surfaceMuted, text: T.textMuted, border: T.border },
+  };
+  const c = config[status] || config.pending;
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.35rem',
+    padding: '0.25rem 0.65rem',
+    borderRadius: '100px',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    background: c.bg,
+    color: c.text,
+    border: `1px solid ${c.border}`,
+    letterSpacing: '0.02em',
+  };
+};
+
+const avatarPalette = ['#1e40af','#0369a1','#059669','#7c3aed','#d97706','#be185d','#0891b2','#0d9488'];
+const getAvatarColor = (name: string) => avatarPalette[(name?.charCodeAt(0) || 0) % avatarPalette.length];
+
+// ─── Component ────────────────────────────────────────────────────────────────
 const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, onClose }) => {
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,9 +212,7 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
           acceptedAt: inv.accepted_at || inv.acceptedAt
         }));
         setInvitations(mappedInvitations);
-        console.log('Loaded invitations:', mappedInvitations.length);
       } else {
-        console.warn('Failed to load invitations:', invitationsResponse.message);
         setInvitations([]);
       }
 
@@ -140,25 +269,19 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
         loadData();
         if (onSuccess) onSuccess();
       } else {
-        // Handle specific error messages
         const errorMsg = response.message || 'Failed to send invitation';
         if (errorMsg.toLowerCase().includes('duplicate')) {
           setError('This email has already been invited. Please use a different email or resend the existing invitation.');
-        } else if (errorMsg.toLowerCase().includes('email')) {
-          setError('Invalid email address. Please check and try again.');
         } else {
           setError(errorMsg);
         }
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || 'Failed to send invitation';
-      if (errorMsg.toLowerCase().includes('duplicate')) {
-        setError('This email has already been invited. Please use a different email or resend the existing invitation.');
-      } else if (errorMsg.toLowerCase().includes('network')) {
-        setError('Network error. Please check your connection and try again.');
-      } else {
-        setError(errorMsg);
-      }
+      setError(errorMsg.includes('duplicate') 
+        ? 'This email has already been invited. Please use a different email or resend the existing invitation.'
+        : errorMsg
+      );
     } finally {
       setActionLoading(null);
     }
@@ -214,21 +337,14 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200', icon: Clock, label: 'Pending' },
-      accepted: { bg: 'bg-green-50', text: 'text-green-800', border: 'border-green-200', icon: CheckCircle, label: 'Accepted' },
-      expired: { bg: 'bg-red-50', text: 'text-red-800', border: 'border-red-200', icon: XCircle, label: 'Expired' },
-      cancelled: { bg: 'bg-gray-50', text: 'text-gray-800', border: 'border-gray-200', icon: XCircle, label: 'Cancelled' }
-    };
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    const Icon = config.icon;
-    return (
-      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${config.bg} ${config.text} ${config.border}`}>
-        <Icon className="w-3 h-3" />
-        {config.label}
-      </span>
-    );
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return Clock;
+      case 'accepted': return CheckCircle;
+      case 'expired': 
+      case 'cancelled': return XCircle;
+      default: return Clock;
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -240,218 +356,273 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
     });
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Error Message */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontFamily: "'DM Sans', 'Geist', system-ui, sans-serif" }}>
+      <style>{`
+        @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .invite-row { animation: fadeUp 0.22s ease both; }
+        .invite-row:hover { background: ${T.surfaceMuted} !important; }
+        .input-focus:focus { border-color: ${T.primaryLight} !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important; }
+        .btn-primary-hover:hover { transform: translateY(-1px) !important; box-shadow: 0 4px 12px rgba(30,64,175,0.3) !important; }
+        .btn-outline-hover:hover { background: ${T.surfaceMuted} !important; border-color: ${T.borderStrong} !important; }
+      `}</style>
+
+      {/* ── Error banner ──────────────────────────────────────────── */}
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <XCircle className="h-5 w-5 text-red-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
+        <div style={{ 
+          padding: '0.75rem 1rem', 
+          background: T.dangerPale, 
+          border: `1px solid ${T.dangerBorder}`, 
+          borderRadius: '10px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.6rem' 
+        }}>
+          <AlertCircle size={16} color={T.danger} style={{ flexShrink: 0 }} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#7f1d1d', flex: 1 }}>{error}</p>
+          <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.danger, display: 'flex' }}>
+            <X size={15} />
+          </button>
         </div>
       )}
 
-      {/* Success Message */}
+      {/* ── Success banner ───────────────────────────────────────── */}
       {successMessage && (
-        <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <CheckCircle className="h-5 w-5 text-green-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-green-700">{successMessage}</p>
-            </div>
-          </div>
+        <div style={{ 
+          padding: '0.75rem 1rem', 
+          background: T.successPale, 
+          border: `1px solid ${T.successBorder}`, 
+          borderRadius: '10px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.6rem' 
+        }}>
+          <CheckCircle size={16} color={T.success} style={{ flexShrink: 0 }} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#065f46', flex: 1 }}>{successMessage}</p>
+          <button onClick={() => setSuccessMessage(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.success, display: 'flex' }}>
+            <X size={15} />
+          </button>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* ── Header ───────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h2 className="text-xl font-semibold" style={{ color: '#0f172a' }}>Staff Invitations</h2>
-          <p className="text-sm text-muted" style={{ marginTop: '0.25rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: T.text }}>Staff Invitations</h2>
+          <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: T.textMuted }}>
             Manage pending and accepted staff invitations
           </p>
         </div>
-        <div className="flex gap-2">
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
-            type="button"
             onClick={loadData}
             disabled={loading}
-            className="btn btn-outline"
+            style={{
+              ...btnOutline,
+              padding: '0.5rem',
+              width: '2.25rem',
+              height: '2.25rem',
+              opacity: loading ? 0.6 : 1,
+            }}
+            className="btn-outline-hover"
             title="Refresh list"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} style={{ animation: loading ? 'spin 0.7s linear infinite' : 'none' }} />
           </button>
           <button
-            type="button"
             onClick={() => setShowInviteForm(true)}
-            className="btn btn-primary"
+            style={{ ...btnP }}
+            className="btn-primary-hover"
           >
-            <Send className="w-4 h-4 mr-2" />
+            <Send size={16} />
             Send Invitation
           </button>
         </div>
       </div>
 
-      {/* Invite Form Modal */}
+      {/* ── Invite Form Modal ────────────────────────────────────── */}
       {showInviteForm && (
         <div
-          className="notification-overlay"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 50,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
           onClick={() => setShowInviteForm(false)}
+          style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            background: 'rgba(15,23,42,0.45)', 
+            backdropFilter: 'blur(3px)', 
+            zIndex: 40, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
         >
           <div
-            className="card"
-            style={{
-              width: '90%',
-              maxWidth: '600px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              padding: 0
-            }}
             onClick={(e) => e.stopPropagation()}
+            style={{ 
+              width: '100%', 
+              maxWidth: '650px', 
+              maxHeight: '90vh', 
+              overflowY: 'auto', 
+              background: T.surface, 
+              borderRadius: '16px', 
+              boxShadow: '0 20px 60px rgba(15,23,42,0.22)',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
           >
-            <div
-              className="p-4 border-b"
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <h3 className="text-lg font-semibold">Send Staff Invitation</h3>
+            {/* Modal header */}
+            <div style={{ 
+              padding: '1.1rem 1.5rem', 
+              borderBottom: `1px solid ${T.border}`, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              background: T.surfaceAlt,
+              borderRadius: '16px 16px 0 0',
+              flexShrink: 0
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{ 
+                  width: '2.25rem', 
+                  height: '2.25rem', 
+                  borderRadius: '9px', 
+                  background: T.primary, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center' 
+                }}>
+                  <Mail size={14} color="#fff" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: T.text }}>Send Staff Invitation</h3>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: T.textMuted }}>Invite a new team member to join your organization</p>
+                </div>
+              </div>
               <button
-                type="button"
                 onClick={() => setShowInviteForm(false)}
-                className="btn btn-ghost btn-icon"
-                style={{ width: '2rem', height: '2rem' }}
+                style={{ 
+                  width: '2rem', 
+                  height: '2rem', 
+                  borderRadius: '7px', 
+                  border: 'none', 
+                  background: 'transparent', 
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  color: T.textMuted,
+                  transition: 'background 0.12s'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = T.surfaceMuted)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <X className="w-4 h-4" />
+                <X size={16} />
               </button>
             </div>
-            <div className="p-6">
-              <form onSubmit={handleInviteStaff} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Modal body */}
+            <div style={{ padding: '1.5rem' }}>
+              <form onSubmit={handleInviteStaff} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                {/* Name fields */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>
-                      First Name *
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-gray-400" />
+                    <label style={labelS}>First Name <span style={{ color: T.danger }}>*</span></label>
+                    <div style={{ position: 'relative' }}>
+                      <User size={14} color={T.textMuted} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                       <input
                         type="text"
-                        className="input w-full"
+                        className="input-focus"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         placeholder="John"
                         required
+                        style={{ ...inputS, width: '100%', boxSizing: 'border-box', paddingLeft: '2.2rem' }}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>
-                      Last Name *
-                    </label>
+                    <label style={labelS}>Last Name <span style={{ color: T.danger }}>*</span></label>
                     <input
                       type="text"
-                      className="input w-full"
+                      className="input-focus"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Doe"
                       required
+                      style={{ ...inputS, width: '100%', boxSizing: 'border-box' }}
                     />
                   </div>
                 </div>
 
+                {/* Email */}
                 <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>
-                    Personal Email *
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-gray-400" />
+                  <label style={labelS}>Personal Email <span style={{ color: T.danger }}>*</span></label>
+                  <div style={{ position: 'relative' }}>
+                    <Mail size={14} color={T.textMuted} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                     <input
                       type="email"
-                      className="input w-full"
+                      className="input-focus"
                       value={personalEmail}
                       onChange={(e) => setPersonalEmail(e.target.value)}
                       placeholder="john.doe@gmail.com"
                       required
+                      style={{ ...inputS, width: '100%', boxSizing: 'border-box', paddingLeft: '2.2rem' }}
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Role, Branch, Department */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>
-                      Role *
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="w-4 h-4 text-gray-400" />
+                    <label style={labelS}>Role <span style={{ color: T.danger }}>*</span></label>
+                    <div style={{ position: 'relative' }}>
+                      <Briefcase size={14} color={T.textMuted} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }} />
                       <select
-                        className="input w-full"
+                        className="input-focus"
                         value={roleId}
                         onChange={(e) => setRoleId(e.target.value)}
                         required
+                        style={{ ...inputS, width: '100%', boxSizing: 'border-box', paddingLeft: '2.2rem', cursor: 'pointer', appearance: 'none' }}
                       >
                         <option value="">Select Role</option>
                         {roles.map(role => (
                           <option key={role.id} value={role.id}>{role.name}</option>
                         ))}
                       </select>
+                      <ChevronDown size={14} color={T.textMuted} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>
-                      Branch *
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Building className="w-4 h-4 text-gray-400" />
+                    <label style={labelS}>Branch <span style={{ color: T.danger }}>*</span></label>
+                    <div style={{ position: 'relative' }}>
+                      <Building size={14} color={T.textMuted} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }} />
                       <select
-                        className="input w-full"
+                        className="input-focus"
                         value={branchId}
                         onChange={(e) => setBranchId(e.target.value)}
                         required
+                        style={{ ...inputS, width: '100%', boxSizing: 'border-box', paddingLeft: '2.2rem', cursor: 'pointer', appearance: 'none' }}
                       >
                         <option value="">Select Branch</option>
                         {branches.map(branch => (
                           <option key={branch.id} value={branch.id}>{branch.name}</option>
                         ))}
                       </select>
+                      <ChevronDown size={14} color={T.textMuted} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: '#374151' }}>
-                      Department *
-                    </label>
+                    <label style={labelS}>Department <span style={{ color: T.danger }}>*</span></label>
                     <select
-                      className="input w-full"
+                      className="input-focus"
                       value={departmentId}
                       onChange={(e) => setDepartmentId(e.target.value)}
                       required
+                      style={{ ...inputS, width: '100%', boxSizing: 'border-box', cursor: 'pointer', appearance: 'none' }}
                     >
                       <option value="">Select Department</option>
                       {departments.map(dept => (
@@ -461,27 +632,41 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4">
+                {/* Action buttons */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'flex-end', 
+                  gap: '0.75rem', 
+                  paddingTop: '0.5rem',
+                  borderTop: `1px solid ${T.border}`,
+                  marginTop: '0.5rem'
+                }}>
                   <button
                     type="button"
-                    className="btn btn-outline"
                     onClick={() => setShowInviteForm(false)}
+                    style={{ ...btnOutline }}
+                    className="btn-outline-hover"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="btn btn-primary"
                     disabled={actionLoading === 'invite'}
+                    style={{ 
+                      ...btnP, 
+                      opacity: actionLoading === 'invite' ? 0.7 : 1,
+                      cursor: actionLoading === 'invite' ? 'not-allowed' : 'pointer'
+                    }}
+                    className="btn-primary-hover"
                   >
                     {actionLoading === 'invite' ? (
                       <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        <RefreshCw size={16} style={{ animation: 'spin 0.7s linear infinite' }} />
                         Sending...
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4 mr-2" />
+                        <Send size={16} />
                         Send Invitation
                       </>
                     )}
@@ -493,118 +678,183 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
         </div>
       )}
 
-      {/* Invitations List */}
-      <div className="card">
-        <div className="p-4 border-b">
-          <h3 className="text-lg font-medium">Invitation History</h3>
-          <p className="text-sm text-muted" style={{ marginTop: '0.25rem' }}>
-            {invitations.length} invitation{invitations.length !== 1 ? 's' : ''} found
-          </p>
+      {/* ── Invitations List ─────────────────────────────────────── */}
+      <div style={{ ...card, overflow: 'hidden' }}>
+        {/* Section header */}
+        <div style={{ 
+          padding: '1rem 1.25rem', 
+          borderBottom: `1px solid ${T.border}`, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between' 
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Invitation History</h3>
+            <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: T.textMuted }}>
+              {invitations.length} invitation{invitations.length !== 1 ? 's' : ''} found
+            </p>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="table">
-            <thead className="table-header">
-              <tr>
-                <th className="table-header-cell">Candidate</th>
-                <th className="table-header-cell">Position</th>
-                <th className="table-header-cell">Status</th>
-                <th className="table-header-cell">Invited</th>
-                <th className="table-header-cell">Expires</th>
-                <th className="table-header-cell right">Actions</th>
+        {/* Table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Candidate</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Position</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Invited</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expires</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {invitations.map((invitation) => (
-                <tr key={invitation.id} className="table-row">
-                  <td className="table-cell">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="avatar"
-                        style={{ width: '2.5rem', height: '2.5rem', fontSize: '0.875rem' }}
-                      >
-                        {invitation.firstName[0]}{invitation.lastName[0]}
+              {invitations.map((invitation, idx) => {
+                const StatusIcon = getStatusIcon(invitation.status);
+                const avatarColor = getAvatarColor(invitation.firstName);
+                
+                return (
+                  <tr 
+                    key={invitation.id} 
+                    className="invite-row"
+                    style={{ 
+                      borderBottom: `1px solid ${T.border}`,
+                      transition: 'background 0.12s',
+                    }}
+                  >
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                          width: '2.5rem',
+                          height: '2.5rem',
+                          borderRadius: '10px',
+                          background: avatarColor,
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          boxShadow: `0 2px 8px ${avatarColor}55`,
+                        }}>
+                          {invitation.firstName[0]}{invitation.lastName[0]}
+                        </div>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem', color: T.text }}>
+                            {invitation.fullName}
+                          </p>
+                          <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: T.textMuted }}>
+                            {invitation.email}
+                          </p>
+                        </div>
                       </div>
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem' }}>
                       <div>
-                        <p className="font-medium" style={{ fontSize: '0.875rem' }}>
-                          {invitation.fullName}
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: T.text }}>{invitation.roleName}</p>
+                        <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: T.textMuted }}>
+                          {invitation.departmentName}
                         </p>
-                        <p className="text-xs text-muted">{invitation.email}</p>
                       </div>
-                    </div>
-                  </td>
-                  <td className="table-cell">
-                    <div>
-                      <p className="text-sm">{invitation.roleName}</p>
-                      <p className="text-xs text-muted">{invitation.departmentName}</p>
-                    </div>
-                  </td>
-                  <td className="table-cell">
-                    {getStatusBadge(invitation.status)}
-                  </td>
-                  <td className="table-cell">
-                    <div className="flex items-center gap-2 text-sm text-muted">
-                      <Calendar className="w-3 h-3" />
-                      {formatDate(invitation.createdAt)}
-                    </div>
-                  </td>
-                  <td className="table-cell">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="w-3 h-3 text-muted" />
-                      <span className={invitation.status === 'expired' ? 'text-red-600' : 'text-muted'}>
-                        {formatDate(invitation.expiresAt)}
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      <span style={statusBadge(invitation.status)}>
+                        <StatusIcon size={11} />
+                        {invitation.status.charAt(0).toUpperCase() + invitation.status.slice(1)}
                       </span>
-                    </div>
-                  </td>
-                  <td className="table-cell right">
-                    <div className="flex items-center justify-end gap-2">
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: T.textMuted }}>
+                        <Calendar size={12} />
+                        {formatDate(invitation.createdAt)}
+                      </div>
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: invitation.status === 'expired' ? T.danger : T.textMuted }}>
+                        <Clock size={12} />
+                        <span style={{ fontWeight: invitation.status === 'expired' ? 600 : 400 }}>
+                          {formatDate(invitation.expiresAt)}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
                       {invitation.status === 'pending' && (
-                        <>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
                           <button
-                            type="button"
                             onClick={() => handleResendInvitation(invitation.id)}
                             disabled={actionLoading?.startsWith('resend')}
-                            className="btn btn-sm btn-outline"
+                            style={{
+                              ...btnOutline,
+                              padding: '0.4rem',
+                              width: '2rem',
+                              height: '2rem',
+                              opacity: actionLoading === `resend-${invitation.id}` ? 0.6 : 1,
+                              cursor: actionLoading?.startsWith('resend') ? 'not-allowed' : 'pointer',
+                            }}
+                            className="btn-outline-hover"
                             title="Resend Invitation"
                           >
-                            <RefreshCw className={`w-3 h-3 ${actionLoading === `resend-${invitation.id}` ? 'animate-spin' : ''}`} />
+                            <RefreshCw size={13} style={{ 
+                              animation: actionLoading === `resend-${invitation.id}` ? 'spin 0.7s linear infinite' : 'none' 
+                            }} />
                           </button>
                           <button
-                            type="button"
                             onClick={() => handleRevokeInvitation(invitation.id)}
                             disabled={actionLoading?.startsWith('revoke')}
-                            className="btn btn-sm btn-outline red"
+                            style={{
+                              ...btnOutline,
+                              padding: '0.4rem',
+                              width: '2rem',
+                              height: '2rem',
+                              color: T.danger,
+                              borderColor: T.dangerBorder,
+                              opacity: actionLoading === `revoke-${invitation.id}` ? 0.6 : 1,
+                              cursor: actionLoading?.startsWith('revoke') ? 'not-allowed' : 'pointer',
+                            }}
+                            className="btn-outline-hover"
                             title="Revoke Invitation"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 size={13} />
                           </button>
-                        </>
+                        </div>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
+        {/* Empty state */}
         {invitations.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-              <Mail className="w-8 h-8 text-blue-500" />
+          <div style={{ padding: '3rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ 
+              width: '4rem', 
+              height: '4rem', 
+              borderRadius: '50%', 
+              background: T.primaryPale, 
+              border: `1px solid ${T.primaryBorder}`, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              <Mail size={20} color={T.primary} />
             </div>
-            <h3 className="text-lg font-medium" style={{ color: '#0f172a', marginBottom: '0.5rem' }}>
-              No Invitations Yet
-            </h3>
-            <p className="text-muted" style={{ marginBottom: '1rem' }}>
-              Get started by sending your first staff invitation
-            </p>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ margin: 0, fontWeight: 600, color: T.text, fontSize: '0.95rem' }}>No Invitations Yet</p>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: T.textMuted }}>
+                Get started by sending your first staff invitation
+              </p>
+            </div>
             <button
-              type="button"
               onClick={() => setShowInviteForm(true)}
-              className="btn btn-primary"
+              style={{ ...btnP }}
+              className="btn-primary-hover"
             >
-              <Send className="w-4 h-4 mr-2" />
+              <Send size={16} />
               Send Invitation
             </button>
           </div>
@@ -613,5 +863,22 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
     </div>
   );
 };
+
+// Simple ChevronDown component since we didn't import it
+const ChevronDown = ({ size = 16, color = '#94a3b8', style }: any) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke={color} 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    style={style}
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
 
 export default StaffInvitationView;
