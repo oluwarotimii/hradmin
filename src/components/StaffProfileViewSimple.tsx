@@ -4,7 +4,7 @@ import {
   ArrowLeft, User, Phone, Mail, MapPin, Calendar, Briefcase, FileText, Edit2, Save, X,
   CreditCard, GraduationCap, Award, Activity, AlertCircle, BookOpen, Building2, Clock,
   Shield, Stethoscope, Banknote, Target, Users, FileCheck, BadgeCheck, CalendarDays, ChevronDown,
-  Upload, Download, Trash2, Eye, File, FileType
+  Upload, Download, Trash2, Eye, File, FileType, Camera, CheckCircle
 } from 'lucide-react';
 import { StaffMember } from '../data/staffData';
 import { getStaffById, updateStaff } from '../services/staffManagementService';
@@ -33,7 +33,9 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [viewingDocument, setViewingDocument] = useState<StaffDocument | null>(null);
-  
+  const [formCompletionPercentage, setFormCompletionPercentage] = useState(0);
+  const [isFormComplete, setIsFormComplete] = useState(false);
+
   // Dropdown data
   const [branches, setBranches] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -171,93 +173,107 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
   };
 
   const handleSave = async () => {
+    console.log('[StaffProfile] Starting save process...');
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
     try {
-      // Build comprehensive API payload with ALL fields
-      const apiData: any = {
-        first_name: editedStaff.firstName,
-        last_name: editedStaff.lastName,
-        middle_name: editedStaff.middleName,
-        email: editedStaff.email,
-        work_email: editedStaff.workEmail,
-        phone_number: editedStaff.phoneNumber,
-        alternate_phone: editedStaff.alternatePhone,
-        designation: editedStaff.designation || editedStaff.departmentRole,
-        department: editedStaff.department,
-        branch_id: editedStaff.branchId,
-        employment_type: editedStaff.employmentType,
-        date_joined: editedStaff.joiningDate || editedStaff.dateEmployed,
-        status: editedStaff.status?.toLowerCase() || 'active',
-        // Personal info
-        gender: editedStaff.gender,
-        date_of_birth: editedStaff.dateOfBirth,
-        blood_group: editedStaff.bloodGroup,
-        state_of_origin: editedStaff.stateOfOrigin,
-        lga: editedStaff.lga,
-        marital_status: editedStaff.maritalStatus,
-        // Address
-        current_address: editedStaff.currentAddress,
-        permanent_address: editedStaff.permanentAddress,
-        town: editedStaff.town,
-        zip_code: editedStaff.zipCode,
-        // Employment
-        job_status: editedStaff.jobStatus,
-        weekly_working_hours: editedStaff.weeklyWorkingHours,
-        probation_end_date: editedStaff.probationEndDate,
-        contract_end_date: editedStaff.contractEndDate,
-        notice_period_days: editedStaff.noticePeriodDays,
-        pay_grade: editedStaff.payGrade,
-        base_salary: editedStaff.baseSalary,
-        // Banking
-        bank_name: editedStaff.bankName,
-        bank_account_number: editedStaff.bankAccountNumber,
-        bank_ifsc_code: editedStaff.bankIfscCode,
-        tax_identification_number: editedStaff.taxIdentificationNumber,
-        provident_fund_id: editedStaff.providentFundId,
-        // Emergency
-        emergency_contact_name: editedStaff.emergencyContactName,
-        emergency_contact_phone: editedStaff.emergencyContactPhone,
-        emergency_contact_relationship: editedStaff.emergencyContactRelationship,
-        // Education
-        highest_qualification: editedStaff.highestQualification,
-        university_school: editedStaff.universitySchool,
-        year_of_graduation: editedStaff.yearOfGraduation,
-        professional_certifications: editedStaff.professionalCertifications,
-        languages_known: editedStaff.languagesKnown,
-        primary_skills: editedStaff.primarySkills,
-        // Medical
-        allergies: editedStaff.allergies,
-        special_medical_notes: editedStaff.specialMedicalNotes,
-        medical_insurance_id: editedStaff.medicalInsuranceId,
-        gratuity_applicable: editedStaff.gratuityApplicable === 'Yes' || editedStaff.gratuityApplicable === '1' || editedStaff.gratuityApplicable === true ? 1 : 0,
-        overtime_eligibility: editedStaff.overtimeEligibility === 'Yes' || editedStaff.overtimeEligibility === '1' || editedStaff.overtimeEligibility === true ? 1 : 0,
-        work_mode: editedStaff.workMode,
-        // Resignation (if applicable)
-        resignation_date: editedStaff.resignationDate,
-        notice_period_start: editedStaff.noticePeriodStart,
-        notice_period_end: editedStaff.noticePeriodEnd,
-        last_working_date: editedStaff.lastWorkingDate,
-        relieving_date: editedStaff.relievingDate,
-        reason_for_leaving: editedStaff.reasonForLeaving,
-        previous_company: editedStaff.previousCompany,
-        experience_years: editedStaff.experienceYears,
-        reference_check_status: editedStaff.referenceCheckStatus,
-        background_verification_status: editedStaff.backgroundVerificationStatus
+      // Helper function to check if a value should be excluded
+      const isValidValue = (value: any) => {
+        return value !== undefined && value !== null && value !== '' && value !== 'N/A';
       };
 
-      // Remove undefined/null fields
-      Object.keys(apiData).forEach(key => {
-        if (apiData[key] === undefined || apiData[key] === null || apiData[key] === '') {
-          delete apiData[key];
-        }
-      });
+      // Build comprehensive API payload with ALL fields
+      const apiData: any = {};
 
-      console.log('Saving staff data:', apiData);
+      // Only add fields with valid values
+      if (isValidValue(editedStaff.firstName)) apiData.first_name = editedStaff.firstName;
+      if (isValidValue(editedStaff.lastName)) apiData.last_name = editedStaff.lastName;
+      if (isValidValue(editedStaff.middleName)) apiData.middle_name = editedStaff.middleName;
+      if (isValidValue(editedStaff.email)) apiData.personal_email = editedStaff.email;
+      if (isValidValue(editedStaff.workEmail)) apiData.work_email = editedStaff.workEmail;
+      if (isValidValue(editedStaff.phoneNumber)) apiData.phone_number = editedStaff.phoneNumber;
+      if (isValidValue(editedStaff.alternatePhone)) apiData.alternate_phone = editedStaff.alternatePhone;
+      if (isValidValue(editedStaff.designation || editedStaff.departmentRole)) apiData.designation = editedStaff.designation || editedStaff.departmentRole;
+      if (isValidValue(editedStaff.department)) apiData.department = editedStaff.department;
+      if (isValidValue(editedStaff.branchId)) apiData.branch_id = editedStaff.branchId;
+      if (isValidValue(editedStaff.employmentType)) apiData.employment_type = editedStaff.employmentType;
+      if (isValidValue(editedStaff.joiningDate || editedStaff.dateEmployed)) apiData.joining_date = editedStaff.joiningDate || editedStaff.dateEmployed;
+      if (isValidValue(editedStaff.status)) apiData.status = editedStaff.status?.toLowerCase() || 'active';
+      
+      // Personal info
+      if (isValidValue(editedStaff.gender)) apiData.gender = editedStaff.gender;
+      if (isValidValue(editedStaff.dateOfBirth)) apiData.date_of_birth = editedStaff.dateOfBirth;
+      if (isValidValue(editedStaff.bloodGroup)) apiData.blood_group = editedStaff.bloodGroup;
+      if (isValidValue(editedStaff.stateOfOrigin)) apiData.state_of_origin = editedStaff.stateOfOrigin;
+      if (isValidValue(editedStaff.lga)) apiData.lga = editedStaff.lga;
+      if (isValidValue(editedStaff.maritalStatus)) apiData.marital_status = editedStaff.maritalStatus;
+      
+      // Address
+      if (isValidValue(editedStaff.currentAddress)) apiData.current_address = editedStaff.currentAddress;
+      if (isValidValue(editedStaff.permanentAddress)) apiData.permanent_address = editedStaff.permanentAddress;
+      if (isValidValue(editedStaff.town)) apiData.town = editedStaff.town;
+      if (isValidValue(editedStaff.zipCode)) apiData.zip_code = editedStaff.zipCode;
+      
+      // Employment
+      if (isValidValue(editedStaff.employmentType)) apiData.employment_type = editedStaff.employmentType;
+      if (isValidValue(editedStaff.weeklyWorkingHours)) apiData.weekly_working_hours = editedStaff.weeklyWorkingHours;
+      if (isValidValue(editedStaff.probationEndDate)) apiData.probation_end_date = editedStaff.probationEndDate;
+      if (isValidValue(editedStaff.contractEndDate)) apiData.contract_end_date = editedStaff.contractEndDate;
+      if (isValidValue(editedStaff.noticePeriodDays)) apiData.notice_period_days = editedStaff.noticePeriodDays;
+      if (isValidValue(editedStaff.payGrade)) apiData.pay_grade = editedStaff.payGrade;
+      if (isValidValue(editedStaff.baseSalary)) apiData.base_salary = editedStaff.baseSalary;
+      
+      // Banking
+      if (isValidValue(editedStaff.bankName)) apiData.bank_name = editedStaff.bankName;
+      if (isValidValue(editedStaff.bankAccountNumber)) apiData.bank_account_number = editedStaff.bankAccountNumber;
+      if (isValidValue(editedStaff.bankIfscCode)) apiData.bank_ifsc_code = editedStaff.bankIfscCode;
+      if (isValidValue(editedStaff.taxIdentificationNumber)) apiData.tax_identification_number = editedStaff.taxIdentificationNumber;
+      if (isValidValue(editedStaff.providentFundId)) apiData.provident_fund_id = editedStaff.providentFundId;
+      
+      // Emergency
+      if (isValidValue(editedStaff.emergencyContactName)) apiData.emergency_contact_name = editedStaff.emergencyContactName;
+      if (isValidValue(editedStaff.emergencyContactPhone)) apiData.emergency_contact_phone = editedStaff.emergencyContactPhone;
+      if (isValidValue(editedStaff.emergencyContactRelationship)) apiData.emergency_contact_relationship = editedStaff.emergencyContactRelationship;
+      
+      // Education
+      if (isValidValue(editedStaff.highestQualification)) apiData.highest_qualification = editedStaff.highestQualification;
+      if (isValidValue(editedStaff.universitySchool)) apiData.university_school = editedStaff.universitySchool;
+      if (isValidValue(editedStaff.yearOfGraduation)) apiData.year_of_graduation = editedStaff.yearOfGraduation;
+      if (isValidValue(editedStaff.professionalCertifications)) apiData.professional_certifications = editedStaff.professionalCertifications;
+      if (isValidValue(editedStaff.languagesKnown)) apiData.languages_known = editedStaff.languagesKnown;
+      if (isValidValue(editedStaff.primarySkills)) apiData.primary_skills = editedStaff.primarySkills;
+      
+      // Medical
+      if (isValidValue(editedStaff.allergies)) apiData.allergies = editedStaff.allergies;
+      if (isValidValue(editedStaff.specialMedicalNotes)) apiData.special_medical_notes = editedStaff.specialMedicalNotes;
+      if (isValidValue(editedStaff.medicalInsuranceId)) apiData.medical_insurance_id = editedStaff.medicalInsuranceId;
+      if (isValidValue(editedStaff.gratuityApplicable)) apiData.gratuity_applicable = editedStaff.gratuityApplicable === 'Yes' || editedStaff.gratuityApplicable === '1' || editedStaff.gratuityApplicable === true ? 1 : 0;
+      if (isValidValue(editedStaff.overtimeEligibility)) apiData.overtime_eligibility = editedStaff.overtimeEligibility === 'Yes' || editedStaff.overtimeEligibility === '1' || editedStaff.overtimeEligibility === true ? 1 : 0;
+      if (isValidValue(editedStaff.workMode)) apiData.work_mode = editedStaff.workMode;
+      
+      // Resignation (if applicable)
+      if (isValidValue(editedStaff.resignationDate)) apiData.resignation_date = editedStaff.resignationDate;
+      if (isValidValue(editedStaff.noticePeriodStart)) apiData.notice_period_start_date = editedStaff.noticePeriodStart;
+      if (isValidValue(editedStaff.noticePeriodEnd)) apiData.notice_period_end_date = editedStaff.noticePeriodEnd;
+      if (isValidValue(editedStaff.lastWorkingDate)) apiData.last_working_date = editedStaff.lastWorkingDate;
+      if (isValidValue(editedStaff.relievingDate)) apiData.relieving_date = editedStaff.relievingDate;
+      if (isValidValue(editedStaff.reasonForLeaving)) apiData.reason_for_leaving = editedStaff.reasonForLeaving;
+      if (isValidValue(editedStaff.previousCompany)) apiData.previous_company = editedStaff.previousCompany;
+      if (isValidValue(editedStaff.experienceYears)) apiData.experience_years = editedStaff.experienceYears;
+      if (isValidValue(editedStaff.referenceCheckStatus)) apiData.reference_check_status = editedStaff.referenceCheckStatus;
+      if (isValidValue(editedStaff.backgroundVerificationStatus)) apiData.background_verification_status = editedStaff.backgroundVerificationStatus;
+
+      console.log('[StaffProfile] Staff ID:', staff.id);
+      console.log('[StaffProfile] API Payload:', JSON.stringify(apiData, null, 2));
+      console.log('[StaffProfile] Number of fields to update:', Object.keys(apiData).length);
+      
       const response = await updateStaff(staff.id, apiData);
 
+      console.log('[StaffProfile] API Response:', response);
+
       if (response.success) {
+        console.log('[StaffProfile] Save successful!');
         setSuccessMessage('Staff profile updated successfully');
         // Update the local state with the saved data
         const updatedStaff = { ...editedStaff };
@@ -265,10 +281,12 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
         setTimeout(() => setSuccessMessage(null), 3000);
         setIsEditing(false);
       } else {
+        console.error('[StaffProfile] Save failed:', response.message);
         setError(response.message || 'Failed to update staff');
       }
     } catch (err: any) {
-      console.error('Save error:', err);
+      console.error('[StaffProfile] Save error:', err);
+      console.error('[StaffProfile] Error details:', err.response?.data);
       setError(err.message || 'An error occurred while updating staff');
     } finally {
       setLoading(false);
@@ -302,6 +320,62 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       return 'N/A';
     }
   };
+
+  const getDocumentTypeColor = (docType: string) => {
+    const type = docType.toLowerCase();
+    if (type.includes('id')) {
+      return { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' };
+    }
+    if (type.includes('resume') || type.includes('cv')) {
+      return { bg: '#dcfce7', text: '#166534', border: '#86efac' };
+    }
+    if (type.includes('certificate')) {
+      return { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' };
+    }
+    if (type.includes('reference') || type.includes('letter')) {
+      return { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' };
+    }
+    if (type.includes('medical')) {
+      return { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' };
+    }
+    if (type.includes('training')) {
+      return { bg: '#cffafe', text: '#0e7490', border: '#67e8f9' };
+    }
+    if (type.includes('performance') || type.includes('review')) {
+      return { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' };
+    }
+    return { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+  };
+
+  const calculateFormCompletion = () => {
+    const requiredFields = [
+      editedStaff.firstName,
+      editedStaff.lastName,
+      editedStaff.email,
+      editedStaff.phoneNumber,
+      editedStaff.dateOfBirth,
+      editedStaff.gender,
+      editedStaff.designation || editedStaff.departmentRole,
+      editedStaff.department,
+      editedStaff.branchId,
+      editedStaff.joiningDate || editedStaff.dateEmployed,
+      editedStaff.currentAddress,
+      editedStaff.emergencyContactName,
+      editedStaff.emergencyContactPhone,
+      editedStaff.bankName,
+      editedStaff.bankAccountNumber,
+    ];
+    
+    const filledFields = requiredFields.filter(field => field && field.toString().trim() !== '').length;
+    const percentage = Math.round((filledFields / requiredFields.length) * 100);
+    
+    setFormCompletionPercentage(percentage);
+    setIsFormComplete(percentage === 100);
+  };
+
+  useEffect(() => {
+    calculateFormCompletion();
+  }, [editedStaff]);
 
   const renderField = (icon: any, label: string, value: any, field?: string, type: string = 'text', options?: any[]) => {
     const isEditable = isEditing && field;
@@ -420,24 +494,83 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
         )}
 
         {/* Staff Info Header */}
-        <div className="flex items-start gap-6">
-          <div className="avatar" style={{ width: '6rem', height: '6rem', fontSize: '1.5rem', backgroundColor: '#2563eb', color: 'white' }}>
-            {editedStaff.avatar || `${editedStaff.firstName?.[0] || ''}${editedStaff.lastName?.[0] || ''}`}
+        <div className="flex items-start gap-6 p-6" style={{ backgroundColor: '#f8fafc', borderRadius: '1rem', border: '1px solid #e2e8f0' }}>
+          {/* Profile Photo */}
+          <div style={{ position: 'relative' }}>
+            {editedStaff.profilePicture ? (
+              <img
+                src={editedStaff.profilePicture}
+                alt={`${editedStaff.firstName}'s profile`}
+                style={{
+                  width: '8rem',
+                  height: '8rem',
+                  borderRadius: '1rem',
+                  objectFit: 'cover',
+                  border: '4px solid white',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              />
+            ) : (
+              <div
+                className="avatar"
+                style={{
+                  width: '8rem',
+                  height: '8rem',
+                  fontSize: '2.5rem',
+                  backgroundColor: '#2563eb',
+                  color: 'white',
+                  borderRadius: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '4px solid white',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  fontWeight: '600'
+                }}
+              >
+                {editedStaff.avatar || `${editedStaff.firstName?.[0] || ''}${editedStaff.lastName?.[0] || ''}`}
+              </div>
+            )}
+            {/* Photo upload button for editing mode */}
+            {isEditing && (
+              <button
+                className="absolute bottom-0 right-0 p-2 rounded-full shadow-lg"
+                style={{ backgroundColor: '#2563eb', color: 'white' }}
+                title="Change profile photo"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <div className="flex-1">
-            <h3 className="text-2xl font-bold" style={{ color: '#0f172a' }}>
+          
+          {/* Staff Info */}
+          <div className="flex-1 pt-2">
+            <h3 className="text-3xl font-bold" style={{ color: '#0f172a' }}>
               {editedStaff.firstName} {editedStaff.middleName} {editedStaff.lastName}
             </h3>
-            <p className="text-muted" style={{ marginTop: '0.25rem' }}>
+            <p className="text-muted" style={{ marginTop: '0.5rem', fontSize: '1.1rem' }}>
               {editedStaff.departmentRole || editedStaff.designation} • {editedStaff.department}
             </p>
-            <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: '0.5rem' }}>
-              <span className={`badge ${editedStaff.status === 'Active' ? 'badge-success' : 'badge-secondary'}`}>
+            <div className="flex items-center gap-3 flex-wrap" style={{ marginTop: '0.75rem' }}>
+              <span className={`badge ${editedStaff.status === 'Active' ? 'badge-success' : 'badge-secondary'}`} style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
                 {editedStaff.status}
               </span>
               {editedStaff.employeeId && (
-                <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                <span className="text-muted" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <BadgeCheck className="w-4 h-4" />
                   ID: {editedStaff.employeeId}
+                </span>
+              )}
+              {editedStaff.phoneNumber && (
+                <span className="text-muted" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Phone className="w-4 h-4" />
+                  {editedStaff.phoneNumber}
+                </span>
+              )}
+              {editedStaff.email && (
+                <span className="text-muted" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Mail className="w-4 h-4" />
+                  {editedStaff.email}
                 </span>
               )}
             </div>
@@ -446,8 +579,8 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       </div>
 
       {/* Tabs */}
-      <div className="card p-2" style={{ backgroundColor: '#f1f5f9' }}>
-        <div className="flex flex-wrap gap-1 overflow-x-auto  ">
+      <div className="card p-2" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #e2e8f0', borderRadius: '0.75rem' }}>
+        <div className="flex flex-wrap gap-1 overflow-x-auto" style={{ padding: '0.25rem' }}>
           {[
             { id: 'overview', label: 'Overview', icon: User },
             { id: 'personal', label: 'Personal', icon: User },
@@ -462,15 +595,16 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
           ].map(tab => (
             <button
               key={tab.id}
-              className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+              className={`rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
                 activeTab === tab.id
                   ? 'text-white shadow-md'
-                  : 'text-gray-600 hover:bg-white hover:shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100 hover:shadow-sm'
               }`}
               onClick={() => setActiveTab(tab.id as any)}
               style={{
                 backgroundColor: activeTab === tab.id ? '#2563eb' : 'transparent',
-                borderColor: activeTab === tab.id ? '#2563eb' : 'transparent'
+                padding: '0.875rem 1.5rem',
+                whiteSpace: 'nowrap'
               }}
             >
               <tab.icon className="w-4 h-4" />
@@ -485,6 +619,43 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
+            {/* Form Completion Status */}
+            <div className="p-6 rounded-lg border" style={{ backgroundColor: isFormComplete ? '#f0fdf4' : '#fff7ed', borderColor: isFormComplete ? '#86efac' : '#fdba74' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  {isFormComplete ? (
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6 text-orange-600" />
+                  )}
+                  <div>
+                    <h4 className="font-semibold" style={{ color: isFormComplete ? '#166534' : '#9a3412' }}>
+                      {isFormComplete ? 'Profile Complete' : 'Profile Incomplete'}
+                    </h4>
+                    <p className="text-sm" style={{ color: isFormComplete ? '#15803d' : '#c2410c' }}>
+                      {isFormComplete 
+                        ? 'All required personal details have been filled' 
+                        : 'Please complete the required personal details'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold" style={{ color: isFormComplete ? '#166534' : '#9a3412' }}>
+                    {formCompletionPercentage}%
+                  </span>
+                </div>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className="h-2.5 rounded-full transition-all duration-500"
+                  style={{ 
+                    width: `${formCompletionPercentage}%`,
+                    backgroundColor: isFormComplete ? '#22c55e' : '#f97316'
+                  }}
+                ></div>
+              </div>
+            </div>
+
             <div>
               <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <User className="w-5 h-5 text-primary" />
@@ -767,15 +938,21 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
         {activeTab === 'documents' && (
           <div className="space-y-6">
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-semibold flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Staff Documents
-                </h4>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h4 className="text-xl font-bold flex items-center gap-2" style={{ color: '#0f172a' }}>
+                    <FileText className="w-6 h-6 text-blue-600" />
+                    Staff Documents
+                  </h4>
+                  <p className="text-sm text-muted" style={{ marginTop: '0.25rem' }}>
+                    {documents.length} document{documents.length !== 1 ? 's' : ''} uploaded
+                  </p>
+                </div>
                 <button
-                  className="btn btn-primary btn-sm flex items-center gap-2"
+                  className="btn btn-primary flex items-center gap-2"
                   onClick={() => setShowUploadModal(true)}
                   disabled={isEditing}
+                  style={{ padding: '0.75rem 1.5rem' }}
                 >
                   <Upload className="w-4 h-4" />
                   Upload Document
@@ -783,74 +960,125 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               </div>
 
               {documentsLoading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  <p className="text-muted mt-2">Loading documents...</p>
+                <div className="text-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-muted mt-4">Loading documents...</p>
                 </div>
               ) : documents.length === 0 ? (
-                <div className="text-center py-12" style={{ backgroundColor: '#f8fafc', borderRadius: '0.5rem' }}>
-                  <FileText className="w-12 h-12 text-muted mx-auto mb-3" />
-                  <p className="font-medium text-gray-900 mb-1">No documents uploaded</p>
-                  <p className="text-sm text-muted mb-4">Upload documents like ID, certificates, resumes, etc.</p>
+                <div className="text-center py-16" style={{ backgroundColor: '#f8fafc', borderRadius: '1rem' }}>
+                  <FileText className="w-16 h-16 text-muted mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-900 mb-2">No documents uploaded</p>
+                  <p className="text-sm text-muted mb-6">Upload documents like ID, certificates, resumes, etc.</p>
                   <button
-                    className="btn btn-primary btn-sm"
+                    className="btn btn-primary"
                     onClick={() => setShowUploadModal(true)}
+                    style={{ padding: '0.75rem 1.5rem' }}
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     Upload Your First Document
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
-                      style={{ backgroundColor: '#fff' }}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#dbeafe' }}>
-                            <FileType className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-900">{doc.document_type}</p>
-                            <p className="text-xs text-muted">{formatDate(doc.uploaded_at)}</p>
-                          </div>
+                <div className="space-y-4">
+                  {/* Document Categories */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {['ID Document', 'Resume/CV', 'Certificate', 'Reference Letter', 'Medical Report', 'Training Certificate'].map((type) => {
+                      const count = documents.filter(d => d.document_type === type).length;
+                      return (
+                        <div 
+                          key={type}
+                          className="p-3 rounded-lg border text-center"
+                          style={{ 
+                            backgroundColor: count > 0 ? getDocumentTypeColor(type).bg : '#f8fafc',
+                            borderColor: count > 0 ? getDocumentTypeColor(type).border : '#e2e8f0'
+                          }}
+                        >
+                          <p className="text-xs font-semibold" style={{ color: count > 0 ? getDocumentTypeColor(type).text : '#64748b' }}>
+                            {type}
+                          </p>
+                          <p className="text-lg font-bold mt-1" style={{ color: count > 0 ? getDocumentTypeColor(type).text : '#94a3b8' }}>
+                            {count}
+                          </p>
                         </div>
-                      </div>
-                      <p className="text-sm text-gray-700 mb-3 truncate" title={doc.document_name}>
-                        {doc.document_name}
-                      </p>
-                      <div className="flex items-center justify-between text-xs text-muted mb-3">
-                        <span>{(doc.file_size / 1024).toFixed(1)} KB</span>
-                        <span className="uppercase">{doc.mime_type.split('/')[1]}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="btn btn-sm btn-outline flex-1"
-                          onClick={() => setViewingDocument(doc)}
-                          title="View"
-                        >
-                          <Eye className="w-3 h-3" />
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline flex-1"
-                          onClick={() => handleDownloadDocument(doc)}
-                          title="Download"
-                        >
-                          <Download className="w-3 h-3" />
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline red flex-1"
-                          onClick={() => handleDeleteDocument(doc.id, doc.document_name)}
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
+
+                  {/* Documents Table */}
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead style={{ backgroundColor: '#f8fafc' }}>
+                        <tr>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Document Type</th>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">File Name</th>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Upload Date</th>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Size</th>
+                          <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {documents.map((doc) => (
+                          <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="py-4 px-6">
+                              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold"
+                                style={{
+                                  backgroundColor: getDocumentTypeColor(doc.document_type).bg,
+                                  color: getDocumentTypeColor(doc.document_type).text,
+                                  border: `1px solid ${getDocumentTypeColor(doc.document_type).border}`
+                                }}>
+                                {doc.document_type}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#dbeafe' }}>
+                                  <FileType className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm text-gray-900">{doc.document_name}</p>
+                                  <p className="text-xs text-muted uppercase">{doc.mime_type.split('/')[1]}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6 text-sm text-gray-600">
+                              {formatDate(doc.uploaded_at)}
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className="text-sm text-gray-600">{(doc.file_size / 1024).toFixed(1)} KB</span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  className="btn btn-sm btn-outline flex items-center gap-1"
+                                  onClick={() => setViewingDocument(doc)}
+                                  title="View"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span className="hidden sm:inline">View</span>
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline flex items-center gap-1"
+                                  onClick={() => handleDownloadDocument(doc)}
+                                  title="Download"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span className="hidden sm:inline">Download</span>
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline red flex items-center gap-1"
+                                  onClick={() => handleDeleteDocument(doc.id, doc.document_name)}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span className="hidden sm:inline">Delete</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

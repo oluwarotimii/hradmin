@@ -4,7 +4,7 @@
 // Import React hooks for state management
 import { useState, useEffect } from 'react';
 // Import Lucide React icons for UI elements
-import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye } from 'lucide-react';
+import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye, Paperclip, ExternalLink, Image } from 'lucide-react';
 // Import utility functions
 import { cn } from '@/components/ui/utils';
 // Import leave management service
@@ -387,14 +387,24 @@ const LeaveManagementView = () => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid Date';
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
       });
     } catch (error) {
       return 'Invalid Date';
     }
+  };
+
+  // Helper function to format file size
+  const formatFileSize = (bytes: number | string): string => {
+    const numBytes = typeof bytes === 'string' ? parseInt(bytes) : bytes;
+    if (numBytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(numBytes) / Math.log(k));
+    return Math.round(numBytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
   // Since filtering is done server-side, filteredRequests is just the current page of leaveRequests
@@ -418,10 +428,31 @@ const LeaveManagementView = () => {
   // Use pendingTotal from API when filtered by pending, otherwise calculate from current page
   const pendingCount = filterStatus === 'pending' ? pendingTotal : leaveRequests.filter(r => r.status === 'Pending').length;
 
-  // Handler for approval/decline actions - opens approval modal
-  const handleApprovalAction = (request: LeaveRequest, action: 'approve' | 'decline') => {
-    setSelectedRequest(request);
+  // Handler for approval/decline actions - opens approval modal with attachments
+  const handleApprovalAction = async (request: LeaveRequest, action: 'approve' | 'decline') => {
     setApprovalAction(action);
+    
+    // Fetch attachments for the approval modal
+    try {
+      const filesResponse = await getLeaveRequestFiles(parseInt(request.id));
+      console.log('Approval modal attachments response:', filesResponse);
+      
+      if (filesResponse.success && filesResponse.files && filesResponse.files.length > 0) {
+        // Update selectedRequest with attachments
+        setSelectedRequest({
+          ...request,
+          attachments: filesResponse.files
+        });
+      } else {
+        // No attachments, just set the request
+        setSelectedRequest(request);
+      }
+    } catch (fileErr) {
+      console.warn('Could not fetch attachments for approval modal:', fileErr);
+      // Continue without attachments
+      setSelectedRequest(request);
+    }
+    
     setShowApprovalModal(true);
   };
 
@@ -1473,6 +1504,89 @@ const LeaveManagementView = () => {
                       <p className="text-sm text-slate-700 leading-relaxed">{selectedRequest.reason}</p>
                     </div>
                   </div>
+
+                  {/* Attachments Section - Enhanced Styling */}
+                  {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                          <Paperclip className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold text-slate-700">Attachments</span>
+                          <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                            {selectedRequest.attachments.length}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2">
+                        {selectedRequest.attachments.map((attachment: any, index: number) => {
+                          // Handle different field names from backend
+                          const fileName = attachment.file_name || attachment.name || `Attachment ${index + 1}`;
+                          const filePath = attachment.file_path || attachment.path || attachment.file_url || '#';
+                          const mimeType = attachment.mime_type || attachment.file_type || '';
+                          const fileSize = attachment.file_size;
+                          
+                          const isImage = mimeType.includes('image') || fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                          const isPDF = mimeType.includes('pdf') || fileName.match(/\.pdf$/i);
+
+                          return (
+                            <a
+                              key={index}
+                              href={`${filePath.startsWith('http') ? filePath : `http://localhost:3000${filePath}`}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="group relative flex items-center gap-3 p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                            >
+                              {/* File Icon */}
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+                                isImage ? 'bg-gradient-to-br from-purple-100 to-purple-200' :
+                                isPDF ? 'bg-gradient-to-br from-red-100 to-red-200' :
+                                'bg-gradient-to-br from-blue-100 to-blue-200'
+                              }`}>
+                                {isImage ? (
+                                  <Image className="w-6 h-6 text-purple-600" />
+                                ) : isPDF ? (
+                                  <FileText className="w-6 h-6 text-red-600" />
+                                ) : (
+                                  <FileText className="w-6 h-6 text-blue-600" />
+                                )}
+                              </div>
+
+                              {/* File Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
+                                  {fileName}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-slate-500 uppercase tracking-wide">
+                                    {mimeType.split('/')[1]?.toUpperCase() || 'Document'}
+                                  </span>
+                                  {fileSize && (
+                                    <>
+                                      <span className="text-slate-300">•</span>
+                                      <span className="text-xs text-slate-500">
+                                        {formatFileSize(fileSize)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* View Icon */}
+                              <div className="w-9 h-9 rounded-lg bg-white/80 group-hover:bg-white flex items-center justify-center transition-all shadow-sm group-hover:shadow">
+                                <ExternalLink className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+                              </div>
+
+                              {/* Hover indicator */}
+                              <div className="absolute inset-0 rounded-xl ring-2 ring-blue-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Policy Warning */}
                   {selectedRequest.leaveType === 'Annual' && selectedRequest.duration > 7 && approvalAction === 'approve' && (
