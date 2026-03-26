@@ -111,7 +111,12 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  useEffect(() => { loadStaffList(); }, [currentPage, activeFilter, departmentFilter, searchTerm]);
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, departmentFilter, searchTerm, minYearsFilter]);
+
+  useEffect(() => { loadStaffList(); }, [currentPage, activeFilter, departmentFilter, searchTerm, minYearsFilter]);
 
   useEffect(() => { if (initialSelectedStaff) setSelectedStaff(initialSelectedStaff); }, [initialSelectedStaff]);
 
@@ -144,10 +149,11 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
   const loadStaffList = async () => {
     try {
       setLoading(true);
-      const filters: { status?: string; department?: string; search?: string } = {};
+      const filters: { status?: string; department?: string; search?: string; minYears?: number } = {};
       if (activeFilter !== 'all') filters.status = activeFilter === 'active' ? 'active' : 'inactive';
       if (departmentFilter) filters.department = departmentFilter;
       if (searchTerm) filters.search = searchTerm;
+      if (minYearsFilter !== '' && minYearsFilter !== null) filters.minYears = Number(minYearsFilter);
       const response = await getAllStaff(currentPage, itemsPerPage, filters);
       if (response.success) {
         const mappedStaff = response.staff?.map(mapApiToUiStaff) || [];

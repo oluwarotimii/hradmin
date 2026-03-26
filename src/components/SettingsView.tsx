@@ -10,6 +10,9 @@ import { getAllBranches, Branch } from '../services/branchManagementService';
 import {
   Settings, Clock, Save, AlertCircle, MapPin, Timer
 } from 'lucide-react';
+import axios from 'axios';
+
+const API_ENDPOINT = import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api';
 
 // Design tokens
 const colors = {
@@ -140,6 +143,8 @@ const SettingsView = () => {
         console.warn('No branch ID provided');
         return;
       }
+      
+      // Load attendance settings only
       const response = await getBranchAttendanceSettings(branchId);
       if (response.success && response.settings) {
         const s = response.settings;
@@ -154,10 +159,9 @@ const SettingsView = () => {
           auto_mark_absent_time: s.auto_mark_absent_time || '12:00',
           auto_mark_absent_timezone: s.auto_mark_absent_timezone || 'Africa/Nairobi',
         });
-      } else if (response.message && response.message.includes('Branch ID')) {
-        console.warn('Invalid branch ID for attendance settings');
       }
-    } catch (err) {
+      
+    } catch (err: any) {
       console.error('Error loading branch settings:', err);
       // Don't show error for 400 - just use defaults
     } finally {
@@ -210,9 +214,9 @@ const SettingsView = () => {
         },
         body: JSON.stringify({
           branchId: Number(selectedBranchId),
-          autoMarkAbsentEnabled: branchForm.auto_mark_absent_enabled,
-          autoMarkAbsentTime: branchForm.auto_mark_absent_time,
-          autoMarkAbsentTimezone: branchForm.auto_mark_absent_timezone,
+          auto_mark_absent_enabled: branchForm.auto_mark_absent_enabled,
+          auto_mark_absent_time: branchForm.auto_mark_absent_time,
+          auto_mark_absent_timezone: branchForm.auto_mark_absent_timezone,
         }),
       });
 
@@ -645,11 +649,11 @@ const WorkingDaysTab = ({
         },
         body: JSON.stringify({
           workingDays: workingDays.map((d: any) => ({
-            day_of_week: d.day_of_week,
-            is_working_day: d.is_working_day,
+            day_of_week: d.day_of_week.toLowerCase(),
+            is_working_day: !!d.is_working_day, // Ensure boolean
             start_time: d.is_working_day ? d.start_time : null,
             end_time: d.is_working_day ? d.end_time : null,
-            break_duration_minutes: d.break_duration_minutes,
+            break_duration_minutes: d.break_duration_minutes || 0,
           }))
         })
       });

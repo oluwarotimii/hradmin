@@ -368,6 +368,83 @@ export const getAllStaff = async (page: number = 1, limit: number = 20, filters?
   }
 };
 
+// Helper function to map backend snake_case to frontend camelCase
+function mapStaffResponse(backendData: any): any {
+  if (!backendData) return backendData;
+  
+  return {
+    ...backendData,
+    // Map basic fields
+    firstName: backendData.first_name || backendData.firstName,
+    lastName: backendData.last_name || backendData.lastName,
+    middleName: backendData.middle_name || backendData.middleName,
+    workEmail: backendData.work_email || backendData.workEmail,
+    personalEmail: backendData.personal_email || backendData.personal_email,
+    phoneNumber: backendData.phone_number || backendData.phoneNumber,
+    alternatePhone: backendData.alternate_phone_number || backendData.alternate_phone || backendData.alternatePhone,
+    dateOfBirth: backendData.date_of_birth || backendData.dateOfBirth,
+    bloodGroup: backendData.blood_group || backendData.bloodGroup,
+    stateOfOrigin: backendData.state_of_origin || backendData.stateOfOrigin,
+    maritalStatus: backendData.marital_status || backendData.maritalStatus,
+    currentAddress: backendData.current_address || backendData.currentAddress,
+    permanentAddress: backendData.permanent_address || backendData.permanentAddress,
+    highestQualification: backendData.highest_qualification || backendData.highestQualification,
+    universitySchool: backendData.university_school || backendData.universitySchool,
+    yearOfGraduation: backendData.year_of_graduation || backendData.yearOfGraduation,
+    professionalCertifications: backendData.professional_certifications || backendData.professionalCertifications,
+    languagesKnown: backendData.languages_known || backendData.languagesKnown,
+    primarySkills: backendData.primary_skills || backendData.primarySkills,
+    emergencyContactName: backendData.emergency_contact_name || backendData.emergencyContactName,
+    emergencyContactPhone: backendData.emergency_contact_phone || backendData.emergencyContactPhone,
+    emergencyContactRelationship: backendData.emergency_contact_relationship || backendData.emergencyContactRelationship,
+    bankName: backendData.bank_name || backendData.bankName,
+    bankAccountNumber: backendData.bank_account_number || backendData.bankAccountNumber,
+    bankIfscCode: backendData.bank_ifsc_code || backendData.bankIfscCode,
+    taxIdentificationNumber: backendData.tax_identification_number || backendData.taxIdentificationNumber,
+    providentFundId: backendData.provident_fund_id || backendData.providentFundId,
+    medicalInsuranceId: backendData.medical_insurance_id || backendData.medicalInsuranceId,
+    weeklyWorkingHours: backendData.weekly_working_hours || backendData.weeklyWorkingHours,
+    probationEndDate: backendData.probation_end_date || backendData.probationEndDate,
+    contractEndDate: backendData.contract_end_date || backendData.contractEndDate,
+    noticePeriodDays: backendData.notice_period_days || backendData.noticePeriodDays,
+    overtimeEligibility: backendData.overtime_eligibility ?? backendData.overtimeEligibility,
+    gratuityApplicable: backendData.gratuity_applicable ?? backendData.gratuityApplicable,
+    workMode: backendData.work_mode || backendData.workMode,
+    resignationDate: backendData.resignation_date || backendData.resignationDate,
+    noticePeriodStart: backendData.notice_period_start_date || backendData.noticePeriodStart,
+    noticePeriodEnd: backendData.notice_period_end_date || backendData.noticePeriodEnd,
+    lastWorkingDate: backendData.last_working_date || backendData.lastWorkingDate,
+    relievingDate: backendData.relieving_date || backendData.relievingDate,
+    reasonForLeaving: backendData.reason_for_leaving || backendData.reasonForLeaving,
+    previousCompany: backendData.previous_company || backendData.previousCompany,
+    experienceYears: backendData.experience_years || backendData.experienceYears,
+    referenceCheckStatus: backendData.reference_check_status || backendData.referenceCheckStatus,
+    backgroundVerificationStatus: backendData.background_verification_status || backendData.backgroundVerificationStatus,
+    // Ensure these are preserved if already in camelCase
+    email: backendData.email,
+    department: backendData.department,
+    designation: backendData.designation,
+    departmentRole: backendData.departmentRole || backendData.designation,
+    branchId: backendData.branch_id || backendData.branchId,
+    branch: backendData.branch_name || backendData.branch || backendData.branch,
+    employmentType: backendData.employment_type || backendData.employmentType,
+    joiningDate: backendData.joining_date || backendData.joiningDate,
+    dateEmployed: backendData.date_employed || backendData.joining_date || backendData.dateEmployed,
+    jobStatus: backendData.job_status || backendData.jobStatus,
+    status: backendData.status,
+    employeeId: backendData.employee_id || backendData.employeeId,
+    avatar: backendData.employee_photo || backendData.avatar,
+    profilePicture: backendData.employee_photo || backendData.profilePicture,
+    allergies: backendData.allergies,
+    specialMedicalNotes: backendData.special_medical_notes || backendData.specialMedicalNotes,
+    town: backendData.town,
+    zipCode: backendData.zip_code || backendData.zipCode,
+    lga: backendData.lga,
+    payGrade: backendData.pay_grade || backendData.payGrade,
+    baseSalary: backendData.base_salary || backendData.baseSalary
+  };
+}
+
 // Get staff by ID
 export const getStaffById = async (staffId: string): Promise<{ success: boolean; staff?: StaffMember; message?: string }> => {
   try {
@@ -396,9 +473,12 @@ export const getStaffById = async (staffId: string): Promise<{ success: boolean;
       staffData = response.data.staff;
     }
 
+    // Map backend snake_case to frontend camelCase
+    const mappedStaff = mapStaffResponse(staffData);
+
     return {
       success: true,
-      staff: staffData,
+      staff: mappedStaff,
     };
   } catch (error: any) {
     console.error('Error fetching staff:', error);
