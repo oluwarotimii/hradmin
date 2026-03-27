@@ -433,8 +433,9 @@ function mapStaffResponse(backendData: any): any {
     jobStatus: backendData.job_status || backendData.jobStatus,
     status: backendData.status,
     employeeId: backendData.employee_id || backendData.employeeId,
-    avatar: backendData.employee_photo || backendData.avatar,
-    profilePicture: backendData.employee_photo || backendData.profilePicture,
+    // Construct full URL for profile picture
+    avatar: backendData.employee_photo ? `${API_ENDPOINT}${backendData.employee_photo}` : backendData.avatar,
+    profilePicture: backendData.employee_photo ? `${API_ENDPOINT}${backendData.employee_photo}` : backendData.profilePicture,
     allergies: backendData.allergies,
     specialMedicalNotes: backendData.special_medical_notes || backendData.specialMedicalNotes,
     town: backendData.town,
@@ -636,9 +637,12 @@ export const updateStaff = async (staffId: string, staffData: Partial<UpdateStaf
       responseData = response.data.staff;
     }
 
+    // Map backend snake_case to frontend camelCase
+    const mappedStaff = mapStaffResponse(responseData);
+
     return {
       success: true,
-      staff: responseData,
+      staff: mappedStaff,
     };
   } catch (error: any) {
     console.error('Error updating staff:', error);
