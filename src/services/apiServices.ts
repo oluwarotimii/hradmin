@@ -23,13 +23,40 @@ export const checkSystemReadiness = async (): Promise<{ ready?: boolean; initial
 
     // Extract the systemInitialized value from the actual response format
     const systemInitialized = response.data.data?.systemInitialized || false;
+    
+    // If API says system is not initialized, clear localStorage to force setup screen
+    if (!systemInitialized) {
+      localStorage.removeItem("systemInitialized");
+      console.log('System not initialized, cleared localStorage');
+    }
+    
     return { ready: systemInitialized, initialized: systemInitialized };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error checking system readiness:', error);
-    // If there's a network error, check localStorage as a fallback
-    const systemInitialized = localStorage.getItem("systemInitialized") === "true";
-    console.log('Using fallback, systemInitialized:', systemInitialized);
-    return { ready: systemInitialized, initialized: systemInitialized };
+    
+    // Check if it's a network error (can't reach the API)
+    const isNetworkError = !error.response || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error');
+    
+    if (isNetworkError) {
+      // Network error - API is unreachable
+      // DO NOT use localStorage fallback - assume system needs initialization
+      // This prevents showing login when the API is down
+      console.log('Network error - API unreachable, showing setup screen');
+      return { ready: false, initialized: false };
+    }
+    
+    // API responded with an error status (e.g., 500, 404)
+    // This means API is reachable but there might be an issue
+    // Check the error response to determine system state
+    if (error.response?.status === 404 || error.response?.status === 500) {
+      // API exists but system might not be initialized
+      console.log('API returned error status, assuming not initialized');
+      return { ready: false, initialized: false };
+    }
+    
+    // For any other error, assume not initialized
+    console.log('Unknown error, assuming not initialized');
+    return { ready: false, initialized: false };
   }
 };
 
