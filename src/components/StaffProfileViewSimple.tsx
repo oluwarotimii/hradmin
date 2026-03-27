@@ -239,6 +239,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       // Education
       if (isValidValue(editedStaff.highestQualification)) apiData.highest_qualification = editedStaff.highestQualification;
       if (isValidValue(editedStaff.universitySchool)) apiData.university_school = editedStaff.universitySchool;
+      if (isValidValue(editedStaff.courseOfStudy)) apiData.course_of_study = editedStaff.courseOfStudy;
       if (isValidValue(editedStaff.yearOfGraduation)) apiData.year_of_graduation = editedStaff.yearOfGraduation;
       if (isValidValue(editedStaff.professionalCertifications)) apiData.professional_certifications = editedStaff.professionalCertifications;
       if (isValidValue(editedStaff.languagesKnown)) apiData.languages_known = editedStaff.languagesKnown;
@@ -272,12 +273,14 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
 
       console.log('[StaffProfile] API Response:', response);
 
-      if (response.success) {
+      if (response.success && response.staff) {
         console.log('[StaffProfile] Save successful!');
         setSuccessMessage('Staff profile updated successfully');
-        // Update the local state with the saved data
-        const updatedStaff = { ...editedStaff };
+        // Use the actual updated staff from backend response
+        const updatedStaff = response.staff;
         onUpdate(updatedStaff);
+        // Also update local edited state to match
+        setEditedStaff(updatedStaff);
         setTimeout(() => setSuccessMessage(null), 3000);
         setIsEditing(false);
       } else {
@@ -845,6 +848,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {renderField(<GraduationCap className="w-4 h-4 text-muted" />, 'Highest Qualification', editedStaff.highestQualification, 'highestQualification')}
                 {renderField(<BookOpen className="w-4 h-4 text-muted" />, 'University/School', editedStaff.universitySchool, 'universitySchool')}
+                {renderField(<BookOpen className="w-4 h-4 text-muted" />, 'Course of Study', editedStaff.courseOfStudy, 'courseOfStudy')}
                 {renderField(<Calendar className="w-4 h-4 text-muted" />, 'Year of Graduation', editedStaff.yearOfGraduation, 'yearOfGraduation', 'number')}
                 {renderField(<Award className="w-4 h-4 text-muted" />, 'Professional Certifications', editedStaff.professionalCertifications, 'professionalCertifications', 'textarea')}
                 {renderField(<BookOpen className="w-4 h-4 text-muted" />, 'Languages Known', editedStaff.languagesKnown, 'languagesKnown')}
