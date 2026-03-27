@@ -500,9 +500,9 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
         <div className="flex items-start gap-6 p-6" style={{ backgroundColor: '#f8fafc', borderRadius: '1rem', border: '1px solid #e2e8f0' }}>
           {/* Profile Photo */}
           <div style={{ position: 'relative' }}>
-            {editedStaff.profilePicture ? (
+            {editedStaff.profile_picture ? (
               <img
-                src={editedStaff.profilePicture}
+                src={editedStaff.profile_picture}
                 alt={`${editedStaff.firstName}'s profile`}
                 style={{
                   width: '8rem',

@@ -417,10 +417,19 @@ const ShiftSchedulingView = () => {
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     try {
+      // Ensure time format is HH:mm:ss (browser time input returns HH:mm)
+      const formatTime = (time: string) => {
+        if (!time) return '00:00:00';
+        // If already in HH:mm:ss format, return as is
+        if (time.split(':').length === 3) return time;
+        // If in HH:mm format, add seconds
+        return `${time}:00`;
+      };
+      
       const res = await shiftSchedulingService.createShiftTemplate({
         name: templateForm.name,
-        start_time: templateForm.start_time,
-        end_time: templateForm.end_time,
+        start_time: formatTime(templateForm.start_time),
+        end_time: formatTime(templateForm.end_time),
         break_duration_minutes: templateForm.break_duration_minutes,
         effective_from: templateForm.effective_from,
         recurrence_pattern: templateForm.recurrence_pattern,
@@ -434,7 +443,20 @@ const ShiftSchedulingView = () => {
   const handleUpdateTemplate = async (e: React.FormEvent) => {
     e.preventDefault(); if (!editingTemplate) return; setLoading(true);
     try {
-      const res = await shiftSchedulingService.updateShiftTemplate(editingTemplate.id, templateForm);
+      // Ensure time format is HH:mm:ss (browser time input returns HH:mm)
+      const formatTime = (time: string) => {
+        if (!time) return '00:00:00';
+        // If already in HH:mm:ss format, return as is
+        if (time.split(':').length === 3) return time;
+        // If in HH:mm format, add seconds
+        return `${time}:00`;
+      };
+      
+      const res = await shiftSchedulingService.updateShiftTemplate(editingTemplate.id, {
+        ...templateForm,
+        start_time: formatTime(templateForm.start_time),
+        end_time: formatTime(templateForm.end_time),
+      });
       if (res.success) { setSuccessMessage('Shift template updated'); setShowTemplateModal(false); setEditingTemplate(null); resetTemplateForm(); loadData(); setTimeout(() => setSuccessMessage(null), 3000); }
       else setError(res.message || 'Failed to update template');
     } catch (err: any) { setError(err.message || 'Failed'); } finally { setLoading(false); }
@@ -1480,12 +1502,12 @@ const ShiftSchedulingView = () => {
                 <FormField label="Effective From Date" required hint="When does this template become active?">
                   <input style={inputStyle} type="date" value={templateForm.effective_from} onChange={e => setTemplateForm({ ...templateForm, effective_from: e.target.value })} required />
                 </FormField>
-                <FormField label="Recurrence Pattern">
+                <FormField label="Recurrence Pattern" hint="Daily = repeats every day; Weekly = repeats on selected days only">
                   <select style={inputStyle} value={templateForm.recurrence_pattern} onChange={e => setTemplateForm({ ...templateForm, recurrence_pattern: e.target.value })}>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="custom">Custom</option>
+                    <option value="daily">Daily - Repeats every day</option>
+                    <option value="weekly">Weekly - Repeats on selected days</option>
+                    <option value="monthly">Monthly - Repeats on same date each month</option>
+                    <option value="custom">Custom - Define specific pattern</option>
                   </select>
                 </FormField>
                 <FormField label="Recurrence Days" hint="Select the days this shift applies to">
