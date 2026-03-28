@@ -12,6 +12,7 @@ import { getAllBranches } from '../services/branchManagementService';
 import { getAllDepartments } from '../services/departmentManagementService';
 import { uploadStaffDocument, getStaffDocuments, deleteStaffDocument, getDocumentUrl, downloadStaffDocument, StaffDocument } from '../services/staffDocumentService';
 import statesAndLgas from 'nigeria-state-lga-data';
+import { useAuth } from '../AuthContext';
 
 interface StaffProfileViewProps {
   staff: StaffMember;
@@ -399,8 +400,14 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
     calculateFormCompletion();
   }, [editedStaff]);
 
-  const renderField = (icon: any, label: string, value: any, field?: string, type: string = 'text', options?: any[]) => {
-    const isEditable = isEditing && field;
+  const renderField = (icon: any, label: string, value: any, field?: string, type: string = 'text', options?: any[], disabled: boolean = false) => {
+    const { user } = useAuth();
+    const isSuperAdmin = user?.roleId === 1 || user?.role === 'admin';
+    
+    // Explicitly disable email fields for non-super admins
+    const shouldDisable = disabled || (!isSuperAdmin && (field === 'workEmail' || field === 'email'));
+    
+    const isEditable = isEditing && field && !shouldDisable;
     const currentValue = field ? editedStaff[field] : value;
 
     return (
