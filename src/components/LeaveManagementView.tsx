@@ -1,13 +1,9 @@
 // This component provides comprehensive leave management functionality
 // It handles leave requests, approvals, reporting, and year-end processing
 
-// Import React hooks for state management
 import { useState, useEffect } from 'react';
-// Import Lucide React icons for UI elements
 import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye, Paperclip, ExternalLink, Image } from 'lucide-react';
-// Import utility functions
 import { cn } from '@/components/ui/utils';
-// Import leave management service
 import {
   getAllLeaveRequests,
   updateLeaveRequestStatus,
@@ -32,1105 +28,682 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 
-// Interface defining the structure of a leave request
 interface LeaveRequest {
-  id: string; // Unique leave request identifier
-  staffId: string; // ID of the staff member requesting leave
-  staffName: string; // Full name of the staff member
-  department: string; // Department the staff belongs to
-  branch: string; // Branch location
-  leaveType: 'Sick' | 'Annual' | 'Emergency' | 'Maternity' | 'Paternity' | 'Unpaid' | 'Bereaved'; // Type of leave
-  startDate: string; // Start date of leave (YYYY-MM-DD format)
-  endDate: string; // End date of leave (YYYY-MM-DD format)
-  duration: number; // Number of days requested
-  reason: string; // Reason for the leave request
-  status: 'Pending' | 'Approved' | 'Declined' | 'Active'; // Current status of the request
-  requestDate: string; // Date the request was submitted
-  approvedBy?: string; // Name of the person who approved (optional)
-  approvalDate?: string; // Date of approval (optional)
-  declineReason?: string; // Reason for decline if declined (optional)
-  coveringStaff?: string; // Staff member covering duties (optional)
+  id: string;
+  staffId: string;
+  staffName: string;
+  department: string;
+  branch: string;
+  leaveType: 'Sick' | 'Annual' | 'Emergency' | 'Maternity' | 'Paternity' | 'Unpaid' | 'Bereaved';
+  startDate: string;
+  endDate: string;
+  duration: number;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Declined' | 'Active';
+  requestDate: string;
+  approvedBy?: string;
+  approvalDate?: string;
+  declineReason?: string;
+  coveringStaff?: string;
 }
 
-// Main component function for leave management view
+// ─── Design tokens (consistent with rest of portal) ───────────────────────
+const T = {
+  primary:       '#1e40af',
+  primaryLight:  '#3b82f6',
+  primaryPale:   '#eff6ff',
+  primaryBorder: '#bfdbfe',
+  success:       '#059669',
+  successPale:   '#ecfdf5',
+  successBorder: '#a7f3d0',
+  warning:       '#d97706',
+  warningPale:   '#fffbeb',
+  warningBorder: '#fde68a',
+  danger:        '#dc2626',
+  dangerPale:    '#fef2f2',
+  dangerBorder:  '#fecaca',
+  purple:        '#7c3aed',
+  purplePale:    '#f5f3ff',
+  purpleBorder:  '#ddd6fe',
+  surface:       '#ffffff',
+  surfaceAlt:    '#f8fafc',
+  surfaceMuted:  '#f1f5f9',
+  border:        '#e2e8f0',
+  borderStrong:  '#cbd5e1',
+  text:          '#0f172a',
+  textSub:       '#475569',
+  textMuted:     '#94a3b8',
+};
+
+// Shared style primitives
+const card: React.CSSProperties = {
+  background: T.surface, border: `1px solid ${T.border}`,
+  borderRadius: '12px', boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
+};
+
+const inputS: React.CSSProperties = {
+  width: '100%', padding: '0.575rem 0.875rem',
+  border: `1.5px solid ${T.border}`, borderRadius: '8px',
+  fontSize: '0.875rem', color: T.text, background: T.surface,
+  outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+  transition: 'border-color 0.15s',
+};
+
+const labelS: React.CSSProperties = {
+  display: 'block', fontSize: '0.72rem', fontWeight: 700,
+  color: T.textSub, marginBottom: '0.4rem',
+  letterSpacing: '0.05em', textTransform: 'uppercase',
+};
+
+const btnPrimary: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+  padding: '0.5rem 1rem', background: T.primary, color: '#fff',
+  border: 'none', borderRadius: '8px', fontSize: '0.82rem',
+  fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+  boxShadow: `0 1px 3px rgba(30,64,175,0.28)`,
+  transition: 'background 0.13s', whiteSpace: 'nowrap' as const,
+};
+
+const btnOutline: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+  padding: '0.5rem 1rem', background: T.surface, color: T.textSub,
+  border: `1.5px solid ${T.border}`, borderRadius: '8px',
+  fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
+  fontFamily: 'inherit', transition: 'background 0.13s', whiteSpace: 'nowrap' as const,
+};
+
+const btnSuccess: React.CSSProperties = {
+  ...btnPrimary, background: T.success, boxShadow: `0 1px 3px rgba(5,150,105,0.28)`,
+};
+
+const btnDanger: React.CSSProperties = {
+  ...btnPrimary, background: T.danger, boxShadow: `0 1px 3px rgba(220,38,38,0.25)`,
+};
+
+const overlayS: React.CSSProperties = {
+  position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
+  backdropFilter: 'blur(3px)', zIndex: 40,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+};
+
+const modalShell = (w = '34rem'): React.CSSProperties => ({
+  position: 'fixed', top: '50%', left: '50%',
+  transform: 'translate(-50%,-50%)',
+  width: `min(${w}, calc(100vw - 2rem))`, maxHeight: '90vh',
+  display: 'flex', flexDirection: 'column', background: T.surface,
+  borderRadius: '16px', boxShadow: '0 20px 60px rgba(15,23,42,0.22)',
+  zIndex: 50, overflow: 'hidden',
+});
+
+const mHead: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  padding: '1.1rem 1.4rem', borderBottom: `1px solid ${T.border}`,
+  background: T.surfaceAlt, flexShrink: 0,
+};
+
+const mBody: React.CSSProperties = { flex: 1, overflowY: 'auto', padding: '1.4rem' };
+const mFoot: React.CSSProperties = {
+  display: 'flex', gap: '0.6rem', justifyContent: 'flex-end',
+  padding: '1rem 1.4rem', borderTop: `1px solid ${T.border}`,
+  background: T.surfaceAlt, flexShrink: 0,
+};
+
+// ─── Shared sub-components ───────────────────────────────────────────────
+const MHead = ({ icon: Icon, title, sub, color, onClose }: any) => (
+  <div style={mHead}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '9px', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={15} color="#fff" />
+      </div>
+      <div>
+        <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>{title}</p>
+        {sub && <p style={{ margin: '0.1rem 0 0', fontSize: '0.75rem', color: T.textMuted }}>{sub}</p>}
+      </div>
+    </div>
+    {onClose && (
+      <button onClick={onClose} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.75rem', height: '1.75rem', border: 'none', background: 'transparent', cursor: 'pointer', color: T.textMuted, borderRadius: '6px', transition: 'background 0.12s' }}
+        onMouseEnter={e => (e.currentTarget.style.background = T.surfaceMuted)}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+        <X size={16} />
+      </button>
+    )}
+  </div>
+);
+
+const FF = ({ label, required, children }: any) => (
+  <div>
+    <label style={labelS}>{label}{required && <span style={{ color: T.danger, marginLeft: 2 }}>*</span>}</label>
+    {children}
+  </div>
+);
+
+const Th = ({ ch, right }: { ch: React.ReactNode; right?: boolean }) => (
+  <th style={{ padding: '0.7rem 1rem', textAlign: right ? 'right' : 'left', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>
+    {ch}
+  </th>
+);
+
+const Td = ({ ch, right }: { ch: React.ReactNode; right?: boolean }) => (
+  <td style={{ padding: '0.85rem 1rem', textAlign: right ? 'right' : 'left', borderBottom: `1px solid ${T.border}`, verticalAlign: 'middle', fontSize: '0.875rem', color: T.text }}>
+    {ch}
+  </td>
+);
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const map: Record<string, [string, string, string]> = {
+    Approved: [T.success, T.successPale, T.successBorder],
+    approved: [T.success, T.successPale, T.successBorder],
+    Active:   [T.primary, T.primaryPale, T.primaryBorder],
+    active:   [T.primary, T.primaryPale, T.primaryBorder],
+    Declined: [T.danger,  T.dangerPale,  T.dangerBorder],
+    Declined: [T.danger,  T.dangerPale,  T.dangerBorder],
+    rejected: [T.danger,  T.dangerPale,  T.dangerBorder],
+    Pending:  [T.warning, T.warningPale, T.warningBorder],
+    submitted:[T.warning, T.warningPale, T.warningBorder],
+  };
+  const [dot, bg, border] = map[status] || [T.textMuted, T.surfaceMuted, T.border];
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.2rem 0.6rem', borderRadius:'100px', fontSize:'0.72rem', fontWeight:600, background:bg, color:dot, border:`1px solid ${border}` }}>
+      <span style={{ width:5, height:5, borderRadius:'50%', background:dot, display:'inline-block' }}/>
+      {status}
+    </span>
+  );
+};
+
+const initials2 = (name: string) => name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??';
+const avatarPalette = ['#1e40af','#0369a1','#059669','#7c3aed','#d97706','#be185d','#0891b2','#0d9488'];
+const avatarBg = (name: string) => avatarPalette[(name?.charCodeAt(0) || 0) % avatarPalette.length];
+
+const Avatar = ({ name, size = 40 }: { name: string; size?: number }) => (
+  <div style={{ width: size, height: size, borderRadius: size > 36 ? '10px' : '8px', background: avatarBg(name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: size > 36 ? '0.9rem' : '0.65rem', fontWeight: 700, flexShrink: 0, letterSpacing: '0.02em' }}>
+    {initials2(name)}
+  </div>
+);
+
+// ─── Main component ──────────────────────────────────────────────────────
 const LeaveManagementView = () => {
-  // State for search term input
   const [searchTerm, setSearchTerm] = useState('');
-  // State for filtering by request status
   const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'declined' | 'active' | 'pending'>('all');
-  // State for filtering by leave type
   const [filterLeaveType, setFilterLeaveType] = useState<string>('all');
-  // State for showing/hiding advanced filters panel
   const [showFilters, setShowFilters] = useState(false);
-  // State for filtering by department
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-  // State for active tab (requests, report)
   const [activeTab, setActiveTab] = useState<'requests' | 'report'>('requests');
-  // State for selected leave request (for modals)
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
-  // State for showing approval modal
   const [showApprovalModal, setShowApprovalModal] = useState(false);
-  // State for approval action type (approve/decline)
   const [approvalAction, setApprovalAction] = useState<'approve' | 'decline' | null>(null);
-  // State for decline reason input
   const [declineReason, setDeclineReason] = useState('');
-  // State for showing cancellation confirmation modal
   const [showCancelModal, setShowCancelModal] = useState(false);
-  // State for showing details modal
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  // State for selected leave request details (full details from API)
   const [selectedRequestDetails, setSelectedRequestDetails] = useState<any | null>(null);
-  // State for viewing attachment in modal
   const [viewingAttachment, setViewingAttachment] = useState<any | null>(null);
-  // State for showing create leave type modal
   const [showCreateLeaveTypeModal, setShowCreateLeaveTypeModal] = useState(false);
-  // State for showing edit leave type modal
   const [showEditLeaveTypeModal, setShowEditLeaveTypeModal] = useState(false);
-  // State for showing leave cleanup modal
   const [showCleanupModal, setShowCleanupModal] = useState(false);
-  // State for leave cleanup status
   const [cleanupStatus, setCleanupStatus] = useState<any | null>(null);
-  // State for cleanup loading
   const [cleanupLoading, setCleanupLoading] = useState(false);
-  // State for leave types
   const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
-  // Store raw API leave types for editing
   const [rawLeaveTypes, setRawLeaveTypes] = useState<any[]>([]);
-  // State for loading indicator
   const [loading, setLoading] = useState(true);
-  // State for details modal loading indicator
   const [detailsLoading, setDetailsLoading] = useState(false);
-  // State for error messages
   const [error, setError] = useState<string | null>(null);
-  // State for success messages
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  // State for leave requests from API
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  // State for leave balances from API
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  // Status counts from API
   const [pendingTotal, setPendingTotal] = useState(0);
-  // State for create leave type form
   const [createLeaveTypeForm, setCreateLeaveTypeForm] = useState({
-    name: '',
-    description: '',
-    daysPerYear: null, // Changed from 0 to null
-    isPaid: true,
-    allowCarryover: false,
-    carryoverLimit: null, // Changed from 0 to null
-    expiryRuleId: null // Changed from 1 to null
+    name: '', description: '', daysPerYear: null, isPaid: true,
+    allowCarryover: false, carryoverLimit: null, expiryRuleId: null
   });
-  
-  // State for edit leave type form
   const [editLeaveTypeForm, setEditLeaveTypeForm] = useState({
-    id: null,
-    name: '',
-    description: '',
-    daysPerYear: null,
-    isPaid: true,
-    allowCarryover: false,
-    carryoverLimit: null,
-    expiryRuleId: null
+    id: null, name: '', description: '', daysPerYear: null,
+    isPaid: true, allowCarryover: false, carryoverLimit: null, expiryRuleId: null
   });
 
-  // Load data from API when component mounts or filters change
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
-        setError(null);
-
-        console.log('Fetching leave types...');
-        // Fetch leave types first
+        setLoading(true); setError(null);
         const typesResponse = await getAllLeaveTypes();
-        console.log('Leave types response:', typesResponse);
         if (typesResponse.success && typesResponse.leaveTypes) {
-          // Store raw API data for editing
           setRawLeaveTypes(typesResponse.leaveTypes);
-          
-          // Transform API response to match our UI interface
-          const transformedTypes = typesResponse.leaveTypes.map((type: any) => ({
-            id: type.id, // Keep the ID
-            type: type.name,
-            limit: type.days_per_year, // Use the correct field name from API
-            color: type.is_paid ? '#3b82f6' : '#6b7280', // Different colors for paid/unpaid
+          setLeaveTypes(typesResponse.leaveTypes.map((type: any) => ({
+            id: type.id, type: type.name, limit: type.days_per_year,
+            color: type.is_paid ? T.primary : T.textMuted,
             description: type.description || `${type.days_per_year} days per year`
-          }));
+          })));
+        } else { setLeaveTypes([]); setRawLeaveTypes([]); }
 
-          console.log('Transformed leave types:', transformedTypes);
-          setLeaveTypes(transformedTypes);
-        } else {
-          console.warn('Failed to fetch leave types from API:', typesResponse.message);
-          // Set to empty array if API call fails
-          setLeaveTypes([]);
-          setRawLeaveTypes([]);
-        }
-
-        console.log('Fetching leave requests...');
-        
-        // Build filters object
         const filters: { status?: string; leaveType?: string; search?: string } = {};
         if (filterStatus !== 'all') {
-          // Map frontend status to backend status values
-          const backendStatus = 
-            filterStatus === 'pending' ? 'submitted' :
-            filterStatus === 'declined' ? 'rejected' :
-            filterStatus === 'active' ? 'approved' :  // Active = approved leave in progress
-            filterStatus;
+          const backendStatus = filterStatus==='pending'?'submitted':filterStatus==='declined'?'rejected':filterStatus==='active'?'approved':filterStatus;
           filters.status = backendStatus;
         }
-        if (filterLeaveType !== 'all') {
-          filters.leaveType = filterLeaveType;
-        }
-        if (searchTerm) {
-          filters.search = searchTerm;
-        }
+        if (filterLeaveType !== 'all') filters.leaveType = filterLeaveType;
+        if (searchTerm) filters.search = searchTerm;
 
-        // Fetch leave requests with pagination
         const requestsResponse = await getAllLeaveRequests(currentPage, itemsPerPage, filters);
-        console.log('Leave requests response:', requestsResponse);
         let transformedRequests = [];
-
         if (requestsResponse.success && requestsResponse.leaveRequests) {
-          console.log('Transforming', requestsResponse.leaveRequests.length, 'leave requests');
-          console.log('Sample raw request:', requestsResponse.leaveRequests[0]);
-
-          // Transform API response to match our UI interface
           transformedRequests = requestsResponse.leaveRequests.map(req => {
             const rawStatus = req.status;
-            // Backend uses 'submitted' for pending requests, 'cancelled' for cancelled
-            const transformedStatus =
-                   req.status === 'approved' ? 'Approved' :
-                   req.status === 'rejected' ? 'Declined' :
-                   req.status === 'submitted' ? 'Pending' :  // 'submitted' = pending approval
-                   req.status === 'cancelled' ? 'Declined' :  // 'cancelled' treated as declined
-                   'Active';
-
-            console.log(`Request ${req.id}: raw status="${rawStatus}" -> transformed="${transformedStatus}"`);
-
+            const transformedStatus = req.status==='approved'?'Approved':req.status==='rejected'?'Declined':req.status==='submitted'?'Pending':req.status==='cancelled'?'Declined':'Active';
             return {
-              id: req.id.toString(),
-              staffId: req.user_id?.toString() || req.userId?.toString(),
-              staffName: req.user_name || `User ${req.user_id}`,
-              department: 'General',
-              branch: 'Main Office',
-              leaveType: req.leave_type_name || req.leaveTypeName || 'Unknown',
-              startDate: req.start_date || req.startDate,
-              endDate: req.end_date || req.endDate,
-              duration: req.days_requested || calculateDuration(req.start_date || req.startDate, req.end_date || req.endDate),
-              reason: req.reason,
-              status: transformedStatus,
-              requestDate: req.created_at || req.createdAt,
-              approvedBy: req.reviewed_by ? 'Admin' : undefined,
-              approvalDate: req.reviewed_at || req.updatedAt,
-              declineReason: req.rejection_reason || req.rejectionReason,
-              coveringStaff: undefined
+              id: req.id.toString(), staffId: req.user_id?.toString()||req.userId?.toString(),
+              staffName: req.user_name||`User ${req.user_id}`, department:'General', branch:'Main Office',
+              leaveType: req.leave_type_name||req.leaveTypeName||'Unknown',
+              startDate: req.start_date||req.startDate, endDate: req.end_date||req.endDate,
+              duration: req.days_requested||calculateDuration(req.start_date||req.startDate, req.end_date||req.endDate),
+              reason: req.reason, status: transformedStatus, requestDate: req.created_at||req.createdAt,
+              approvedBy: req.reviewed_by?'Admin':undefined, approvalDate: req.reviewed_at||req.updatedAt,
+              declineReason: req.rejection_reason||req.rejectionReason, coveringStaff: undefined
             };
           });
-
-          console.log('Transformed requests:', transformedRequests.length);
-          console.log('Pending requests:', transformedRequests.filter(r => r.status === 'Pending').length);
           setLeaveRequests(transformedRequests);
-
-          // Update pagination info
           if (requestsResponse.pagination) {
             setTotalItems(requestsResponse.pagination.totalItems);
             setTotalPages(requestsResponse.pagination.totalPages);
-            // Always fetch the total pending count regardless of current filter
-            const pendingResponse = await getAllLeaveRequests(1, 1, { status: 'submitted' });
-            if (pendingResponse.pagination) {
-              setPendingTotal(pendingResponse.pagination.totalItems || 0);
-              console.log('Pending total from API:', pendingResponse.pagination.totalItems);
-            }
+            const pr = await getAllLeaveRequests(1,1,{status:'submitted'});
+            if (pr.pagination) setPendingTotal(pr.pagination.totalItems||0);
           } else {
             setTotalItems(transformedRequests.length);
-            setTotalPages(Math.ceil(transformedRequests.length / itemsPerPage));
-            // Fallback: fetch pending count
-            const pendingResponse = await getAllLeaveRequests(1, 1, { status: 'submitted' });
-            if (pendingResponse.pagination) {
-              setPendingTotal(pendingResponse.pagination.totalItems || 0);
-            } else {
-              setPendingTotal(transformedRequests.filter(r => r.status === 'Pending').length);
-            }
+            setTotalPages(Math.ceil(transformedRequests.length/itemsPerPage));
+            const pr = await getAllLeaveRequests(1,1,{status:'submitted'});
+            if (pr.pagination) setPendingTotal(pr.pagination.totalItems||0);
+            else setPendingTotal(transformedRequests.filter(r=>r.status==='Pending').length);
           }
-        } else {
-          console.warn('Failed to fetch leave requests from API:', requestsResponse.message);
-          setLeaveRequests([]);
-          setTotalItems(0);
-          setTotalPages(0);
-        }
+        } else { setLeaveRequests([]); setTotalItems(0); setTotalPages(0); }
 
-        // Fetch leave balances for current user
-        const balancesResponse = await getUserLeaveBalance(); // No userId = uses my-allocations endpoint
+        const balancesResponse = await getUserLeaveBalance();
         if (balancesResponse.success && balancesResponse.leaveBalances) {
-          // Transform API response to match our UI interface
-          const transformedBalances = balancesResponse.leaveBalances.map(balance => ({
-            staffId: balance.userId.toString(),
-            sick: { used: balance.usedDays, total: balance.totalDays },
-            annual: { used: balance.usedDays, total: balance.totalDays, firstHalf: 0, secondHalf: 0, rollover: 0 },
-            paternity: { used: balance.usedDays, total: balance.totalDays },
-            bereaved: { used: balance.usedDays, total: balance.totalDays },
-            maternity: { used: balance.usedDays, total: balance.totalDays }
-          }));
-
-          setLeaveBalances(transformedBalances);
+          setLeaveBalances(balancesResponse.leaveBalances.map(b => ({
+            staffId: b.userId.toString(),
+            sick:{used:b.usedDays,total:b.totalDays}, annual:{used:b.usedDays,total:b.totalDays,firstHalf:0,secondHalf:0,rollover:0},
+            paternity:{used:b.usedDays,total:b.totalDays}, bereaved:{used:b.usedDays,total:b.totalDays}, maternity:{used:b.usedDays,total:b.totalDays}
+          })));
         } else {
-          console.warn('Failed to fetch leave balances from API, using demo data:', balancesResponse.message);
-          
-          // Demo data for leave balances
-          setLeaveBalances([{
-            staffId: '1',
-            sick: { used: 2, total: 5 },
-            annual: { used: 8, total: 14, firstHalf: 5, secondHalf: 3, rollover: 0 },
-            paternity: { used: 0, total: 3 },
-            bereaved: { used: 1, total: 3 },
-            maternity: { used: 0, total: 90 }
-          }]);
+          setLeaveBalances([{staffId:'1',sick:{used:2,total:5},annual:{used:8,total:14,firstHalf:5,secondHalf:3,rollover:0},paternity:{used:0,total:3},bereaved:{used:1,total:3},maternity:{used:0,total:90}}]);
         }
       } catch (err) {
-        console.error('Error fetching leave data:', err);
-        
-        // Set to empty array in case of error
-        setLeaveTypes([]);
-        
-        // Set to empty array in case of error
-        setLeaveRequests([]);
-        
-        // Demo data for leave balances
-        setLeaveBalances([{
-          staffId: '1',
-          sick: { used: 2, total: 5 },
-          annual: { used: 8, total: 14, firstHalf: 5, secondHalf: 3, rollover: 0 },
-          paternity: { used: 0, total: 3 },
-          bereaved: { used: 1, total: 3 },
-          maternity: { used: 0, total: 90 }
-        }]);
-      } finally {
-        setLoading(false);
-      }
+        setLeaveTypes([]); setLeaveRequests([]);
+        setLeaveBalances([{staffId:'1',sick:{used:2,total:5},annual:{used:8,total:14,firstHalf:5,secondHalf:3,rollover:0},paternity:{used:0,total:3},bereaved:{used:1,total:3},maternity:{used:0,total:90}}]);
+      } finally { setLoading(false); }
     };
-
     fetchData();
   }, [currentPage, filterStatus, filterLeaveType, searchTerm]);
 
-  // Helper function to get appropriate icon for leave type - now using a single consistent icon
-  const getLeaveTypeIcon = () => {
-    return Calendar; // Use Lucide Calendar icon for all leave types
-  };
-  
-  // Handler to open edit leave type modal - uses raw API data
+  const getLeaveTypeIcon = () => Calendar;
+
   const openEditLeaveTypeModal = (displayType: any) => {
-    // Find the raw API data for this leave type
     const rawType = rawLeaveTypes.find(t => t.id === displayType.id);
-    
-    if (!rawType) {
-      console.error('Could not find raw leave type data for id:', displayType.id);
-      return;
-    }
-    
-    setEditLeaveTypeForm({
-      id: rawType.id,
-      name: rawType.name,
-      description: rawType.description || '',
-      daysPerYear: rawType.days_per_year || null,
-      isPaid: rawType.is_paid || false,
-      allowCarryover: rawType.allow_carryover || false,
-      carryoverLimit: rawType.carryover_limit || null,
-      expiryRuleId: rawType.expiry_rule_id || null
-    });
+    if (!rawType) return;
+    setEditLeaveTypeForm({ id:rawType.id, name:rawType.name, description:rawType.description||'', daysPerYear:rawType.days_per_year||null, isPaid:rawType.is_paid||false, allowCarryover:rawType.allow_carryover||false, carryoverLimit:rawType.carryover_limit||null, expiryRuleId:rawType.expiry_rule_id||null });
     setShowEditLeaveTypeModal(true);
   };
 
-  // Helper function to calculate duration between two dates
   const calculateDuration = (startDate: string, endDate: string): number => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
-    return diffDays;
+    const start = new Date(startDate), end = new Date(endDate);
+    return Math.ceil(Math.abs(end.getTime()-start.getTime())/(1000*60*60*24))+1;
   };
 
-  // Helper function to safely format dates
-  const formatDate = (dateString: string | null | undefined, showTime: boolean = false): string => {
+  const formatDate = (dateString: string|null|undefined, showTime=false): string => {
     if (!dateString) return 'Not specified';
     try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      
-      if (showTime) {
-        return date.toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric', 
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      }
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short',
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      });
-    } catch (error) {
-      return 'Invalid Date';
-    }
+      const date = new Date(dateString); if (isNaN(date.getTime())) return 'Invalid Date';
+      if (showTime) return date.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      return date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+    } catch { return 'Invalid Date'; }
   };
 
-  const formatDateShort = (dateString: string | null | undefined): string => {
+  const formatDateShort = (dateString: string|null|undefined): string => {
     if (!dateString) return 'Not specified';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    } catch (error) {
-      return 'Invalid Date';
-    }
+    try { const d = new Date(dateString); if (isNaN(d.getTime())) return 'Invalid Date'; return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch { return 'Invalid Date'; }
   };
 
-  // Helper function to format file size
-  const formatFileSize = (bytes: number | string): string => {
-    const numBytes = typeof bytes === 'string' ? parseInt(bytes) : bytes;
-    if (numBytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(numBytes) / Math.log(k));
-    return Math.round(numBytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  const formatFileSize = (bytes: number|string): string => {
+    const n = typeof bytes==='string'?parseInt(bytes):bytes; if (n===0) return '0 Bytes';
+    const k=1024,s=['Bytes','KB','MB','GB'],i=Math.floor(Math.log(n)/Math.log(k));
+    return Math.round(n/Math.pow(k,i)*100)/100+' '+s[i];
   };
 
-  // Since filtering is done server-side, filteredRequests is just the current page of leaveRequests
   const filteredRequests = leaveRequests;
+  const startIndex = (currentPage-1)*itemsPerPage;
+  const endIndex = startIndex+itemsPerPage;
+  const paginatedRequests = filteredRequests;
 
-  // Calculate pagination for display
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedRequests = filteredRequests; // Already paginated from API
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, filterLeaveType, selectedDepartment]);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filterStatus, filterLeaveType, selectedDepartment]);
-
-  // Calculate statistics from API totals
   const totalRequests = totalItems;
-  const approvedCount = leaveRequests.filter(r => r.status === 'Approved').length;
-  const declinedCount = leaveRequests.filter(r => r.status === 'Declined').length;
-  const activeCount = leaveRequests.filter(r => r.status === 'Active').length;
-  // Use pendingTotal from API when filtered by pending, otherwise calculate from current page
-  const pendingCount = filterStatus === 'pending' ? pendingTotal : leaveRequests.filter(r => r.status === 'Pending').length;
+  const approvedCount = leaveRequests.filter(r=>r.status==='Approved').length;
+  const declinedCount = leaveRequests.filter(r=>r.status==='Declined').length;
+  const activeCount = leaveRequests.filter(r=>r.status==='Active').length;
+  const pendingCount = filterStatus==='pending'?pendingTotal:leaveRequests.filter(r=>r.status==='Pending').length;
 
-  // Handler for approval/decline actions - opens approval modal with attachments
-  const handleApprovalAction = async (request: LeaveRequest, action: 'approve' | 'decline') => {
+  const handleApprovalAction = async (request: LeaveRequest, action: 'approve'|'decline') => {
     setApprovalAction(action);
-    
-    // Fetch attachments for the approval modal
     try {
-      const filesResponse = await getLeaveRequestFiles(parseInt(request.id));
-      console.log('Approval modal attachments response:', filesResponse);
-      
-      if (filesResponse.success && filesResponse.files && filesResponse.files.length > 0) {
-        // Update selectedRequest with attachments
-        setSelectedRequest({
-          ...request,
-          attachments: filesResponse.files
-        });
-      } else {
-        // No attachments, just set the request
-        setSelectedRequest(request);
-      }
-    } catch (fileErr) {
-      console.warn('Could not fetch attachments for approval modal:', fileErr);
-      // Continue without attachments
-      setSelectedRequest(request);
-    }
-    
+      const fr = await getLeaveRequestFiles(parseInt(request.id));
+      if (fr.success && fr.files && fr.files.length>0) setSelectedRequest({...request, attachments:fr.files});
+      else setSelectedRequest(request);
+    } catch { setSelectedRequest(request); }
     setShowApprovalModal(true);
   };
 
-  // Handler for viewing request details - opens details modal
   const handleViewDetails = async (request: LeaveRequest) => {
-    setSelectedRequest(request);
-    setShowDetailsModal(true);
-
-    // Fetch full details from API
-    setDetailsLoading(true);
+    setSelectedRequest(request); setShowDetailsModal(true); setDetailsLoading(true);
     try {
       const response = await getLeaveRequestById(parseInt(request.id));
       if (response.success && response.leaveRequest) {
-        // Fetch attachments separately (may fail if endpoint doesn't exist)
         let attachments = [];
-        try {
-          const filesResponse = await getLeaveRequestFiles(parseInt(request.id));
-          if (filesResponse.success) {
-            attachments = filesResponse.files || [];
-          }
-        } catch (fileErr) {
-          console.warn('Could not fetch attachments, using empty array:', fileErr);
-          // Attachments endpoint may not exist or user may not have permission
-        }
-        
-        // Combine leave request data with attachments
-        setSelectedRequestDetails({
-          ...response.leaveRequest,
-          attachments: attachments
-        });
-        console.log('Leave request details with attachments:', {
-          ...response.leaveRequest,
-          attachments: attachments
-        });
-      } else {
-        console.warn('Failed to load leave request details:', response.message);
+        try { const fr = await getLeaveRequestFiles(parseInt(request.id)); if (fr.success) attachments = fr.files||[]; } catch {}
+        setSelectedRequestDetails({...response.leaveRequest, attachments});
       }
-    } catch (err) {
-      console.error('Error fetching leave request details:', err);
-    } finally {
-      setDetailsLoading(false);
-    }
+    } catch {} finally { setDetailsLoading(false); }
   };
 
-  // Handler for confirming approval/decline action
   const confirmApproval = async () => {
     if (!selectedRequest || !approvalAction) return;
-
     try {
       setLoading(true);
-      const requestId = parseInt(selectedRequest.id);
-
-      console.log(`${approvalAction === 'approve' ? 'Approving' : 'Rejecting'} leave request ${requestId}`);
-
-      // Use the new updateLeaveRequestStatus function
-      const response = await updateLeaveRequestStatus(
-        requestId,
-        approvalAction === 'approve' ? 'approved' : 'rejected',
-        approvalAction === 'decline' ? declineReason : undefined
-      );
-
-      console.log('Update response:', response);
-
+      const response = await updateLeaveRequestStatus(parseInt(selectedRequest.id), approvalAction==='approve'?'approved':'rejected', approvalAction==='decline'?declineReason:undefined);
       if (response.success) {
-        // Update the local state to reflect the change
-        setLeaveRequests(prev => prev.map(req =>
-          req.id === selectedRequest.id
-            ? { 
-                ...req, 
-                status: approvalAction === 'approve' ? 'Approved' : 'Declined',
-                approvedBy: approvalAction === 'approve' ? 'Admin' : undefined,
-                approvalDate: approvalAction === 'approve' ? new Date().toISOString() : undefined,
-                declineReason: approvalAction === 'decline' ? declineReason : undefined
-              }
-            : req
-        ));
-        
-        setSuccessMessage(response.message || `Leave request ${approvalAction === 'approve' ? 'approved' : 'rejected'} successfully`);
-        setTimeout(() => setSuccessMessage(null), 3000);
-      } else {
-        throw new Error(response.message || 'Failed to process leave request');
-      }
-
-      // Close modal and reset state
-      setShowApprovalModal(false);
-      setSelectedRequest(null);
-      setApprovalAction(null);
-      setDeclineReason('');
-    } catch (err: any) {
-      console.error('Error processing leave request:', err);
-      setError(err.message || 'An error occurred while processing the request');
-      setTimeout(() => setError(null), 5000);
-    } finally {
-      setLoading(false);
-    }
+        setLeaveRequests(prev=>prev.map(req=>req.id===selectedRequest.id?{...req,status:approvalAction==='approve'?'Approved':'Declined',approvedBy:approvalAction==='approve'?'Admin':undefined,approvalDate:approvalAction==='approve'?new Date().toISOString():undefined,declineReason:approvalAction==='decline'?declineReason:undefined}:req));
+        setSuccessMessage(response.message||`Leave request ${approvalAction==='approve'?'approved':'rejected'} successfully`);
+        setTimeout(()=>setSuccessMessage(null),3000);
+      } else throw new Error(response.message||'Failed to process leave request');
+      setShowApprovalModal(false); setSelectedRequest(null); setApprovalAction(null); setDeclineReason('');
+    } catch (err: any) { setError(err.message||'An error occurred'); setTimeout(()=>setError(null),5000); }
+    finally { setLoading(false); }
   };
 
-  // Handler for cancelling an approved leave request
   const handleCancelLeave = async () => {
     if (!selectedRequest) return;
-
     try {
       setLoading(true);
-      const requestId = parseInt(selectedRequest.id);
-
-      console.log(`Cancelling leave request ${requestId}`);
-
-      // Use the cancelLeaveRequest function
-      const response = await cancelLeaveRequest(requestId);
-
-      console.log('Cancel response:', response);
-
+      const response = await cancelLeaveRequest(parseInt(selectedRequest.id));
       if (response.success) {
-        // Update the local state to reflect the change
-        setLeaveRequests(prev => prev.map(req =>
-          req.id === selectedRequest.id
-            ? {
-                ...req,
-                status: 'Declined', // Show as Declined in the UI
-                declineReason: 'Cancelled by HR'
-              }
-            : req
-        ));
-
-        setSuccessMessage(response.message || 'Leave request cancelled successfully');
-        setTimeout(() => setSuccessMessage(null), 3000);
-      } else {
-        throw new Error(response.message || 'Failed to cancel leave request');
-      }
-
-      // Close modal and reset state
-      setShowCancelModal(false);
-      setSelectedRequest(null);
-    } catch (err: any) {
-      console.error('Error cancelling leave request:', err);
-      setError(err.message || 'An error occurred while cancelling the request');
-      setTimeout(() => setError(null), 5000);
-    } finally {
-      setLoading(false);
-    }
+        setLeaveRequests(prev=>prev.map(req=>req.id===selectedRequest.id?{...req,status:'Declined',declineReason:'Cancelled by HR'}:req));
+        setSuccessMessage(response.message||'Leave request cancelled successfully');
+        setTimeout(()=>setSuccessMessage(null),3000);
+      } else throw new Error(response.message||'Failed to cancel leave request');
+      setShowCancelModal(false); setSelectedRequest(null);
+    } catch (err: any) { setError(err.message||'An error occurred'); setTimeout(()=>setError(null),5000); }
+    finally { setLoading(false); }
   };
 
-  // Handler for cleaning up expired leave requests
   const handleLeaveCleanup = async () => {
     try {
-      setCleanupLoading(true);
-      setError(null);
-
+      setCleanupLoading(true); setError(null);
       const response = await triggerLeaveCleanup();
-
       if (response.success) {
         setSuccessMessage(`Cleanup successful! ${response.message}`);
-        setCleanupStatus({
-          ...response.data,
-          processed: response.data.declinedCount + response.data.errorCount,
-        });
-
-        // Refresh leave requests to show updated status with current pagination
-        const refreshResponse = await getAllLeaveRequests(currentPage, itemsPerPage, {
-          status: filterStatus !== 'all' ? filterStatus : undefined,
-          leaveType: filterLeaveType !== 'all' ? filterLeaveType : undefined,
-          search: searchTerm || undefined,
-        });
-        if (refreshResponse.success && refreshResponse.leaveRequests) {
-          setLeaveRequests(refreshResponse.leaveRequests);
-          if (refreshResponse.pagination) {
-            setTotalItems(refreshResponse.pagination.totalItems);
-            setTotalPages(refreshResponse.pagination.totalPages);
-          }
-        }
-
-        // Close modal after successful cleanup and refresh
-        setTimeout(() => {
-          setShowCleanupModal(false);
-          setSuccessMessage(null); // Clear success message after 3 seconds
-        }, 2000);
-      } else {
-        setError(response.message || 'Cleanup failed');
-      }
-    } catch (err) {
-      console.error('Error during leave cleanup:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during cleanup');
-    } finally {
-      setCleanupLoading(false);
-    }
+        setCleanupStatus({...response.data, processed:response.data.declinedCount+response.data.errorCount});
+        const rr = await getAllLeaveRequests(currentPage, itemsPerPage, { status:filterStatus!=='all'?filterStatus:undefined, leaveType:filterLeaveType!=='all'?filterLeaveType:undefined, search:searchTerm||undefined });
+        if (rr.success && rr.leaveRequests) { setLeaveRequests(rr.leaveRequests); if (rr.pagination) { setTotalItems(rr.pagination.totalItems); setTotalPages(rr.pagination.totalPages); } }
+        setTimeout(()=>{ setShowCleanupModal(false); setSuccessMessage(null); },2000);
+      } else setError(response.message||'Cleanup failed');
+    } catch (err) { setError(err instanceof Error?err.message:'An error occurred during cleanup'); }
+    finally { setCleanupLoading(false); }
   };
 
-  // Handler for fetching cleanup status
   const handleFetchCleanupStatus = async () => {
-    try {
-      setCleanupLoading(true);
-      const response = await getLeaveCleanupStatus();
-
-      if (response.success) {
-        setCleanupStatus(response.data);
-      }
-    } catch (err) {
-      console.error('Error fetching cleanup status:', err);
-    } finally {
-      setCleanupLoading(false);
-    }
+    try { setCleanupLoading(true); const r = await getLeaveCleanupStatus(); if (r.success) setCleanupStatus(r.data); }
+    catch {} finally { setCleanupLoading(false); }
   };
 
-  // Handler for creating a new leave type
   const handleCreateLeaveType = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await createLeaveType({
-        name: createLeaveTypeForm.name,
-        description: createLeaveTypeForm.description,
-        daysPerYear: createLeaveTypeForm.daysPerYear, // Will be sent as null if not set
-        isPaid: createLeaveTypeForm.isPaid,
-        allowCarryover: createLeaveTypeForm.allowCarryover,
-        carryoverLimit: createLeaveTypeForm.allowCarryover ? createLeaveTypeForm.carryoverLimit : undefined,
-        accrualMethod: undefined, // Optional field
-        accrualRate: undefined    // Optional field
-      });
-
-      if (response.success) {
-        // Close the modal and reset form
-        setShowCreateLeaveTypeModal(false);
-        setCreateLeaveTypeForm({
-          name: '',
-          description: '',
-          daysPerYear: null,
-          isPaid: true,
-          allowCarryover: false,
-          carryoverLimit: null,
-          expiryRuleId: null
-        });
-        
-        // Refresh the leave types if needed
-        // For now, we'll just show a success message
-        alert('Leave type created successfully!');
-      } else {
-        throw new Error(response.message || 'Failed to create leave type');
-      }
-    } catch (err) {
-      console.error('Error creating leave type:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred while creating the leave type');
-    } finally {
-      setLoading(false);
-    }
+      setLoading(true); setError(null);
+      const response = await createLeaveType({ name:createLeaveTypeForm.name, description:createLeaveTypeForm.description, daysPerYear:createLeaveTypeForm.daysPerYear, isPaid:createLeaveTypeForm.isPaid, allowCarryover:createLeaveTypeForm.allowCarryover, carryoverLimit:createLeaveTypeForm.allowCarryover?createLeaveTypeForm.carryoverLimit:undefined, accrualMethod:undefined, accrualRate:undefined });
+      if (response.success) { setShowCreateLeaveTypeModal(false); setCreateLeaveTypeForm({name:'',description:'',daysPerYear:null,isPaid:true,allowCarryover:false,carryoverLimit:null,expiryRuleId:null}); alert('Leave type created successfully!'); }
+      else throw new Error(response.message||'Failed to create leave type');
+    } catch (err) { setError(err instanceof Error?err.message:'An error occurred'); }
+    finally { setLoading(false); }
   };
-  
-  // Handler for editing a leave type
+
   const handleEditLeaveType = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
+      setLoading(true); setError(null);
       const { updateLeaveType } = await import('../services/leaveManagementService');
-      
-      const response = await updateLeaveType(editLeaveTypeForm.id!, {
-        name: editLeaveTypeForm.name,
-        description: editLeaveTypeForm.description,
-        daysPerYear: editLeaveTypeForm.daysPerYear,
-        isPaid: editLeaveTypeForm.isPaid,
-        allowCarryover: editLeaveTypeForm.allowCarryover,
-        carryoverLimit: editLeaveTypeForm.allowCarryover ? editLeaveTypeForm.carryoverLimit : undefined,
-        accrualMethod: undefined, // Optional field
-        accrualRate: undefined    // Optional field
-      });
-
+      const response = await updateLeaveType(editLeaveTypeForm.id!, { name:editLeaveTypeForm.name, description:editLeaveTypeForm.description, daysPerYear:editLeaveTypeForm.daysPerYear, isPaid:editLeaveTypeForm.isPaid, allowCarryover:editLeaveTypeForm.allowCarryover, carryoverLimit:editLeaveTypeForm.allowCarryover?editLeaveTypeForm.carryoverLimit:undefined, accrualMethod:undefined, accrualRate:undefined });
       if (response.success) {
-        // Close the modal and reset form
-        setShowEditLeaveTypeModal(false);
-        setEditLeaveTypeForm({
-          id: null,
-          name: '',
-          description: '',
-          daysPerYear: null,
-          isPaid: true,
-          allowCarryover: false,
-          carryoverLimit: null,
-          expiryRuleId: null
-        });
-        
-        // Refresh the leave types by calling the API again
-        const typesResponse = await getAllLeaveTypes();
-        if (typesResponse.success && typesResponse.leaveTypes) {
-          const transformedTypes = typesResponse.leaveTypes.map((type: any) => ({
-            type: type.name,
-            limit: type.days_per_year, // Use the correct field name from API
-            color: type.is_paid ? '#3b82f6' : '#6b7280', // Different colors for paid/unpaid
-            description: type.description || `${type.days_per_year} days per year`
-          }));
-          
-          setLeaveTypes(transformedTypes);
-        }
-        
+        setShowEditLeaveTypeModal(false); setEditLeaveTypeForm({id:null,name:'',description:'',daysPerYear:null,isPaid:true,allowCarryover:false,carryoverLimit:null,expiryRuleId:null});
+        const tr = await getAllLeaveTypes();
+        if (tr.success && tr.leaveTypes) setLeaveTypes(tr.leaveTypes.map((t:any)=>({type:t.name,limit:t.days_per_year,color:t.is_paid?T.primary:T.textMuted,description:t.description||`${t.days_per_year} days per year`})));
         alert('Leave type updated successfully!');
-      } else {
-        throw new Error(response.message || 'Failed to update leave type');
-      }
-    } catch (err) {
-      console.error('Error updating leave type:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred while updating the leave type');
-    } finally {
-      setLoading(false);
-    }
+      } else throw new Error(response.message||'Failed to update leave type');
+    } catch (err) { setError(err instanceof Error?err.message:'An error occurred'); }
+    finally { setLoading(false); }
   };
 
-  // Function to render the requests tab content
+  // ─── Render: Requests Tab ──────────────────────────────────────────────
   const renderRequestsTab = () => (
-    <>
-      {/* Pending Requests Card with Show All Toggle */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4">
-          <div
-            className="card p-4 cursor-pointer transition-all hover-lift flex-1"
-            onClick={() => setFilterStatus('pending')}
-            style={{
-              border: filterStatus === 'pending' ? '2px solid #f59e0b' : '1px solid #e5e7eb',
-              backgroundColor: filterStatus === 'pending' ? '#fffbeb' : 'white'
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="icon-wrapper" style={{ backgroundColor: '#fef9c3', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem' }}>
-                  <Clock className="w-4 h-4" style={{ color: '#ca8a04' }} />
-                </div>
-                <div>
-                  <p className="text-muted" style={{ fontSize: '0.75rem', lineHeight: '1' }}>Pending Requests</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 600, lineHeight: '1.25' }}>{pendingCount}</p>
-                </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+      {/* Pending requests banner */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+        <div
+          onClick={() => setFilterStatus('pending')}
+          style={{
+            ...card, flex: 1, padding: '1rem 1.25rem', cursor: 'pointer',
+            borderTop: `3px solid ${T.warning}`, background: filterStatus==='pending' ? T.warningPale : T.surface,
+            border: filterStatus==='pending' ? `1px solid ${T.warningBorder}` : `1px solid ${T.border}`,
+            transition: 'box-shadow 0.15s, transform 0.15s',
+          }}
+          onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.transform='translateY(-1px)';(e.currentTarget as HTMLDivElement).style.boxShadow='0 4px 14px rgba(15,23,42,.08)';}}
+          onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.transform='none';(e.currentTarget as HTMLDivElement).style.boxShadow=(card as any).boxShadow;}}
+        >
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.875rem' }}>
+              <div style={{ width:'2.5rem', height:'2.5rem', borderRadius:'10px', background:`${T.warning}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <Clock size={17} color={T.warning}/>
               </div>
-              {filterStatus === 'pending' && (
-                <CheckCircle className="w-5 h-5 text-amber-600" />
-              )}
+              <div>
+                <p style={{ margin:0, fontSize:'0.72rem', fontWeight:700, color:T.textMuted, textTransform:'uppercase', letterSpacing:'0.06em' }}>Pending Requests</p>
+                <p style={{ margin:'0.15rem 0 0', fontSize:'1.6rem', fontWeight:800, color:T.text, lineHeight:1 }}>{pendingCount}</p>
+              </div>
             </div>
+            {filterStatus==='pending' && <CheckCircle size={18} color={T.warning}/>}
           </div>
-          
-          {filterStatus === 'pending' && (
-            <button
-              className="btn btn-outline"
-              onClick={() => setFilterStatus('all')}
-              style={{ padding: '0.625rem 1.25rem', height: 'fit-content' }}
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Show All
-            </button>
-          )}
         </div>
+        {filterStatus==='pending' && (
+          <button style={btnOutline} onClick={()=>setFilterStatus('all')}><Calendar size={14}/>Show All</button>
+        )}
       </div>
 
-      {/* Search Bar and Filter Controls */}
-      <div className="card p-4">
-        {/* Main search and action bar */}
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Search input with icon */}
-          <div className="input-wrapper" style={{ flex: 1, minWidth: '250px' }}>
-            <div className="input-icon">
-              <Search className="w-4 h-4" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search by name, ID, department, or reason..."
-              className="input input-with-icon"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      {/* Search + Filters */}
+      <div style={{ ...card, padding:'0.875rem 1rem' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', flexWrap:'wrap' }}>
+          <div style={{ position:'relative', flex:'1 1 230px', minWidth:'200px' }}>
+            <Search size={13} color={T.textMuted} style={{ position:'absolute', left:'0.7rem', top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}/>
+            <input className="lmv-inp" type="text" placeholder="Search by name, ID, department, reason…" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}
+              style={{ ...inputS, paddingLeft:'2.1rem' }}/>
           </div>
-          {/* Toggle filters button */}
-          <button
-            className={`btn btn-sm ${showFilters ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            {showFilters ? 'Hide Filters' : 'More Filters'}
+          <button style={{ ...btnOutline, background:showFilters?T.primaryPale:T.surface, borderColor:showFilters?T.primaryBorder:T.border, color:showFilters?T.primary:T.textSub }}
+            onClick={()=>setShowFilters(f=>!f)}>
+            <Filter size={13}/>{showFilters?'Hide Filters':'More Filters'}
           </button>
-          {/* Export button */}
-          <button className="btn btn-sm btn-outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </button>
+          <button style={btnOutline}><Download size={13}/> Export</button>
         </div>
 
-        {/* Advanced Filters Panel - shown when showFilters is true */}
         {showFilters && (
-          <div className="grid grid-cols-1 md-grid-cols-3 gap-4 p-4 rounded" style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', marginTop: '1rem' }}>
-            {/* Leave Type Filter */}
-            <div>
-              <label style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>
-                Leave Type
-              </label>
-              <select
-                className="input"
-                value={filterLeaveType}
-                onChange={(e) => setFilterLeaveType(e.target.value)}
-              >
+          <div style={{ marginTop:'0.875rem', padding:'1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'10px', display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap:'0.875rem' }}>
+            <FF label="Leave Type">
+              <select className="lmv-inp" value={filterLeaveType} onChange={e=>setFilterLeaveType(e.target.value)} style={inputS}>
                 <option value="all">All Types</option>
-                {/* Map through leave types to create options */}
-                {leaveTypes.map(type => (
-                  <option key={type.type} value={type.type}>{type.type}</option>
-                ))}
+                {leaveTypes.map(t=><option key={t.type} value={t.type}>{t.type}</option>)}
               </select>
-            </div>
-            {/* Department Filter */}
-            <div>
-              <label style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>
-                Department
-              </label>
-              <select
-                className="input"
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-              >
+            </FF>
+            <FF label="Department">
+              <select className="lmv-inp" value={selectedDepartment} onChange={e=>setSelectedDepartment(e.target.value)} style={inputS}>
                 <option value="all">All Departments</option>
-                <option value="IT Department">IT Department</option>
-                <option value="Finance">Finance</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Human Resources">Human Resources</option>
-                <option value="Operations">Operations</option>
-                <option value="Sales">Sales</option>
+                {['IT Department','Finance','Marketing','Human Resources','Operations','Sales'].map(d=><option key={d} value={d}>{d}</option>)}
               </select>
-            </div>
-            {/* Clear Filters Button */}
-            <div className="flex items-end">
-              <button
-                className="btn btn-outline w-full"
-                onClick={() => {
-                  setSearchTerm(''); // Clear search term
-                  setFilterStatus('all'); // Reset status filter
-                  setFilterLeaveType('all'); // Reset leave type filter
-                  setSelectedDepartment('all'); // Reset department filter
-                }}
-              >
-                Clear All Filters
+            </FF>
+            <div style={{ display:'flex', alignItems:'flex-end' }}>
+              <button style={{ ...btnOutline, width:'100%', justifyContent:'center' }}
+                onClick={()=>{ setSearchTerm(''); setFilterStatus('all'); setFilterLeaveType('all'); setSelectedDepartment('all'); }}>
+                <X size={13}/> Clear All
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Leave Types Guide - interactive cards showing leave policies */}
-      <div className="card p-6">
-        {/* Header with info icon and title */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4" style={{ color: '#2563eb' }} />
-            <h3 style={{ marginBottom: 0 }}>Leave Types & Policies</h3>
+      {/* Leave Types Guide */}
+      <div style={{ ...card, padding:'1.25rem' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1rem', flexWrap:'wrap', gap:'0.75rem' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+            <Info size={15} color={T.primary}/>
+            <h3 style={{ margin:0, fontSize:'0.95rem', fontWeight:700, color:T.text }}>Leave Types &amp; Policies</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => {
-                handleFetchCleanupStatus();
-                setShowCleanupModal(true);
-              }}
-              title="View and cleanup expired leave requests"
-            >
-              <Clock className="w-4 h-4 mr-1" />
-              Cleanup Expired Leaves
+          <div style={{ display:'flex', gap:'0.5rem' }}>
+            <button style={{ ...btnOutline, fontSize:'0.78rem', padding:'0.4rem 0.875rem' }}
+              onClick={()=>{ handleFetchCleanupStatus(); setShowCleanupModal(true); }}>
+              <Clock size={13}/> Cleanup Expired
             </button>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowCreateLeaveTypeModal(true)}
-            >
+            <button style={{ ...btnPrimary, fontSize:'0.78rem', padding:'0.4rem 0.875rem' }}
+              onClick={()=>setShowCreateLeaveTypeModal(true)}>
               + Create Leave Type
             </button>
           </div>
         </div>
-        {/* Grid of leave type cards - Compact design */}
-        <div className="grid grid-cols-1 md-grid-cols-2 lg-grid-cols-4 gap-3">
-          {leaveTypes.length > 0 ? (
-            leaveTypes.map(type => (
-              <div
-                key={type.id || type.type}
-                className="flex items-center gap-2 p-2.5 rounded-lg relative"
-                style={{
-                  backgroundColor: '#f9fafb',
-                  border: '1px solid #e5e7eb',
-                  minHeight: '64px'
-                }}
-              >
-                {/* Leave type icon - left side */}
-                <div className="flex-shrink-0" style={{ backgroundColor: type.color + '20', width: '2rem', height: '2rem', borderRadius: '0.375rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Calendar className="w-4 h-4" style={{ color: type.color }} />
+
+        {leaveTypes.length > 0 ? (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:'0.75rem' }}>
+            {leaveTypes.map(type=>(
+              <div key={type.id||type.type} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem', borderRadius:'10px', background:T.surfaceAlt, border:`1px solid ${T.border}`, transition:'box-shadow 0.15s' }}
+                onMouseEnter={e=>(e.currentTarget.style.boxShadow='0 2px 10px rgba(15,23,42,.07)')}
+                onMouseLeave={e=>(e.currentTarget.style.boxShadow='none')}>
+                <div style={{ width:'2rem', height:'2rem', borderRadius:'7px', background:`${type.color}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <Calendar size={14} color={type.color}/>
                 </div>
-                {/* Leave type details - middle */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, fontSize: '0.75rem', marginBottom: '0.125rem', lineHeight: 1.2 }}>{type.type}</p>
-                  <p className="text-xs text-muted" style={{ fontSize: '0.625rem', lineHeight: 1.2 }}>{type.description}</p>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ margin:0, fontWeight:700, fontSize:'0.82rem', color:T.text }}>{type.type}</p>
+                  <p style={{ margin:'0.1rem 0 0', fontSize:'0.7rem', color:T.textMuted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{type.description}</p>
                 </div>
-                {/* Edit button - right side */}
-                <button
-                  className="flex-shrink-0 btn btn-sm btn-outline"
-                  onClick={() => openEditLeaveTypeModal(type)}
-                  title="Edit leave type"
-                  style={{
-                    padding: '0.25rem',
-                    height: 'auto',
-                    minWidth: 'auto',
-                    fontSize: '0.625rem',
-                    borderColor: '#d1d5db'
-                  }}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                <button onClick={()=>openEditLeaveTypeModal(type)} title="Edit"
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'1.6rem', height:'1.6rem', border:`1px solid ${T.border}`, borderRadius:'6px', background:T.surface, cursor:'pointer', color:T.textMuted, transition:'all 0.12s', flexShrink:0 }}
+                  onMouseEnter={e=>{(e.currentTarget.style.background=T.primaryPale);(e.currentTarget.style.color=T.primary);(e.currentTarget.style.borderColor=T.primaryBorder);}}
+                  onMouseLeave={e=>{(e.currentTarget.style.background=T.surface);(e.currentTarget.style.color=T.textMuted);(e.currentTarget.style.borderColor=T.border);}}>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="13" height="13">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                   </svg>
                 </button>
               </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12">
-              <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-                <Calendar className="w-8 h-8 text-blue-500" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">No Leave Types Created Yet</h3>
-              <p className="text-gray-500 mb-6">Get started by creating your first leave type</p>
-              <button
-                className="btn btn-primary"
-                onClick={() => setShowCreateLeaveTypeModal(true)}
-              >
-                Create Your First Leave Type
-              </button>
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding:'3rem', textAlign:'center' }}>
+            <div style={{ width:'3.5rem', height:'3.5rem', borderRadius:'50%', background:T.primaryPale, border:`1px solid ${T.primaryBorder}`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 0.875rem' }}>
+              <Calendar size={18} color={T.primary}/>
             </div>
-          )}
-        </div>
+            <p style={{ fontWeight:700, color:T.text, margin:'0 0 0.3rem' }}>No Leave Types Created Yet</p>
+            <p style={{ fontSize:'0.82rem', color:T.textMuted, margin:'0 0 1rem' }}>Get started by creating your first leave type</p>
+            <button style={btnPrimary} onClick={()=>setShowCreateLeaveTypeModal(true)}>Create Your First Leave Type</button>
+          </div>
+        )}
       </div>
 
       {/* Leave Requests Table */}
-      <div className="card">
-        {/* Table header with title and count */}
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 style={{ marginBottom: '0.25rem' }}>Leave Requests</h3>
-              <p className="text-muted" style={{ fontSize: '0.875rem' }}>
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredRequests.length)} of {filteredRequests.length} requests
-                {/* Show active filter indicator */}
-                {filterStatus !== 'all' && <span style={{ color: '#2563eb', fontWeight: 500 }}> · {filterStatus}</span>}
-                {filteredRequests.length !== totalRequests && <span style={{ color: '#059669', fontWeight: 500 }}> (filtered from {totalRequests} total)</span>}
-              </p>
-            </div>
+      <div style={{ ...card, overflow:'hidden' }}>
+        <div style={{ padding:'1rem 1.25rem', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <h3 style={{ margin:0, fontSize:'0.95rem', fontWeight:700, color:T.text }}>Leave Requests</h3>
+            <p style={{ margin:'0.15rem 0 0', fontSize:'0.78rem', color:T.textMuted }}>
+              Showing {startIndex+1}–{Math.min(endIndex, filteredRequests.length)} of {totalItems}
+              {filterStatus!=='all' && <span style={{ color:T.primary, fontWeight:600 }}> · {filterStatus}</span>}
+            </p>
           </div>
         </div>
-        {/* Table container */}
-        <div className="table-container">
-          <table className="table">
-            {/* Table header */}
-            <thead className="table-header">
+
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.875rem' }}>
+            <thead>
               <tr>
-                <th className="table-header-cell">Employee</th>
-                <th className="table-header-cell">Leave Details</th>
-                <th className="table-header-cell">Period</th>
-                <th className="table-header-cell">Duration</th>
-                <th className="table-header-cell">Status</th>
-                <th className="table-header-cell right">Actions</th>
+                <Th ch="Employee"/><Th ch="Leave Details"/><Th ch="Period"/><Th ch="Duration"/><Th ch="Status"/><Th right ch="Actions"/>
               </tr>
             </thead>
-            {/* Table body with paginated requests */}
             <tbody>
-              {/* Map through paginated requests to create table rows */}
-              {paginatedRequests.map((request) => {
-                // Find leave type information for styling
-                const leaveTypeInfo = leaveTypes.find(t => t.type === request.leaveType);
+              {paginatedRequests.map(request=>{
+                const lti = leaveTypes.find(t=>t.type===request.leaveType);
                 return (
-                  // Table row for each leave request
-                  <tr key={request.id} className="table-row">
-                    {/* Employee information cell */}
-                    <td className="table-cell">
-                      <div>
-                        <p style={{ fontWeight: 500, fontSize: '0.875rem' }}>{request.staffName}</p>
+                  <tr key={request.id} className="lmv-row" style={{ transition:'background 0.1s' }}>
+                    <Td ch={
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.6rem' }}>
+                        <Avatar name={request.staffName} size={32}/>
+                        <p style={{ margin:0, fontWeight:600, color:T.text, fontSize:'0.85rem' }}>{request.staffName}</p>
                       </div>
-                    </td>
-                    <td className="table-cell">
-                      <div className="flex items-center gap-2">
-                        <div style={{ 
-                          width: '2rem', 
-                          height: '2rem', 
-                          borderRadius: '0.375rem', 
-                          backgroundColor: leaveTypeInfo?.color + '20',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <Calendar className="w-4 h-4" style={{ color: leaveTypeInfo?.color }} />
+                    }/>
+                    <Td ch={
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
+                        <div style={{ width:'2rem', height:'2rem', borderRadius:'7px', background:`${lti?.color||T.primary}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <Calendar size={12} color={lti?.color||T.primary}/>
                         </div>
                         <div>
-                          <p style={{ fontWeight: 600, fontSize: '0.875rem' }}>{request.leaveType} Leave</p>
-                          <p className="text-xs text-muted" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {request.reason}
-                          </p>
+                          <p style={{ margin:0, fontWeight:600, fontSize:'0.82rem', color:T.text }}>{request.leaveType} Leave</p>
+                          <p style={{ margin:0, fontSize:'0.72rem', color:T.textMuted, maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{request.reason}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="table-cell">
+                    }/>
+                    <Td ch={
                       <div>
-                        <p style={{ fontSize: '0.875rem', fontWeight: 500 }}>
-                          {new Date(request.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {' → '}
-                          {new Date(request.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        <p style={{ margin:0, fontSize:'0.8rem', fontWeight:500, color:T.text }}>
+                          {new Date(request.startDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})} → {new Date(request.endDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
                         </p>
-                        <p className="text-xs text-muted">
-                          Requested: {new Date(request.requestDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        <p style={{ margin:'0.15rem 0 0', fontSize:'0.72rem', color:T.textMuted }}>
+                          Requested: {new Date(request.requestDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
                         </p>
                       </div>
-                    </td>
-                    <td className="table-cell">
-                      <div 
-                        className="flex items-center gap-2 px-3 py-2 rounded"
-                        style={{ backgroundColor: leaveTypeInfo?.color + '10', display: 'inline-flex' }}
-                      >
-                        <Clock className="w-3 h-3" style={{ color: leaveTypeInfo?.color }} />
-                        <span style={{ fontWeight: 600, fontSize: '0.875rem', color: leaveTypeInfo?.color }}>
-                          {request.duration} day{request.duration > 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="table-cell">
+                    }/>
+                    <Td ch={
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.2rem 0.55rem', borderRadius:'6px', fontSize:'0.75rem', fontWeight:700, background:`${lti?.color||T.primary}12`, color:lti?.color||T.primary }}>
+                        <Clock size={10}/>{request.duration} day{request.duration>1?'s':''}
+                      </span>
+                    }/>
+                    <Td ch={
                       <div>
-                        <span className={`badge ${
-                          request.status === 'Approved' ? 'badge-success' : 
-                          request.status === 'Declined' ? 'badge-danger' : 
-                          request.status === 'Active' ? 'badge-info' :
-                          'badge-warning'
-                        }`}>
-                          {request.status}
-                        </span>
-                        {request.status === 'Active' && (
-                          <p className="text-xs text-muted" style={{ marginTop: '0.25rem' }}>
-                            Ends {new Date(request.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        <StatusBadge status={request.status}/>
+                        {request.status==='Active' && (
+                          <p style={{ margin:'0.2rem 0 0', fontSize:'0.7rem', color:T.textMuted }}>
+                            Ends {new Date(request.endDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
                           </p>
                         )}
                       </div>
-                    </td>
-                    <td className="table-cell right">
-                      {request.status === 'Pending' ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="btn btn-sm btn-outline green"
-                            onClick={() => handleApprovalAction(request, 'approve')}
-                          >
-                            <Check className="w-3 h-3 mr-1" />
-                            Approve
+                    }/>
+                    <Td right ch={
+                      request.status==='Pending' ? (
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:'0.4rem' }}>
+                          <button style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.75rem', borderRadius:'7px', border:`1px solid ${T.successBorder}`, background:T.successPale, color:T.success, cursor:'pointer', fontSize:'0.78rem', fontWeight:600, fontFamily:'inherit' }}
+                            onClick={()=>handleApprovalAction(request,'approve')}>
+                            <Check size={12}/> Approve
                           </button>
-                          <button
-                            className="btn btn-sm btn-outline red"
-                            onClick={() => handleApprovalAction(request, 'decline')}
-                          >
-                            <X className="w-3 h-3 mr-1" />
-                            Decline
+                          <button style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.75rem', borderRadius:'7px', border:`1px solid ${T.dangerBorder}`, background:T.dangerPale, color:T.danger, cursor:'pointer', fontSize:'0.78rem', fontWeight:600, fontFamily:'inherit' }}
+                            onClick={()=>handleApprovalAction(request,'decline')}>
+                            <X size={12}/> Decline
                           </button>
                         </div>
-                      ) : request.status === 'Approved' ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="btn btn-sm btn-outline"
-                            onClick={() => handleViewDetails(request)}
-                          >
-                            <FileText className="w-3 h-3 mr-1" />
-                            Details
+                      ) : request.status==='Approved' ? (
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:'0.4rem' }}>
+                          <button style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.75rem', borderRadius:'7px', border:`1px solid ${T.border}`, background:T.surface, color:T.textSub, cursor:'pointer', fontSize:'0.78rem', fontWeight:600, fontFamily:'inherit' }}
+                            onClick={()=>handleViewDetails(request)}>
+                            <FileText size={12}/> Details
                           </button>
-                          <button
-                            className="btn btn-sm btn-outline red"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              setShowCancelModal(true);
-                            }}
-                          >
-                            <X className="w-3 h-3 mr-1" />
-                            Cancel
+                          <button style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.75rem', borderRadius:'7px', border:`1px solid ${T.dangerBorder}`, background:T.dangerPale, color:T.danger, cursor:'pointer', fontSize:'0.78rem', fontWeight:600, fontFamily:'inherit' }}
+                            onClick={()=>{ setSelectedRequest(request); setShowCancelModal(true); }}>
+                            <X size={12}/> Cancel
                           </button>
                         </div>
                       ) : (
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => handleViewDetails(request)}
-                        >
-                          <FileText className="w-3 h-3 mr-1" />
-                          Details
+                        <button style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.75rem', borderRadius:'7px', border:`1px solid ${T.border}`, background:T.surface, color:T.textSub, cursor:'pointer', fontSize:'0.78rem', fontWeight:600, fontFamily:'inherit' }}
+                          onClick={()=>handleViewDetails(request)}>
+                          <FileText size={12}/> Details
                         </button>
-                      )}
-                    </td>
+                      )
+                    }/>
                   </tr>
                 );
               })}
@@ -1138,901 +711,421 @@ const LeaveManagementView = () => {
           </table>
         </div>
 
-        {/* Pagination Controls */}
+        {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-4 border-t" style={{ backgroundColor: '#f9fafb' }}>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setCurrentPage(prev => Math.max(1, prev - 1));
-                    }}
-                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
-                  />
-                </PaginationItem>
-
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <PaginationItem key={pageNum}>
-                      <PaginationLink
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(pageNum);
-                        }}
-                        isActive={currentPage === pageNum}
-                      >
-                        {pageNum}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
-
-                {totalPages > 5 && currentPage < totalPages - 2 && (
-                  <PaginationItem>
-                    <PaginationEllipsis />
-                  </PaginationItem>
-                )}
-
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setCurrentPage(prev => Math.min(totalPages, prev + 1));
-                    }}
-                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-            <div className="mt-2 text-sm" style={{ color: '#6b7280' }}>
-              Showing <span style={{ fontWeight: 600, color: '#111827' }}>{startIndex + 1}</span> to{' '}
-              <span style={{ fontWeight: 600, color: '#111827' }}>{Math.min(endIndex, totalItems)}</span> of{' '}
-              <span style={{ fontWeight: 600, color: '#111827' }}>{totalItems}</span> leave requests
+          <div style={{ padding:'0.875rem 1.25rem', borderTop:`1px solid ${T.border}`, background:T.surfaceAlt, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.75rem' }}>
+            <p style={{ margin:0, fontSize:'0.78rem', color:T.textMuted }}>
+              Showing <strong style={{ color:T.text }}>{startIndex+1}</strong>–<strong style={{ color:T.text }}>{Math.min(endIndex,totalItems)}</strong> of <strong style={{ color:T.text }}>{totalItems}</strong>
+            </p>
+            <div style={{ display:'flex', gap:'0.3rem', alignItems:'center' }}>
+              <button className="lmv-pg" disabled={currentPage===1} onClick={()=>setCurrentPage(p=>Math.max(1,p-1))}
+                style={{ padding:'0.35rem 0.75rem', border:`1px solid ${T.border}`, borderRadius:'7px', background:T.surface, color:T.textSub, fontSize:'0.8rem', fontWeight:500, cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?.4:1, fontFamily:'inherit', transition:'all 0.12s' }}>
+                ← Prev
+              </button>
+              {Array.from({length:Math.min(5,totalPages)},(_,i)=>{
+                let p: number;
+                if (totalPages<=5) p=i+1;
+                else if (currentPage<=3) p=i+1;
+                else if (currentPage>=totalPages-2) p=totalPages-4+i;
+                else p=currentPage-2+i;
+                const active=currentPage===p;
+                return <button key={p} onClick={()=>setCurrentPage(p)} className={!active?'lmv-pg':''}
+                  style={{ width:'2rem', height:'2rem', border:active?'none':`1px solid ${T.border}`, borderRadius:'7px', background:active?T.primary:T.surface, color:active?'#fff':T.textSub, fontSize:'0.8rem', fontWeight:active?700:500, cursor:'pointer', fontFamily:'inherit', boxShadow:active?`0 1px 4px rgba(30,64,175,.25)`:'none', transition:'all 0.12s' }}>{p}</button>;
+              })}
+              {totalPages>5 && currentPage<totalPages-2 && <span style={{ color:T.textMuted, fontSize:'0.8rem', padding:'0 0.2rem' }}>…</span>}
+              <button className="lmv-pg" disabled={currentPage>=totalPages} onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))}
+                style={{ padding:'0.35rem 0.75rem', border:`1px solid ${T.border}`, borderRadius:'7px', background:T.surface, color:T.textSub, fontSize:'0.8rem', fontWeight:500, cursor:currentPage>=totalPages?'not-allowed':'pointer', opacity:currentPage>=totalPages?.4:1, fontFamily:'inherit', transition:'all 0.12s' }}>
+                Next →
+              </button>
             </div>
           </div>
         )}
-        
-        {filteredRequests.length === 0 && (
-          <div className="p-12 flex flex-col items-center justify-center">
-            <div className="icon-wrapper" style={{ backgroundColor: '#f3f4f6', width: '4rem', height: '4rem' }}>
-              <Calendar className="w-8 h-8" style={{ color: '#9ca3af' }} />
+
+        {filteredRequests.length===0 && !loading && (
+          <div style={{ padding:'4rem', textAlign:'center' }}>
+            <div style={{ width:'3.5rem', height:'3.5rem', borderRadius:'50%', background:T.surfaceMuted, border:`1px solid ${T.border}`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 0.875rem' }}>
+              <Calendar size={18} color={T.textMuted}/>
             </div>
-            <p style={{ marginTop: '1rem', fontWeight: 500, color: '#6b7280' }}>No leave requests found</p>
-            <p className="text-xs text-muted" style={{ marginTop: '0.25rem' }}>
-              {searchTerm || filterStatus !== 'all' || filterLeaveType !== 'all' || selectedDepartment !== 'all' 
-                ? 'Try adjusting your filters' 
-                : 'Leave requests will appear here'}
+            <p style={{ fontWeight:600, color:T.text, margin:'0 0 0.3rem' }}>No leave requests found</p>
+            <p style={{ fontSize:'0.8rem', color:T.textMuted, margin:0 }}>
+              {searchTerm||filterStatus!=='all'||filterLeaveType!=='all'||selectedDepartment!=='all'?'Try adjusting your filters':'Leave requests will appear here'}
             </p>
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 
+  // ─── Render: Report Tab ───────────────────────────────────────────────
   const renderReportTab = () => {
-    const leaveByType = leaveTypes.map(type => ({
-      type: type.type,
-      count: leaveRequests.filter(r => r.leaveType === type.type && r.status === 'Approved').length,
-      days: leaveRequests.filter(r => r.leaveType === type.type && r.status === 'Approved').reduce((sum, r) => sum + r.duration, 0),
-      icon: type.icon,
-      color: type.color
+    const leaveByType = leaveTypes.map(type=>({
+      type:type.type, count:leaveRequests.filter(r=>r.leaveType===type.type&&r.status==='Approved').length,
+      days:leaveRequests.filter(r=>r.leaveType===type.type&&r.status==='Approved').reduce((s,r)=>s+r.duration,0),
+      icon:type.icon, color:type.color
     }));
-
-    // Get unique departments from leave requests
-    const uniqueDepartments = [...new Set(leaveRequests.map(r => r.department))];
-    const departmentStats = uniqueDepartments.map(dept => ({
-      dept,
-      count: leaveRequests.filter(r => r.department === dept && r.status === 'Approved').length,
-      days: leaveRequests.filter(r => r.department === dept && r.status === 'Approved').reduce((sum, r) => sum + r.duration, 0)
+    const uniqueDepts = [...new Set(leaveRequests.map(r=>r.department))];
+    const deptStats = uniqueDepts.map(dept=>({
+      dept, count:leaveRequests.filter(r=>r.department===dept&&r.status==='Approved').length,
+      days:leaveRequests.filter(r=>r.department===dept&&r.status==='Approved').reduce((s,r)=>s+r.duration,0)
     }));
 
     return (
-      <div className="space-y-6">
-        {/* Summary Cards - 4 cards in single row */}
-        <div className="grid grid-cols-2 lg-grid-cols-4 gap-3">
-          <div className="card p-2.5">
-            <div className="flex items-center gap-2.5">
-              <div className="icon-wrapper" style={{ backgroundColor: '#dbeafe', minWidth: '2.25rem', width: '2.25rem', height: '2.25rem', borderRadius: '0.375rem', flexShrink: 0 }}>
-                <Calendar className="w-4 h-4" style={{ color: '#2563eb' }} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-muted" style={{ fontSize: '0.65rem', lineHeight: 1.1 }}>Total Leave Days</p>
-                <p style={{ fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.2 }}>
-                  {leaveRequests.filter(r => r.status === 'Approved').reduce((sum, r) => sum + r.duration, 0)}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="card p-2.5">
-            <div className="flex items-center gap-2.5">
-              <div className="icon-wrapper" style={{ backgroundColor: '#f0fdf4', minWidth: '2.25rem', width: '2.25rem', height: '2.25rem', borderRadius: '0.375rem', flexShrink: 0 }}>
-                <User className="w-4 h-4" style={{ color: '#16a34a' }} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-muted" style={{ fontSize: '0.65rem', lineHeight: 1.1 }}>Employees on Leave</p>
-                <p style={{ fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.2 }}>{activeCount}</p>
+      <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+        {/* Summary stat cards */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap:'0.875rem' }}>
+          {[
+            { label:'Total Leave Days', value:leaveRequests.filter(r=>r.status==='Approved').reduce((s,r)=>s+r.duration,0), icon:Calendar,      accent:T.primary,  pale:T.primaryPale  },
+            { label:'On Leave Now',     value:activeCount, icon:User,         accent:T.success,  pale:T.successPale  },
+            { label:'Approval Rate',    value:`${approvedCount+declinedCount>0?((approvedCount/(approvedCount+declinedCount))*100).toFixed(0):0}%`, icon:TrendingUp, accent:T.warning, pale:T.warningPale },
+            { label:'Pending Review',   value:pendingCount, icon:AlertCircle,  accent:T.danger,   pale:T.dangerPale   },
+          ].map(({label,value,icon:Icon,accent,pale})=>(
+            <div key={label} style={{ ...card, padding:'1rem 1.25rem', borderTop:`3px solid ${accent}`, background:pale }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                <div style={{ width:'2.5rem', height:'2.5rem', borderRadius:'10px', background:`${accent}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <Icon size={17} color={accent}/>
+                </div>
+                <div>
+                  <p style={{ margin:0, fontSize:'0.68rem', fontWeight:700, color:T.textMuted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</p>
+                  <p style={{ margin:'0.15rem 0 0', fontSize:'1.5rem', fontWeight:800, color:T.text, lineHeight:1 }}>{value}</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="card p-2.5">
-            <div className="flex items-center gap-2.5">
-              <div className="icon-wrapper" style={{ backgroundColor: '#fef3c7', minWidth: '2.25rem', width: '2.25rem', height: '2.25rem', borderRadius: '0.375rem', flexShrink: 0 }}>
-                <TrendingUp className="w-4 h-4" style={{ color: '#f59e0b' }} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-muted" style={{ fontSize: '0.65rem', lineHeight: 1.1 }}>Approval Rate</p>
-                <p style={{ fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.2 }}>
-                  {approvedCount + declinedCount > 0 ? ((approvedCount / (approvedCount + declinedCount)) * 100).toFixed(0) : 0}%
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="card p-2.5">
-            <div className="flex items-center gap-2.5">
-              <div className="icon-wrapper" style={{ backgroundColor: '#fef2f2', minWidth: '2.25rem', width: '2.25rem', height: '2.25rem', borderRadius: '0.375rem', flexShrink: 0 }}>
-                <AlertCircle className="w-4 h-4" style={{ color: '#dc2626' }} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-muted" style={{ fontSize: '0.65rem', lineHeight: 1.1 }}>Pending Review</p>
-                <p style={{ fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.2 }}>{pendingCount}</p>
-              </div>
-            </div>
+          ))}
+        </div>
+
+        {/* Leave by type */}
+        <div style={{ ...card, padding:'1.25rem' }}>
+          <h3 style={{ margin:'0 0 1.1rem', fontSize:'0.95rem', fontWeight:700, color:T.text }}>Leave Distribution by Type</h3>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.875rem' }}>
+            {leaveByType.map(item=>{
+              const maxDays = Math.max(...leaveByType.map(d=>d.days), 1);
+              return (
+                <div key={item.type}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.4rem' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                      <div style={{ width:'1.6rem', height:'1.6rem', borderRadius:'5px', background:`${item.color}18`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <Calendar size={11} color={item.color}/>
+                      </div>
+                      <span style={{ fontSize:'0.82rem', fontWeight:600, color:T.text }}>{item.type}</span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.875rem' }}>
+                      <span style={{ fontSize:'0.75rem', color:T.textMuted }}>{item.count} requests</span>
+                      <span style={{ fontWeight:700, color:T.text, fontSize:'0.875rem' }}>{item.days} days</span>
+                    </div>
+                  </div>
+                  <div style={{ height:'5px', background:T.surfaceMuted, borderRadius:'99px', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${item.days>0?(item.days/maxDays)*100:0}%`, background:item.color, borderRadius:'99px', transition:'width 0.4s' }}/>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Leave by Type */}
-        <div className="card p-6">
-          <h3 style={{ marginBottom: '1.5rem' }}>Leave Distribution by Type</h3>
-          <div className="space-y-4">
-            {leaveByType.map((item) => (
-              <div key={item.type}>
-                <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
-                  <div className="flex items-center gap-2">
-                    <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
-                    <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{item.type}</span>
+        {/* Department breakdown */}
+        <div style={{ ...card, padding:'1.25rem' }}>
+          <h3 style={{ margin:'0 0 1.1rem', fontSize:'0.95rem', fontWeight:700, color:T.text }}>Leave by Department</h3>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.875rem' }}>
+            {deptStats.map((item,i)=>{
+              const maxDays = Math.max(...deptStats.map(d=>d.days), 1);
+              return (
+                <div key={i}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.4rem' }}>
+                    <span style={{ fontSize:'0.82rem', color:T.textSub, fontWeight:500 }}>{item.dept}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.875rem' }}>
+                      <span style={{ fontSize:'0.75rem', color:T.textMuted }}>{item.count} requests</span>
+                      <span style={{ fontWeight:700, color:T.text, fontSize:'0.875rem' }}>{item.days} days</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs text-muted">{item.count} requests</span>
-                    <span style={{ fontWeight: 600 }}>{item.days} days</span>
-                  </div>
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{
-                      width: `${item.days > 0 ? (item.days / Math.max(...leaveByType.map(d => d.days))) * 100 : 0}%`,
-                      backgroundColor: item.color
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Department Breakdown */}
-        <div className="card p-6">
-          <h3 style={{ marginBottom: '1.5rem' }}>Leave by Department</h3>
-          <div className="space-y-3">
-            {departmentStats.map((item, index) => (
-              <div key={index}>
-                <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
-                  <span className="text-muted" style={{ fontSize: '0.875rem' }}>{item.dept}</span>
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs text-muted">{item.count} requests</span>
-                    <span style={{ fontWeight: 600 }}>{item.days} days</span>
+                  <div style={{ height:'5px', background:T.surfaceMuted, borderRadius:'99px', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${item.days>0?(item.days/maxDays)*100:0}%`, background:T.primaryLight, borderRadius:'99px', transition:'width 0.4s' }}/>
                   </div>
                 </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{
-                      width: `${item.days > 0 ? (item.days / Math.max(...departmentStats.map(d => d.days))) * 100 : 0}%`,
-                      backgroundColor: '#2563eb'
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
     );
   };
 
+  // ─── Modal helpers: Leave details rows ────────────────────────────────
+  const InfoRow = ({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) => (
+    <div style={{ padding:'0.875rem 1rem', background:accent?`${accent}08`:T.surfaceAlt, border:`1px solid ${accent?`${accent}25`:T.border}`, borderRadius:'9px' }}>
+      <p style={{ margin:'0 0 0.3rem', fontSize:'0.68rem', fontWeight:700, color:T.textMuted, textTransform:'uppercase', letterSpacing:'0.07em' }}>{label}</p>
+      <div style={{ fontWeight:600, fontSize:'0.875rem', color:T.text }}>{value}</div>
+    </div>
+  );
 
-  // Main component render return
+  // ─── Main render ──────────────────────────────────────────────────────
   return (
-    // Main container with vertical spacing
-    <div className="space-y-6">
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem', fontFamily:"'DM Sans','Geist',system-ui,sans-serif" }}>
+      <style>{`
+        .lmv-row:hover{background:${T.surfaceAlt}!important}
+        .lmv-inp:focus{border-color:${T.primaryLight}!important;box-shadow:0 0 0 3px rgba(59,130,246,.12)!important}
+        .lmv-pg:hover:not(:disabled){background:${T.primaryPale}!important;border-color:${T.primaryBorder}!important;color:${T.primary}!important}
+        @keyframes lmvspin{to{transform:rotate(360deg)}}
+      `}</style>
+
+      {/* Loading state */}
       {loading && (
-        <div className="card p-8 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <span className="ml-3">Loading leave data...</span>
+        <div style={{ ...card, padding:'3rem', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.75rem' }}>
+          <div style={{ width:20, height:20, border:`2.5px solid ${T.primaryBorder}`, borderTopColor:T.primary, borderRadius:'50%', animation:'lmvspin 0.7s linear infinite' }}/>
+          <span style={{ color:T.textSub, fontSize:'0.875rem' }}>Loading leave data…</span>
         </div>
       )}
 
+      {/* Error toast */}
       {error && (
-        <div className="alert alert-error">
-          <span>{error}</span>
+        <div style={{ padding:'0.75rem 1rem', background:T.dangerPale, border:`1px solid ${T.dangerBorder}`, borderRadius:'10px', display:'flex', alignItems:'center', gap:'0.6rem' }}>
+          <AlertCircle size={15} color={T.danger}/>
+          <p style={{ margin:0, fontSize:'0.85rem', color:'#7f1d1d', flex:1, fontWeight:500 }}>{error}</p>
+          <button onClick={()=>setError(null)} style={{ border:'none', background:'none', cursor:'pointer', color:T.danger, display:'flex' }}><X size={14}/></button>
+        </div>
+      )}
+
+      {/* Success toast */}
+      {successMessage && (
+        <div style={{ padding:'0.75rem 1rem', background:T.successPale, border:`1px solid ${T.successBorder}`, borderRadius:'10px', display:'flex', alignItems:'center', gap:'0.6rem' }}>
+          <CheckCircle size={15} color={T.success}/>
+          <p style={{ margin:0, fontSize:'0.85rem', color:'#065f46', flex:1, fontWeight:500 }}>{successMessage}</p>
+          <button onClick={()=>setSuccessMessage(null)} style={{ border:'none', background:'none', cursor:'pointer', color:T.success, display:'flex' }}><X size={14}/></button>
         </div>
       )}
 
       {!loading && !error && (
         <>
-          {/* Tab Navigation */}
-          <div className="card">
-            {/* Tab list container */}
-            <div className="tabs-list" style={{ padding: '0 1.5rem' }}>
-              {/* Requests Tab */}
-              <button
-                className={`tabs-trigger ${activeTab === 'requests' ? 'active' : ''}`}
-                onClick={() => setActiveTab('requests')}
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                Leave Requests
-              </button>
-              {/* Report Tab */}
-              <button
-                className={`tabs-trigger ${activeTab === 'report' ? 'active' : ''}`}
-                onClick={() => setActiveTab('report')}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Leave Report
-              </button>
-              {/* Year-End Analysis Tab */}
-            </div>
+          {/* Tab bar */}
+          <div style={{ ...card, padding:'0.35rem', display:'flex', gap:'0.25rem', background:T.surfaceAlt }}>
+            {[
+              { key:'requests', label:'Leave Requests', icon:Calendar },
+              { key:'report',   label:'Leave Report',   icon:FileText  },
+            ].map(({key,label,icon:Icon})=>{
+              const active = activeTab===key;
+              return (
+                <button key={key} onClick={()=>setActiveTab(key as any)}
+                  style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', padding:'0.6rem 0.75rem', borderRadius:'8px', border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:active?700:500, background:active?T.surface:'transparent', color:active?T.primary:T.textMuted, boxShadow:active?'0 1px 4px rgba(15,23,42,.08)':'none', transition:'all 0.15s' }}>
+                  <Icon size={14}/>{label}
+                  {active && <span style={{ width:4, height:4, borderRadius:'50%', background:T.primary, display:'inline-block', marginLeft:'0.1rem' }}/>}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Conditional rendering based on active tab */}
-          {activeTab === 'requests' && renderRequestsTab()}
-          {activeTab === 'report' && renderReportTab()}
+          {activeTab==='requests' && renderRequestsTab()}
+          {activeTab==='report'   && renderReportTab()}
 
-          {/* Approval Modal - Modern Design */}
+          {/* ── Approval Modal ───────────────────────────────────── */}
           {showApprovalModal && selectedRequest && (
             <>
-              <div className="modal-overlay" onClick={() => setShowApprovalModal(false)}></div>
-              <div className="modal modal-lg animate-scale-in">
-                <div className="modal-header">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center",
-                      approvalAction === 'approve' 
-                        ? "bg-gradient-to-br from-green-500 to-green-600" 
-                        : "bg-gradient-to-br from-red-500 to-red-600"
-                    )}>
-                      {approvalAction === 'approve' ? (
-                        <Check className="w-6 h-6 text-white" />
-                      ) : (
-                        <AlertCircle className="w-6 h-6 text-white" />
-                      )}
-                    </div>
-                    <div>
-                      <h2 className="modal-title text-xl font-semibold text-slate-900">
-                        {approvalAction === 'approve' ? 'Approve' : 'Decline'} Leave Request
-                      </h2>
-                      <p className="text-sm text-slate-500 mt-0.5">
-                        Request #{selectedRequest.id}
-                      </p>
-                    </div>
-                  </div>
-                  <button 
-                    className="btn btn-ghost btn-icon rounded-lg hover:bg-slate-100 transition-colors" 
-                    onClick={() => setShowApprovalModal(false)}
-                  >
-                    <X className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
-                <div className="modal-content space-y-5">
-                  {/* Employee Info Card */}
-                  <div className="card p-4 bg-gradient-to-r from-slate-50 to-white">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                        <span className="text-white font-semibold text-sm">
-                          {selectedRequest.staffName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </span>
+              <div style={overlayS} onClick={()=>setShowApprovalModal(false)}/>
+              <div style={modalShell('36rem')}>
+                <MHead
+                  icon={approvalAction==='approve'?Check:AlertCircle}
+                  title={`${approvalAction==='approve'?'Approve':'Decline'} Leave Request`}
+                  sub={`Request #${selectedRequest.id}`}
+                  color={approvalAction==='approve'?T.success:T.danger}
+                  onClose={()=>setShowApprovalModal(false)}
+                />
+                <div style={mBody}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                    {/* Employee */}
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.875rem', padding:'1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'10px' }}>
+                      <Avatar name={selectedRequest.staffName} size={44}/>
+                      <div style={{ flex:1 }}>
+                        <p style={{ margin:0, fontWeight:700, fontSize:'0.95rem', color:T.text }}>{selectedRequest.staffName}</p>
+                        <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:T.textMuted }}>{selectedRequest.staffId} · {selectedRequest.department}</p>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-slate-900 text-base">{selectedRequest.staffName}</p>
-                        <p className="text-sm text-slate-500 mt-0.5">{selectedRequest.staffId} · {selectedRequest.department}</p>
-                      </div>
-                      <div className={cn(
-                        "badge px-3 py-1.5 text-xs font-semibold",
-                        selectedRequest.status === 'Pending' ? "badge-warning" :
-                        selectedRequest.status === 'Approved' ? "badge-success" :
-                        selectedRequest.status === 'Declined' ? "badge-error" : "badge-secondary"
-                      )}>
-                        {selectedRequest.status}
-                      </div>
+                      <StatusBadge status={selectedRequest.status}/>
                     </div>
-                  </div>
 
-                  {/* Leave Details Grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="card p-4 bg-gradient-to-br from-blue-50 to-white border-blue-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Calendar className="w-4 h-4 text-blue-600" />
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Leave Type</span>
-                      </div>
-                      <p className="font-semibold text-slate-900">{selectedRequest.leaveType}</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                      <InfoRow label="Leave Type" value={selectedRequest.leaveType} accent={T.primary}/>
+                      <InfoRow label="Duration" value={`${selectedRequest.duration} ${selectedRequest.duration>1?'days':'day'}`} accent={T.purple}/>
                     </div>
-                    <div className="card p-4 bg-gradient-to-br from-purple-50 to-white border-purple-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="w-4 h-4 text-purple-600" />
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Duration</span>
-                      </div>
-                      <p className="font-semibold text-slate-900">{selectedRequest.duration} {selectedRequest.duration > 1 ? 'days' : 'day'}</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                      <InfoRow label="Start Date" value={new Date(selectedRequest.startDate).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}/>
+                      <InfoRow label="End Date" value={new Date(selectedRequest.endDate).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}/>
                     </div>
-                  </div>
+                    <InfoRow label="Reason for Leave" value={<p style={{ margin:0, fontSize:'0.85rem', lineHeight:1.6, color:T.textSub }}>{selectedRequest.reason}</p>}/>
 
-                  {/* Dates */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Start Date</span>
-                      <p className="font-medium text-slate-900 mt-1.5 text-sm">
-                        {new Date(selectedRequest.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">End Date</span>
-                      <p className="font-medium text-slate-900 mt-1.5 text-sm">
-                        {new Date(selectedRequest.endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Reason */}
-                  <div>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Reason for Leave</span>
-                    <div className="card p-4 mt-2 bg-slate-50 border-slate-200">
-                      <p className="text-sm text-slate-700 leading-relaxed">{selectedRequest.reason}</p>
-                    </div>
-                  </div>
-
-                  {/* Attachments Section - Enhanced Styling */}
-                  {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                          <Paperclip className="w-4 h-4 text-white" />
+                    {/* Attachments */}
+                    {(selectedRequest as any).attachments?.length > 0 && (
+                      <div>
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.75rem' }}>
+                          <Paperclip size={14} color={T.primary}/>
+                          <span style={{ fontSize:'0.8rem', fontWeight:700, color:T.text }}>Attachments</span>
+                          <span style={{ padding:'0.1rem 0.45rem', background:T.primaryPale, color:T.primary, border:`1px solid ${T.primaryBorder}`, borderRadius:'100px', fontSize:'0.68rem', fontWeight:700 }}>{(selectedRequest as any).attachments.length}</span>
                         </div>
-                        <div>
-                          <span className="text-sm font-semibold text-slate-700">Attachments</span>
-                          <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                            {selectedRequest.attachments.length}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2">
-                        {selectedRequest.attachments.map((attachment: any, index: number) => {
-                          // Handle different field names from backend
-                          const fileName = attachment.file_name || attachment.name || `Attachment ${index + 1}`;
-                          const filePath = attachment.file_path || attachment.path || attachment.file_url || '#';
-                          const mimeType = attachment.mime_type || attachment.file_type || '';
-                          const fileSize = attachment.file_size;
-                          
-                          const isImage = mimeType.includes('image') || fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-                          const isPDF = mimeType.includes('pdf') || fileName.match(/\.pdf$/i);
-
-                          return (
-                            <a
-                              key={index}
-                              href={`${filePath.startsWith('http') ? filePath : `http://localhost:3000${filePath}`}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="group relative flex items-center gap-3 p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 hover:border-blue-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
-                            >
-                              {/* File Icon */}
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
-                                isImage ? 'bg-gradient-to-br from-purple-100 to-purple-200' :
-                                isPDF ? 'bg-gradient-to-br from-red-100 to-red-200' :
-                                'bg-gradient-to-br from-blue-100 to-blue-200'
-                              }`}>
-                                {isImage ? (
-                                  <Image className="w-6 h-6 text-purple-600" />
-                                ) : isPDF ? (
-                                  <FileText className="w-6 h-6 text-red-600" />
-                                ) : (
-                                  <FileText className="w-6 h-6 text-blue-600" />
-                                )}
-                              </div>
-
-                              {/* File Info */}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                                  {fileName}
-                                </p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs text-slate-500 uppercase tracking-wide">
-                                    {mimeType.split('/')[1]?.toUpperCase() || 'Document'}
-                                  </span>
-                                  {fileSize && (
-                                    <>
-                                      <span className="text-slate-300">•</span>
-                                      <span className="text-xs text-slate-500">
-                                        {formatFileSize(fileSize)}
-                                      </span>
-                                    </>
-                                  )}
+                        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                          {(selectedRequest as any).attachments.map((att: any, i: number) => {
+                            const fileName = att.file_name||att.name||`Attachment ${i+1}`;
+                            const filePath = att.file_path||att.path||att.file_url||'#';
+                            const mimeType = att.mime_type||att.file_type||'';
+                            const fileSize = att.file_size;
+                            const isImage = mimeType.includes('image')||fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                            const isPDF = mimeType.includes('pdf')||fileName.match(/\.pdf$/i);
+                            return (
+                              <a key={i} href={`${filePath.startsWith('http')?filePath:`http://localhost:3000${filePath}`}`} target="_blank" rel="noopener noreferrer"
+                                style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'9px', textDecoration:'none', transition:'box-shadow 0.15s, border-color 0.15s' }}
+                                onMouseEnter={e=>{(e.currentTarget as HTMLAnchorElement).style.borderColor=T.primaryBorder;(e.currentTarget as HTMLAnchorElement).style.boxShadow='0 2px 10px rgba(15,23,42,.08)';}}
+                                onMouseLeave={e=>{(e.currentTarget as HTMLAnchorElement).style.borderColor=T.border;(e.currentTarget as HTMLAnchorElement).style.boxShadow='none';}}>
+                                <div style={{ width:'2.25rem', height:'2.25rem', borderRadius:'7px', background:isImage?T.purplePale:isPDF?T.dangerPale:T.primaryPale, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                                  {isImage?<Image size={14} color={T.purple}/>:<FileText size={14} color={isPDF?T.danger:T.primary}/>}
                                 </div>
-                              </div>
-
-                              {/* View Icon */}
-                              <div className="w-9 h-9 rounded-lg bg-white/80 group-hover:bg-white flex items-center justify-center transition-all shadow-sm group-hover:shadow">
-                                <ExternalLink className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
-                              </div>
-
-                              {/* Hover indicator */}
-                              <div className="absolute inset-0 rounded-xl ring-2 ring-blue-400 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                            </a>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Policy Warning */}
-                  {selectedRequest.leaveType === 'Annual' && selectedRequest.duration > 7 && approvalAction === 'approve' && (
-                    <div className="card p-4 bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-red-900">Policy Violation</p>
-                          <p className="text-sm text-red-700 mt-1 leading-relaxed">
-                            This annual leave request exceeds the 7-day limit. Please request the employee to split this into separate requests.
-                          </p>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <p style={{ margin:0, fontWeight:600, fontSize:'0.82rem', color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fileName}</p>
+                                  <p style={{ margin:0, fontSize:'0.7rem', color:T.textMuted }}>{mimeType.split('/')[1]?.toUpperCase()||'Document'}{fileSize&&` · ${formatFileSize(fileSize)}`}</p>
+                                </div>
+                                <ExternalLink size={14} color={T.primary}/>
+                              </a>
+                            );
+                          })}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Decline Reason Input */}
-                  {approvalAction === 'decline' && (
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Decline Reason <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        className="input min-h-[120px] resize-none"
-                        placeholder="Please provide a detailed reason for declining this request..."
-                        value={declineReason}
-                        onChange={(e) => setDeclineReason(e.target.value)}
-                      />
-                    </div>
-                  )}
+                    {/* Policy warning */}
+                    {selectedRequest.leaveType==='Annual' && selectedRequest.duration>7 && approvalAction==='approve' && (
+                      <div style={{ padding:'0.875rem 1rem', background:T.dangerPale, border:`1px solid ${T.dangerBorder}`, borderRadius:'9px', display:'flex', alignItems:'flex-start', gap:'0.6rem' }}>
+                        <AlertCircle size={15} color={T.danger} style={{ marginTop:1, flexShrink:0 }}/>
+                        <div>
+                          <p style={{ margin:0, fontWeight:700, fontSize:'0.8rem', color:'#7f1d1d' }}>Policy Violation</p>
+                          <p style={{ margin:'0.2rem 0 0', fontSize:'0.8rem', color:'#991b1b', lineHeight:1.5 }}>This annual leave request exceeds the 7-day limit. Please request the employee to split this into separate requests.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Decline reason */}
+                    {approvalAction==='decline' && (
+                      <div>
+                        <label style={labelS}>Decline Reason <span style={{ color:T.danger }}>*</span></label>
+                        <textarea className="lmv-inp" placeholder="Please provide a detailed reason for declining this request…" value={declineReason} onChange={e=>setDeclineReason(e.target.value)}
+                          style={{ ...inputS, minHeight:'110px', resize:'vertical' } as React.CSSProperties}/>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="modal-footer bg-slate-50">
-                  <button className="btn btn-ghost" onClick={() => setShowApprovalModal(false)}>
-                    Cancel
-                  </button>
-                  <button
-                    className={cn(
-                      "btn font-semibold px-6",
-                      approvalAction === 'approve' 
-                        ? "btn-primary bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800" 
-                        : "btn-danger bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
-                    )}
-                    onClick={confirmApproval}
-                    disabled={(approvalAction === 'decline' && !declineReason.trim()) || (approvalAction === 'approve' && selectedRequest.leaveType === 'Annual' && selectedRequest.duration > 7)}
-                  >
-                    {approvalAction === 'approve' ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        Approve Request
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-4 h-4" />
-                        Decline Request
-                      </>
-                    )}
+                <div style={mFoot}>
+                  <button style={btnOutline} onClick={()=>setShowApprovalModal(false)}>Cancel</button>
+                  <button style={approvalAction==='approve'?btnSuccess:btnDanger} onClick={confirmApproval}
+                    disabled={(approvalAction==='decline'&&!declineReason.trim())||(approvalAction==='approve'&&selectedRequest.leaveType==='Annual'&&selectedRequest.duration>7)}>
+                    {approvalAction==='approve'?<><Check size={14}/> Approve Request</>:<><X size={14}/> Decline Request</>}
                   </button>
                 </div>
               </div>
             </>
           )}
 
-          {/* Cancel Leave Modal - Modern Design */}
+          {/* ── Cancel Modal ──────────────────────────────────────── */}
           {showCancelModal && selectedRequest && (
             <>
-              <div className="modal-overlay" onClick={() => setShowCancelModal(false)}></div>
-              <div className="modal modal-lg animate-scale-in">
-                <div className="modal-header">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg">
-                      <AlertCircle className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="modal-title text-xl font-semibold text-slate-900">Cancel Leave Request</h2>
-                      <p className="text-sm text-slate-500 mt-0.5">Request #{selectedRequest.id}</p>
-                    </div>
-                  </div>
-                  <button 
-                    className="btn btn-ghost btn-icon rounded-lg hover:bg-slate-100 transition-colors" 
-                    onClick={() => setShowCancelModal(false)}
-                  >
-                    <X className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
-                <div className="modal-content space-y-5">
-                  {/* Warning Card */}
-                  <div className="card p-5 bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-6 h-6 text-red-600 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-base font-semibold text-red-900">Warning: This action will cancel the approved leave</p>
-                        <p className="text-sm text-red-700 mt-1.5 leading-relaxed">
-                          The employee's leave balance will be restored and the leave request will be marked as declined. This action cannot be undone.
-                        </p>
+              <div style={overlayS} onClick={()=>setShowCancelModal(false)}/>
+              <div style={modalShell('34rem')}>
+                <MHead icon={AlertCircle} title="Cancel Leave Request" sub={`Request #${selectedRequest.id}`} color={T.danger} onClose={()=>setShowCancelModal(false)}/>
+                <div style={mBody}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                    <div style={{ padding:'0.875rem 1rem', background:T.dangerPale, border:`1px solid ${T.dangerBorder}`, borderRadius:'9px', display:'flex', alignItems:'flex-start', gap:'0.6rem' }}>
+                      <AlertCircle size={15} color={T.danger} style={{ marginTop:1, flexShrink:0 }}/>
+                      <div>
+                        <p style={{ margin:0, fontWeight:700, fontSize:'0.85rem', color:'#7f1d1d' }}>Warning: This action will cancel the approved leave</p>
+                        <p style={{ margin:'0.25rem 0 0', fontSize:'0.8rem', color:'#991b1b', lineHeight:1.5 }}>The employee's leave balance will be restored and the leave request will be marked as declined. This action cannot be undone.</p>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Employee Info Card */}
-                  <div className="card p-4 bg-gradient-to-r from-slate-50 to-white">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                        <span className="text-white font-semibold text-sm">
-                          {selectedRequest.staffName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </span>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.875rem', padding:'1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'10px' }}>
+                      <Avatar name={selectedRequest.staffName} size={44}/>
+                      <div style={{ flex:1 }}>
+                        <p style={{ margin:0, fontWeight:700, fontSize:'0.95rem', color:T.text }}>{selectedRequest.staffName}</p>
+                        <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:T.textMuted }}>{selectedRequest.staffId} · {selectedRequest.department}</p>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-slate-900 text-base">{selectedRequest.staffName}</p>
-                        <p className="text-sm text-slate-500 mt-0.5">{selectedRequest.staffId} · {selectedRequest.department}</p>
-                      </div>
-                      <div className="badge badge-success px-3 py-1.5 text-xs font-semibold">
-                        {selectedRequest.status}
-                      </div>
+                      <StatusBadge status={selectedRequest.status}/>
                     </div>
-                  </div>
-
-                  {/* Leave Details Grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="card p-4 bg-gradient-to-br from-blue-50 to-white border-blue-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Calendar className="w-4 h-4 text-blue-600" />
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Leave Type</span>
-                      </div>
-                      <p className="font-semibold text-slate-900">{selectedRequest.leaveType}</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                      <InfoRow label="Leave Type" value={selectedRequest.leaveType} accent={T.primary}/>
+                      <InfoRow label="Duration" value={`${selectedRequest.duration} ${selectedRequest.duration>1?'days':'day'}`} accent={T.purple}/>
                     </div>
-                    <div className="card p-4 bg-gradient-to-br from-purple-50 to-white border-purple-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="w-4 h-4 text-purple-600" />
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Duration</span>
-                      </div>
-                      <p className="font-semibold text-slate-900">{selectedRequest.duration} {selectedRequest.duration > 1 ? 'days' : 'day'}</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                      <InfoRow label="Start Date" value={new Date(selectedRequest.startDate).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}/>
+                      <InfoRow label="End Date" value={new Date(selectedRequest.endDate).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}/>
                     </div>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Start Date</span>
-                      <p className="font-medium text-slate-900 mt-1.5 text-sm">
-                        {new Date(selectedRequest.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">End Date</span>
-                      <p className="font-medium text-slate-900 mt-1.5 text-sm">
-                        {new Date(selectedRequest.endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Reason */}
-                  <div>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Reason for Leave</span>
-                    <div className="card p-4 mt-2 bg-slate-50 border-slate-200">
-                      <p className="text-sm text-slate-700 leading-relaxed">{selectedRequest.reason}</p>
-                    </div>
+                    <InfoRow label="Reason for Leave" value={<p style={{ margin:0, fontSize:'0.85rem', lineHeight:1.6, color:T.textSub }}>{selectedRequest.reason}</p>}/>
                   </div>
                 </div>
-                <div className="modal-footer bg-slate-50">
-                  <button className="btn btn-ghost" onClick={() => setShowCancelModal(false)}>
-                    Go Back
-                  </button>
-                  <button
-                    className="btn btn-danger font-semibold px-6"
-                    onClick={handleCancelLeave}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Clock className="w-4 h-4 animate-spin" />
-                        Cancelling...
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-4 h-4" />
-                        Cancel Leave Request
-                      </>
-                    )}
+                <div style={mFoot}>
+                  <button style={btnOutline} onClick={()=>setShowCancelModal(false)}>Go Back</button>
+                  <button style={btnDanger} onClick={handleCancelLeave} disabled={loading}>
+                    {loading?<><Clock size={14} style={{animation:'lmvspin 0.7s linear infinite'}}/> Cancelling…</>:<><X size={14}/> Cancel Leave Request</>}
                   </button>
                 </div>
               </div>
             </>
           )}
 
-          {/* Details Modal - Redesigned */}
+          {/* ── Details Modal ─────────────────────────────────────── */}
           {showDetailsModal && selectedRequest && (
             <>
-              <div className="bam-overlay" onClick={() => { setShowDetailsModal(false); setSelectedRequestDetails(null); }} style={{ zIndex: 9999 }}></div>
-              <div 
-                className="bam-modal" 
-                onClick={(e) => e.stopPropagation()} 
-                style={{ 
-                  maxWidth: '750px', 
-                  zIndex: 10000, 
-                  position: 'fixed', 
-                  top: '50%', 
-                  left: '50%', 
-                  transform: 'translate(-50%, -50%)',
-                  maxHeight: '90vh',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
-              >
-                {/* Header */}
-                <div className="bam-header" style={{ 
-                  padding: '1.25rem', 
-                  borderBottom: '1px solid #e5e7eb',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexShrink: 0
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: '#eff6ff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#2563eb',
-                      flexShrink: 0
-                    }}>
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                        Leave Request Details
-                      </h3>
-                      <p style={{ margin: 0, fontSize: '0.75rem', color: '#6b7280' }}>
-                        Request #{selectedRequest.id}
-                      </p>
-                    </div>
-                  </div>
-                  <button 
-                    className="bam-btn-close" 
-                    onClick={() => { setShowDetailsModal(false); setSelectedRequestDetails(null); }} 
-                    title="Close"
-                    style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      background: '#f3f4f6',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Body */}
-                <div className="bam-body" style={{ 
-                  padding: '1.25rem', 
-                  overflowY: 'auto',
-                  flex: 1
-                }}>
+              <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.5)', backdropFilter:'blur(3px)', zIndex:40 }} onClick={()=>{ setShowDetailsModal(false); setSelectedRequestDetails(null); }}/>
+              <div style={{ ...modalShell('44rem'), zIndex:50, top:'50%', left:'50%', transform:'translate(-50%,-50%)', position:'fixed' }} onClick={e=>e.stopPropagation()}>
+                <MHead icon={FileText} title="Leave Request Details" sub={`Request #${selectedRequest.id}`} color={T.primary} onClose={()=>{ setShowDetailsModal(false); setSelectedRequestDetails(null); }}/>
+                <div style={mBody}>
                   {detailsLoading ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-                      <svg className="animate-spin w-8 h-8" style={{ color: '#2563eb' }} fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                    <div style={{ display:'flex', justifyContent:'center', padding:'3rem' }}>
+                      <div style={{ width:24, height:24, border:`2.5px solid ${T.primaryBorder}`, borderTopColor:T.primary, borderRadius:'50%', animation:'lmvspin 0.7s linear infinite' }}/>
                     </div>
                   ) : selectedRequestDetails ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                      {/* Employee Info Card */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '1rem',
-                        padding: '1.25rem',
-                        borderRadius: '0.75rem',
-                        backgroundColor: '#f9fafb',
-                        border: '1px solid #e5e7eb'
-                      }}>
-                        <div className="bam-avatar" style={{
-                          width: '4rem',
-                          height: '4rem',
-                          fontSize: '1rem',
-                          background: '#e0e7ff',
-                          color: '#4338ca',
-                          borderRadius: '10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 600,
-                          flexShrink: 0
-                        }}>
-                          {selectedRequestDetails.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || selectedRequest.staffName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                      {/* Employee header */}
+                      <div style={{ display:'flex', alignItems:'center', gap:'1rem', padding:'1rem 1.25rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'10px' }}>
+                        <Avatar name={selectedRequestDetails.user_name||selectedRequest.staffName} size={52}/>
+                        <div style={{ flex:1 }}>
+                          <p style={{ margin:0, fontWeight:700, fontSize:'1rem', color:T.text }}>{selectedRequestDetails.user_name||selectedRequest.staffName}</p>
+                          <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:T.textMuted }}>ID: {selectedRequestDetails.user_id} · {selectedRequest.department} · {selectedRequest.branch}</p>
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontWeight: 600, fontSize: '1rem', margin: 0, color: '#111827' }}>{selectedRequestDetails.user_name || selectedRequest.staffName}</p>
-                          <p style={{ fontSize: '0.8125rem', color: '#6b7280', margin: '0.25rem 0 0' }}>ID: {selectedRequestDetails.user_id} • {selectedRequest.department || 'General'}</p>
-                          <p style={{ fontSize: '0.8125rem', color: '#6b7280', margin: '0.125rem 0 0' }}>{selectedRequest.branch || 'Main Office'}</p>
-                        </div>
-                        <span className={`badge ${
-                          selectedRequestDetails.status === 'approved' ? 'badge-success' :
-                          selectedRequestDetails.status === 'rejected' ? 'badge-danger' :
-                          selectedRequestDetails.status === 'active' ? 'badge-info' :
-                          'badge-warning'
-                        }`} style={{ 
-                          textTransform: 'capitalize',
-                          padding: '0.375rem 0.75rem',
-                          borderRadius: '20px',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          flexShrink: 0
-                        }}>
-                          {selectedRequestDetails.status}
-                        </span>
+                        <StatusBadge status={selectedRequestDetails.status}/>
                       </div>
 
-                      {/* Leave Details Grid */}
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, 1fr)',
-                        gap: '1rem'
-                      }}>
-                        <div style={{ padding: '1rem', backgroundColor: '#f0f9ff', borderRadius: '0.5rem', border: '1px solid #bae6fd' }}>
-                          <p style={{ fontSize: '0.6875rem', color: '#0369a1', marginBottom: '0.375rem', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>Leave Type</p>
-                          <p style={{ fontWeight: 600, fontSize: '0.9375rem', color: '#0c4a6e', margin: 0 }}>{selectedRequestDetails.leave_type_name || selectedRequest.leaveType}</p>
-                        </div>
-                        <div style={{ padding: '1rem', backgroundColor: '#fef3c7', borderRadius: '0.5rem', border: '1px solid #fcd34d' }}>
-                          <p style={{ fontSize: '0.6875rem', color: '#92400e', marginBottom: '0.375rem', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>Days Requested</p>
-                          <p style={{ fontWeight: 600, fontSize: '0.9375rem', color: '#78350f', margin: 0 }}>{selectedRequestDetails.days_requested || selectedRequest.duration} days</p>
-                        </div>
-                        <div style={{ padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.5rem', border: '1px solid #d1d5db' }}>
-                          <p style={{ fontSize: '0.6875rem', color: '#4b5563', marginBottom: '0.375rem', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>Submitted</p>
-                          <p style={{ fontWeight: 600, fontSize: '0.9375rem', color: '#1f2937', margin: 0 }}>{formatDateShort(selectedRequestDetails.created_at)}</p>
-                        </div>
-                        <div style={{ padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.5rem', border: '1px solid #d1d5db' }}>
-                          <p style={{ fontSize: '0.6875rem', color: '#4b5563', marginBottom: '0.375rem', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>Status</p>
-                          <p style={{ fontWeight: 600, fontSize: '0.9375rem', color: '#1f2937', margin: 0, textTransform: 'capitalize' }}>{selectedRequestDetails.status}</p>
-                        </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                        <InfoRow label="Leave Type" value={selectedRequestDetails.leave_type_name||selectedRequest.leaveType} accent={T.primary}/>
+                        <InfoRow label="Days Requested" value={`${selectedRequestDetails.days_requested||selectedRequest.duration} days`} accent={T.warning}/>
+                        <InfoRow label="Submitted" value={formatDateShort(selectedRequestDetails.created_at)}/>
+                        <InfoRow label="Status" value={<span style={{ textTransform:'capitalize' }}>{selectedRequestDetails.status}</span>}/>
                       </div>
 
-                      {/* Dates */}
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, 1fr)',
-                        gap: '1rem'
-                      }}>
-                        <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
-                          <p style={{ fontSize: '0.6875rem', color: '#6b7280', marginBottom: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.375rem', margin: 0 }}>
-                            <Calendar className="w-3.5 h-3.5" />
-                            Start Date
-                          </p>
-                          <p style={{ fontWeight: 600, fontSize: '0.9375rem', color: '#111827', margin: 0 }}>
-                            {formatDate(selectedRequestDetails.start_date)}
-                          </p>
-                        </div>
-                        <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
-                          <p style={{ fontSize: '0.6875rem', color: '#6b7280', marginBottom: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.375rem', margin: 0 }}>
-                            <Calendar className="w-3.5 h-3.5" />
-                            End Date
-                          </p>
-                          <p style={{ fontWeight: 600, fontSize: '0.9375rem', color: '#111827', margin: 0 }}>
-                            {formatDate(selectedRequestDetails.end_date)}
-                          </p>
-                        </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                        <InfoRow label="Start Date" value={formatDate(selectedRequestDetails.start_date)}/>
+                        <InfoRow label="End Date" value={formatDate(selectedRequestDetails.end_date)}/>
                       </div>
 
-                      {/* Reason */}
-                      <div style={{ marginBottom: '0' }}>
-                        <p style={{ fontSize: '0.6875rem', color: '#6b7280', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem', margin: 0, textTransform: 'uppercase', fontWeight: 600 }}>
-                          <FileText className="w-3.5 h-3.5" />
-                          Reason for Leave
-                        </p>
-                        <p style={{ fontSize: '0.875rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem', border: '1px solid #e5e7eb', lineHeight: '1.6', margin: 0, color: '#374151' }}>
-                          {selectedRequestDetails.reason}
-                        </p>
-                      </div>
+                      <InfoRow label="Reason for Leave" value={<p style={{ margin:0, fontSize:'0.85rem', lineHeight:1.6, color:T.textSub }}>{selectedRequestDetails.reason}</p>}/>
 
                       {/* Attachments */}
-                      {selectedRequestDetails.attachments && selectedRequestDetails.attachments.length > 0 && (
+                      {selectedRequestDetails.attachments?.length>0 && (
                         <div>
-                          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                            </svg>
-                            Attachments ({selectedRequestDetails.attachments.length})
+                          <p style={{ margin:'0 0 0.6rem', fontSize:'0.72rem', fontWeight:700, color:T.textMuted, textTransform:'uppercase', letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                            <Paperclip size={11}/> Attachments ({selectedRequestDetails.attachments.length})
                           </p>
-                          <div style={{ display: 'grid', gap: '0.75rem' }}>
-                            {selectedRequestDetails.attachments.map((attachment: any, index: number) => (
-                              <div
-                                key={index}
-                                style={{
-                                  padding: '1rem', 
-                                  backgroundColor: '#f8fafc',
-                                  borderRadius: '0.5rem',
-                                  border: '1px solid #e2e8f0',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  gap: '1rem'
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flex: 1 }}>
-                                  <div style={{
-                                    width: '2rem',
-                                    height: '2rem',
-                                    borderRadius: '0.375rem',
-                                    backgroundColor: attachment.mime_type?.includes('pdf') ? '#fee2e2' : '#dbeafe',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                  }}>
-                                    {attachment.mime_type?.includes('pdf') ? (
-                                      <FileText className="w-4 h-4" style={{ color: '#dc2626' }} />
-                                    ) : (
-                                      <FileText className="w-4 h-4" style={{ color: '#2563eb' }} />
-                                    )}
+                          <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                            {selectedRequestDetails.attachments.map((att: any, i: number) => (
+                              <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'1rem', padding:'0.75rem 1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'9px' }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:'0.625rem', flex:1, minWidth:0 }}>
+                                  <div style={{ width:'2rem', height:'2rem', borderRadius:'6px', background:att.mime_type?.includes('pdf')?T.dangerPale:T.primaryPale, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                                    <FileText size={12} color={att.mime_type?.includes('pdf')?T.danger:T.primary}/>
                                   </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontWeight: 600, fontSize: '0.8125rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
-                                      {attachment.file_name || `Attachment ${index + 1}`}
-                                    </p>
-                                    <p style={{ fontSize: '0.65rem', color: '#6b7280', margin: 0 }}>
-                                      {attachment.mime_type || 'Unknown'} · {attachment.file_size ? Math.round(attachment.file_size / 1024) + ' KB' : ''}
-                                    </p>
+                                  <div style={{ flex:1, minWidth:0 }}>
+                                    <p style={{ margin:0, fontWeight:600, fontSize:'0.8rem', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:T.text }}>{att.file_name||`Attachment ${i+1}`}</p>
+                                    <p style={{ margin:0, fontSize:'0.68rem', color:T.textMuted }}>{att.mime_type||'Unknown'}{att.file_size&&` · ${Math.round(att.file_size/1024)} KB`}</p>
                                   </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.375rem' }}>
-                                  {attachment.file_path && (
-                                    <button
-                                      onClick={() => setViewingAttachment(attachment)}
-                                      className="bam-btn bam-btn-ghost"
-                                      style={{ padding: '0.375rem 0.625rem', fontSize: '0.75rem' }}
-                                    >
-                                      <Eye className="w-3 h-3 mr-1" />
-                                      View
+                                <div style={{ display:'flex', gap:'0.4rem' }}>
+                                  {att.file_path && (
+                                    <button onClick={()=>setViewingAttachment(att)}
+                                      style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.3rem 0.6rem', border:`1px solid ${T.border}`, borderRadius:'6px', background:T.surface, color:T.textSub, cursor:'pointer', fontSize:'0.72rem', fontWeight:600, fontFamily:'inherit' }}>
+                                      <Eye size={11}/> View
                                     </button>
                                   )}
-                                  <a
-                                    href={`${import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api'}${attachment.file_path}`}
-                                    download={attachment.file_name}
-                                    className="bam-btn bam-btn-primary"
-                                    style={{ padding: '0.375rem 0.625rem', fontSize: '0.75rem' }}
-                                  >
-                                    <Download className="w-3 h-3 mr-1" />
-                                    Download
+                                  <a href={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${att.file_path}`} download={att.file_name}
+                                    style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.3rem 0.6rem', border:'none', borderRadius:'6px', background:T.primary, color:'#fff', cursor:'pointer', fontSize:'0.72rem', fontWeight:600, textDecoration:'none' }}>
+                                    <Download size={11}/> Download
                                   </a>
                                 </div>
                               </div>
@@ -2041,178 +1134,93 @@ const LeaveManagementView = () => {
                         </div>
                       )}
 
-                      {/* Approval Info */}
-                      {(selectedRequestDetails.reviewed_by || selectedRequestDetails.reviewed_at) && (
-                        <div style={{
-                          padding: '0.75rem',
-                          backgroundColor: selectedRequestDetails.status === 'approved' ? '#f0fdf4' : '#fef2f2',
-                          borderRadius: '0.5rem',
-                          border: `1px solid ${selectedRequestDetails.status === 'approved' ? '#bbf7d0' : '#fecaca'}`
-                        }}>
-                          <p style={{
-                            fontSize: '0.65rem',
-                            color: selectedRequestDetails.status === 'approved' ? '#166534' : '#991b1b',
-                            marginBottom: '0.5rem',
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            margin: 0
-                          }}>
-                            {selectedRequestDetails.status === 'approved' ? 'Approval Information' : 'Rejection Information'}
+                      {/* Approval info */}
+                      {(selectedRequestDetails.reviewed_by||selectedRequestDetails.reviewed_at) && (
+                        <div style={{ padding:'0.875rem 1rem', background:selectedRequestDetails.status==='approved'?T.successPale:T.dangerPale, border:`1px solid ${selectedRequestDetails.status==='approved'?T.successBorder:T.dangerBorder}`, borderRadius:'9px' }}>
+                          <p style={{ margin:'0 0 0.6rem', fontSize:'0.68rem', fontWeight:700, color:selectedRequestDetails.status==='approved'?T.success:T.danger, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                            {selectedRequestDetails.status==='approved'?'Approval Information':'Rejection Information'}
                           </p>
-                          <div className="bam-row2">
+                          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem' }}>
                             <div>
-                              <p style={{ fontSize: '0.65rem', color: '#6b7280', marginBottom: '0.125rem', margin: 0 }}>
-                                {selectedRequestDetails.status === 'approved' ? 'Approved By' : 'Rejected By'}
-                              </p>
-                              <p style={{ fontWeight: 600, fontSize: '0.8125rem', margin: 0 }}>
-                                {selectedRequestDetails.reviewed_by_name || 'Admin'}
-                              </p>
+                              <p style={{ margin:0, fontSize:'0.7rem', color:T.textMuted }}>By</p>
+                              <p style={{ margin:'0.1rem 0 0', fontWeight:600, fontSize:'0.82rem', color:T.text }}>{selectedRequestDetails.reviewed_by_name||'Admin'}</p>
                             </div>
                             <div>
-                              <p style={{ fontSize: '0.65rem', color: '#6b7280', marginBottom: '0.125rem', margin: 0 }}>Date</p>
-                              <p style={{ fontWeight: 600, fontSize: '0.8125rem', margin: 0 }}>
-                                {selectedRequestDetails.reviewed_at && formatDate(selectedRequestDetails.reviewed_at, true)}
-                              </p>
+                              <p style={{ margin:0, fontSize:'0.7rem', color:T.textMuted }}>Date</p>
+                              <p style={{ margin:'0.1rem 0 0', fontWeight:600, fontSize:'0.82rem', color:T.text }}>{selectedRequestDetails.reviewed_at&&formatDate(selectedRequestDetails.reviewed_at,true)}</p>
                             </div>
                           </div>
                           {selectedRequestDetails.notes && (
-                            <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
-                              <p style={{ fontSize: '0.65rem', color: '#6b7280', marginBottom: '0.25rem', margin: 0 }}>Comments</p>
-                              <p style={{ fontSize: '0.8125rem', lineHeight: '1.5', margin: 0 }}>{selectedRequestDetails.notes}</p>
+                            <div style={{ marginTop:'0.6rem', paddingTop:'0.6rem', borderTop:`1px solid rgba(0,0,0,.08)` }}>
+                              <p style={{ margin:0, fontSize:'0.7rem', color:T.textMuted, marginBottom:'0.25rem' }}>Comments</p>
+                              <p style={{ margin:0, fontSize:'0.82rem', lineHeight:1.5, color:T.text }}>{selectedRequestDetails.notes}</p>
                             </div>
                           )}
                         </div>
                       )}
-                      </div>
-                    ) : (
-                    <div style={{ padding: '3rem', textAlign: 'center' }}>
-                      <AlertCircle className="w-12 h-12" style={{ color: '#f59e0b', margin: '0 auto 1rem' }} />
-                      <p style={{ fontWeight: 600, marginBottom: '0.5rem', margin: 0 }}>Unable to load details</p>
-                      <p style={{ fontSize: '0.8125rem', color: '#6b7280', margin: 0 }}>Please try again later</p>
+                    </div>
+                  ) : (
+                    <div style={{ padding:'3rem', textAlign:'center' }}>
+                      <AlertCircle size={36} color={T.warning} style={{ margin:'0 auto 0.875rem' }}/>
+                      <p style={{ fontWeight:600, color:T.text, margin:'0 0 0.3rem' }}>Unable to load details</p>
+                      <p style={{ fontSize:'0.8rem', color:T.textMuted, margin:0 }}>Please try again later</p>
                     </div>
                   )}
                 </div>
-
-                {/* Footer */}
-                <div className="bam-footer">
-                  <button className="bam-btn bam-btn-ghost" onClick={() => { setShowDetailsModal(false); setSelectedRequestDetails(null); }}>Close</button>
+                <div style={mFoot}>
+                  <button style={btnOutline} onClick={()=>{ setShowDetailsModal(false); setSelectedRequestDetails(null); }}>Close</button>
                 </div>
               </div>
             </>
           )}
 
-          {/* Create Leave Type Modal */}
+          {/* ── Create Leave Type Modal ───────────────────────────── */}
           {showCreateLeaveTypeModal && (
             <>
-              <div className="modal-overlay" onClick={() => setShowCreateLeaveTypeModal(false)}></div>
-              <div className="modal">
-                <div className="modal-header">
-                  <h3>Create Leave Type</h3>
-                  <button className="btn btn-ghost btn-icon" style={{ width: '2rem', height: '2rem' }} onClick={() => setShowCreateLeaveTypeModal(false)}>
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="modal-content">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="form-label">Name *</label>
-                      <input
-                        type="text"
-                        className="input w-full"
-                        value={createLeaveTypeForm.name}
-                        onChange={(e) => setCreateLeaveTypeForm({...createLeaveTypeForm, name: e.target.value})}
-                        placeholder="Enter leave type name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">Description</label>
-                      <textarea
-                        className="input w-full"
-                        value={createLeaveTypeForm.description}
-                        onChange={(e) => setCreateLeaveTypeForm({...createLeaveTypeForm, description: e.target.value})}
-                        placeholder="Enter description"
-                        rows={3}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="form-label">Days Per Year *</label>
-                        <input
-                          type="number"
-                          className="input w-full"
-                          value={createLeaveTypeForm.daysPerYear || ''}
-                          onChange={(e) => setCreateLeaveTypeForm({...createLeaveTypeForm, daysPerYear: e.target.value ? parseInt(e.target.value) : null})}
-                          min="0"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="form-label">Paid Leave?</label>
-                        <div className="flex items-center mt-2">
-                          <label className="flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="toggle"
-                              checked={createLeaveTypeForm.isPaid}
-                              onChange={(e) => setCreateLeaveTypeForm({...createLeaveTypeForm, isPaid: e.target.checked})}
-                            />
-                            <span className="ml-2">{createLeaveTypeForm.isPaid ? 'Yes' : 'No'}</span>
-                          </label>
+              <div style={overlayS} onClick={()=>setShowCreateLeaveTypeModal(false)}/>
+              <div style={modalShell('30rem')}>
+                <MHead icon={Calendar} title="Create Leave Type" sub="Define a new leave policy" color={T.primary} onClose={()=>setShowCreateLeaveTypeModal(false)}/>
+                <div style={mBody}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                    <FF label="Name" required>
+                      <input className="lmv-inp" type="text" value={createLeaveTypeForm.name} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,name:e.target.value})} placeholder="e.g. Annual Leave" style={inputS}/>
+                    </FF>
+                    <FF label="Description">
+                      <textarea className="lmv-inp" value={createLeaveTypeForm.description} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,description:e.target.value})} placeholder="Brief description" rows={2} style={{...inputS, resize:'vertical'} as React.CSSProperties}/>
+                    </FF>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.875rem' }}>
+                      <FF label="Days Per Year" required>
+                        <input className="lmv-inp" type="number" value={createLeaveTypeForm.daysPerYear||''} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,daysPerYear:e.target.value?parseInt(e.target.value):null})} min="0" style={inputS}/>
+                      </FF>
+                      <FF label="Paid Leave">
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginTop:'0.25rem' }}>
+                          <input type="checkbox" className="toggle" checked={createLeaveTypeForm.isPaid} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,isPaid:e.target.checked})} style={{ accentColor:T.primary, width:16, height:16 }}/>
+                          <span style={{ fontSize:'0.875rem', color:T.textSub }}>{createLeaveTypeForm.isPaid?'Yes':'No'}</span>
                         </div>
-                      </div>
+                      </FF>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="form-label">Allow Carryover?</label>
-                        <div className="flex items-center mt-2">
-                          <label className="flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="toggle"
-                              checked={createLeaveTypeForm.allowCarryover}
-                              onChange={(e) => setCreateLeaveTypeForm({...createLeaveTypeForm, allowCarryover: e.target.checked})}
-                            />
-                            <span className="ml-2">{createLeaveTypeForm.allowCarryover ? 'Yes' : 'No'}</span>
-                          </label>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.875rem' }}>
+                      <FF label="Allow Carryover">
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginTop:'0.25rem' }}>
+                          <input type="checkbox" className="toggle" checked={createLeaveTypeForm.allowCarryover} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,allowCarryover:e.target.checked})} style={{ accentColor:T.primary, width:16, height:16 }}/>
+                          <span style={{ fontSize:'0.875rem', color:T.textSub }}>{createLeaveTypeForm.allowCarryover?'Yes':'No'}</span>
                         </div>
-                      </div>
-
+                      </FF>
                       {createLeaveTypeForm.allowCarryover && (
-                        <div>
-                          <label className="form-label">Carryover Limit</label>
-                          <input
-                            type="number"
-                            className="input w-full"
-                            value={createLeaveTypeForm.carryoverLimit || ''}
-                            onChange={(e) => setCreateLeaveTypeForm({...createLeaveTypeForm, carryoverLimit: e.target.value ? parseInt(e.target.value) : null})}
-                            min="0"
-                          />
-                        </div>
+                        <FF label="Carryover Limit">
+                          <input className="lmv-inp" type="number" value={createLeaveTypeForm.carryoverLimit||''} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,carryoverLimit:e.target.value?parseInt(e.target.value):null})} min="0" style={inputS}/>
+                        </FF>
                       )}
                     </div>
-
-                    <div>
-                      <label className="form-label">Expiry Rule ID</label>
-                      <input
-                        type="number"
-                        className="input w-full"
-                        value={createLeaveTypeForm.expiryRuleId || ''}
-                        onChange={(e) => setCreateLeaveTypeForm({...createLeaveTypeForm, expiryRuleId: e.target.value ? parseInt(e.target.value) : null})}
-                        min="1"
-                      />
-                    </div>
+                    <FF label="Expiry Rule ID">
+                      <input className="lmv-inp" type="number" value={createLeaveTypeForm.expiryRuleId||''} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,expiryRuleId:e.target.value?parseInt(e.target.value):null})} min="1" style={inputS}/>
+                    </FF>
                   </div>
                 </div>
-                <div className="modal-footer">
-                  <button className="btn btn-outline" onClick={() => setShowCreateLeaveTypeModal(false)}>Cancel</button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleCreateLeaveType}
-                    disabled={!createLeaveTypeForm.name || createLeaveTypeForm.daysPerYear === null || createLeaveTypeForm.daysPerYear < 0}
-                  >
+                <div style={mFoot}>
+                  <button style={btnOutline} onClick={()=>setShowCreateLeaveTypeModal(false)}>Cancel</button>
+                  <button style={{ ...btnPrimary, opacity:(!createLeaveTypeForm.name||createLeaveTypeForm.daysPerYear===null||createLeaveTypeForm.daysPerYear<0)?.45:1, cursor:(!createLeaveTypeForm.name||createLeaveTypeForm.daysPerYear===null||createLeaveTypeForm.daysPerYear<0)?'not-allowed':'pointer' }}
+                    onClick={handleCreateLeaveType} disabled={!createLeaveTypeForm.name||createLeaveTypeForm.daysPerYear===null||createLeaveTypeForm.daysPerYear<0}>
                     Create Leave Type
                   </button>
                 </div>
@@ -2220,356 +1228,163 @@ const LeaveManagementView = () => {
             </>
           )}
 
-          {/* Edit Leave Type Modal */}
+          {/* ── Edit Leave Type Modal ─────────────────────────────── */}
           {showEditLeaveTypeModal && (
             <>
-              <div className="modal-overlay" onClick={() => setShowEditLeaveTypeModal(false)}></div>
-              <div className="modal">
-                <div className="modal-header">
-                  <h3>Edit Leave Type</h3>
-                  <button className="btn btn-ghost btn-icon" style={{ width: '2rem', height: '2rem' }} onClick={() => setShowEditLeaveTypeModal(false)}>
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="modal-content">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="form-label">Name *</label>
-                      <input
-                        type="text"
-                        className="input w-full"
-                        value={editLeaveTypeForm.name}
-                        onChange={(e) => setEditLeaveTypeForm({...editLeaveTypeForm, name: e.target.value})}
-                        placeholder="Enter leave type name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">Description</label>
-                      <textarea
-                        className="input w-full"
-                        value={editLeaveTypeForm.description}
-                        onChange={(e) => setEditLeaveTypeForm({...editLeaveTypeForm, description: e.target.value})}
-                        placeholder="Enter description"
-                        rows={3}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="form-label">Days Per Year *</label>
-                        <input
-                          type="number"
-                          className="input w-full"
-                          value={editLeaveTypeForm.daysPerYear || ''}
-                          onChange={(e) => setEditLeaveTypeForm({...editLeaveTypeForm, daysPerYear: e.target.value ? parseInt(e.target.value) : null})}
-                          min="0"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="form-label">Paid Leave?</label>
-                        <div className="flex items-center mt-2">
-                          <label className="flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="toggle"
-                              checked={editLeaveTypeForm.isPaid}
-                              onChange={(e) => setEditLeaveTypeForm({...editLeaveTypeForm, isPaid: e.target.checked})}
-                            />
-                            <span className="ml-2">{editLeaveTypeForm.isPaid ? 'Yes' : 'No'}</span>
-                          </label>
+              <div style={overlayS} onClick={()=>setShowEditLeaveTypeModal(false)}/>
+              <div style={modalShell('30rem')}>
+                <MHead icon={Calendar} title="Edit Leave Type" sub="Update leave policy settings" color={T.warning} onClose={()=>setShowEditLeaveTypeModal(false)}/>
+                <div style={mBody}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                    <FF label="Name" required>
+                      <input className="lmv-inp" type="text" value={editLeaveTypeForm.name} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,name:e.target.value})} placeholder="Enter leave type name" style={inputS}/>
+                    </FF>
+                    <FF label="Description">
+                      <textarea className="lmv-inp" value={editLeaveTypeForm.description} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,description:e.target.value})} placeholder="Enter description" rows={2} style={{...inputS, resize:'vertical'} as React.CSSProperties}/>
+                    </FF>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.875rem' }}>
+                      <FF label="Days Per Year" required>
+                        <input className="lmv-inp" type="number" value={editLeaveTypeForm.daysPerYear||''} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,daysPerYear:e.target.value?parseInt(e.target.value):null})} min="0" style={inputS}/>
+                      </FF>
+                      <FF label="Paid Leave">
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginTop:'0.25rem' }}>
+                          <input type="checkbox" className="toggle" checked={editLeaveTypeForm.isPaid} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,isPaid:e.target.checked})} style={{ accentColor:T.primary, width:16, height:16 }}/>
+                          <span style={{ fontSize:'0.875rem', color:T.textSub }}>{editLeaveTypeForm.isPaid?'Yes':'No'}</span>
                         </div>
-                      </div>
+                      </FF>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="form-label">Allow Carryover?</label>
-                        <div className="flex items-center mt-2">
-                          <label className="flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="toggle"
-                              checked={editLeaveTypeForm.allowCarryover}
-                              onChange={(e) => setEditLeaveTypeForm({...editLeaveTypeForm, allowCarryover: e.target.checked})}
-                            />
-                            <span className="ml-2">{editLeaveTypeForm.allowCarryover ? 'Yes' : 'No'}</span>
-                          </label>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.875rem' }}>
+                      <FF label="Allow Carryover">
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginTop:'0.25rem' }}>
+                          <input type="checkbox" className="toggle" checked={editLeaveTypeForm.allowCarryover} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,allowCarryover:e.target.checked})} style={{ accentColor:T.primary, width:16, height:16 }}/>
+                          <span style={{ fontSize:'0.875rem', color:T.textSub }}>{editLeaveTypeForm.allowCarryover?'Yes':'No'}</span>
                         </div>
-                      </div>
-
+                      </FF>
                       {editLeaveTypeForm.allowCarryover && (
-                        <div>
-                          <label className="form-label">Carryover Limit</label>
-                          <input
-                            type="number"
-                            className="input w-full"
-                            value={editLeaveTypeForm.carryoverLimit || ''}
-                            onChange={(e) => setEditLeaveTypeForm({...editLeaveTypeForm, carryoverLimit: e.target.value ? parseInt(e.target.value) : null})}
-                            min="0"
-                          />
-                        </div>
+                        <FF label="Carryover Limit">
+                          <input className="lmv-inp" type="number" value={editLeaveTypeForm.carryoverLimit||''} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,carryoverLimit:e.target.value?parseInt(e.target.value):null})} min="0" style={inputS}/>
+                        </FF>
                       )}
                     </div>
-
-                    <div>
-                      <label className="form-label">Expiry Rule ID</label>
-                      <input
-                        type="number"
-                        className="input w-full"
-                        value={editLeaveTypeForm.expiryRuleId || ''}
-                        onChange={(e) => setEditLeaveTypeForm({...editLeaveTypeForm, expiryRuleId: e.target.value ? parseInt(e.target.value) : null})}
-                        min="1"
-                      />
-                    </div>
+                    <FF label="Expiry Rule ID">
+                      <input className="lmv-inp" type="number" value={editLeaveTypeForm.expiryRuleId||''} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,expiryRuleId:e.target.value?parseInt(e.target.value):null})} min="1" style={inputS}/>
+                    </FF>
                   </div>
                 </div>
-                <div className="modal-footer">
-                  <button className="btn btn-outline" onClick={() => setShowEditLeaveTypeModal(false)}>Cancel</button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleEditLeaveType}
-                    disabled={!editLeaveTypeForm.name || editLeaveTypeForm.daysPerYear === null || editLeaveTypeForm.daysPerYear < 0}
-                  >
+                <div style={mFoot}>
+                  <button style={btnOutline} onClick={()=>setShowEditLeaveTypeModal(false)}>Cancel</button>
+                  <button style={{ ...btnPrimary, opacity:(!editLeaveTypeForm.name||editLeaveTypeForm.daysPerYear===null||editLeaveTypeForm.daysPerYear<0)?.45:1 }}
+                    onClick={handleEditLeaveType} disabled={!editLeaveTypeForm.name||editLeaveTypeForm.daysPerYear===null||editLeaveTypeForm.daysPerYear<0}>
                     Update Leave Type
                   </button>
                 </div>
               </div>
             </>
           )}
-        </>
-      )}
 
-      {/* Attachment Viewer Modal */}
-      {viewingAttachment && (
-        <>
-          <div 
-            className="modal-overlay" 
-            onClick={() => setViewingAttachment(null)}
-            style={{ zIndex: 9999 }}
-          ></div>
-          <div 
-            className="modal"
-            style={{ 
-              maxWidth: '900px', 
-              zIndex: 10000, 
-              position: 'fixed', 
-              top: '50%', 
-              left: '50%', 
-              transform: 'translate(-50%, -50%)', 
-              height: '80vh',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            <div className="modal-header" style={{ flexShrink: 0 }}>
-              <div className="flex items-center gap-3">
-                <FileText className="w-6 h-6 text-primary" />
-                <div>
-                  <h3>{viewingAttachment.file_name || 'Attachment'}</h3>
-                  <p className="text-xs text-muted mt-0.5">
-                    {viewingAttachment.mime_type || 'Unknown'} • {viewingAttachment.file_size ? Math.round(viewingAttachment.file_size / 1024) + ' KB' : ''}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={`${import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api'}${viewingAttachment.file_path}`}
-                  download={viewingAttachment.file_name}
-                  className="btn btn-sm btn-primary"
-                >
-                  <Download className="w-4 h-4" />
-                  Download
-                </a>
-                <a
-                  href={`${import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api'}${viewingAttachment.file_path}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-sm btn-outline"
-                >
-                  <Eye className="w-4 h-4" />
-                  Full Screen
-                </a>
-                <button 
-                  className="btn btn-ghost btn-icon" 
-                  onClick={() => setViewingAttachment(null)}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div 
-              className="modal-content" 
-              style={{ 
-                flex: 1, 
-                overflow: 'auto', 
-                padding: '0', 
-                backgroundColor: '#f1f5f9' 
-              }}
-            >
-              <div className="w-full h-full flex items-center justify-center p-4">
-                {viewingAttachment.mime_type?.includes('image') ? (
-                  <img
-                    src={`${import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api'}${viewingAttachment.file_path}`}
-                    alt={viewingAttachment.file_name || 'Attachment'}
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                    style={{ maxHeight: '70vh' }}
-                  />
-                ) : viewingAttachment.mime_type?.includes('pdf') ? (
-                  <iframe
-                    src={`${import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api'}${viewingAttachment.file_path}`}
-                    className="w-full h-full rounded-lg shadow-lg"
-                    style={{ minHeight: '70vh', border: 'none' }}
-                    title={viewingAttachment.file_name || 'Attachment'}
-                  />
-                ) : (
-                  <div className="text-center p-8 bg-white rounded-lg shadow-md">
-                    <File className="w-20 h-20 text-primary mx-auto mb-4" />
-                    <h4 className="text-lg font-semibold mb-2">{viewingAttachment.file_name || 'Attachment'}</h4>
-                    <p className="text-muted mb-4">This file type cannot be previewed. Please download to view.</p>
-                    <a
-                      href={`${import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api'}${viewingAttachment.file_path}`}
-                      download={viewingAttachment.file_name}
-                      className="btn btn-primary"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download File
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+          {/* ── Cleanup Modal ─────────────────────────────────────── */}
+          {showCleanupModal && (
+            <>
+              <div style={overlayS} onClick={()=>setShowCleanupModal(false)}/>
+              <div style={modalShell('32rem')} onClick={e=>e.stopPropagation()}>
+                <MHead icon={Clock} title="Cleanup Expired Leave Requests" sub="Automatically decline pending requests with past dates" color={T.warning} onClose={()=>setShowCleanupModal(false)}/>
+                <div style={mBody}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                    {cleanupStatus && (
+                      <div style={{ padding:'1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'10px' }}>
+                        <p style={{ margin:'0 0 0.75rem', fontSize:'0.72rem', fontWeight:700, color:T.textMuted, textTransform:'uppercase', letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:'0.4rem' }}><Info size={11}/>Current Status</p>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
+                          <div style={{ padding:'0.75rem 1rem', background:T.surface, border:`1px solid ${T.border}`, borderRadius:'8px' }}>
+                            <p style={{ margin:0, fontSize:'0.72rem', color:T.textMuted }}>Total Pending</p>
+                            <p style={{ margin:'0.15rem 0 0', fontSize:'1.4rem', fontWeight:800, color:T.text }}>{cleanupStatus.totalPendingLeaves||0}</p>
+                          </div>
+                          <div style={{ padding:'0.75rem 1rem', background:T.dangerPale, border:`1px solid ${T.dangerBorder}`, borderRadius:'8px' }}>
+                            <p style={{ margin:0, fontSize:'0.72rem', color:T.danger }}>Expired Pending</p>
+                            <p style={{ margin:'0.15rem 0 0', fontSize:'1.4rem', fontWeight:800, color:T.danger }}>{cleanupStatus.expiredPendingLeaves||0}</p>
+                          </div>
+                        </div>
+                        {cleanupStatus.lastRunTime && <p style={{ margin:'0.75rem 0 0', fontSize:'0.75rem', color:T.textMuted }}>Last run: {new Date(cleanupStatus.lastRunTime).toLocaleString()}</p>}
+                        {cleanupStatus.nextRunTime && <p style={{ margin:'0.25rem 0 0', fontSize:'0.75rem', color:T.textMuted }}>Next run: {new Date(cleanupStatus.nextRunTime).toLocaleString()}</p>}
+                      </div>
+                    )}
 
-      {/* Leave Cleanup Modal */}
-      {showCleanupModal && (
-        <div className="modal-overlay" onClick={() => setShowCleanupModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="flex items-center gap-3">
-                <Clock className="w-6 h-6 text-primary" />
-                <div>
-                  <h3>Cleanup Expired Leave Requests</h3>
-                  <p className="text-muted text-sm mt-1">
-                    Automatically decline pending leave requests with dates that have passed
-                  </p>
-                </div>
-              </div>
-              <button
-                className="btn btn-ghost btn-icon"
-                onClick={() => setShowCleanupModal(false)}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="modal-content">
-              {/* Status Information */}
-              {cleanupStatus && (
-                <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#f1f5f9' }}>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Info className="w-4 h-4" />
-                    Current Status
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 rounded" style={{ backgroundColor: 'white' }}>
-                      <p className="text-sm text-muted">Total Pending Leaves</p>
-                      <p className="text-2xl font-bold">{cleanupStatus.totalPendingLeaves || 0}</p>
-                    </div>
-                    <div className="p-3 rounded" style={{ backgroundColor: 'white' }}>
-                      <p className="text-sm text-muted">Expired Pending Leaves</p>
-                      <p className="text-2xl font-bold text-destructive">{cleanupStatus.expiredPendingLeaves || 0}</p>
+                    {cleanupStatus?.declinedCount!==undefined && (
+                      <div style={{ padding:'0.875rem 1rem', background:T.successPale, border:`1px solid ${T.successBorder}`, borderRadius:'9px', display:'flex', alignItems:'flex-start', gap:'0.6rem' }}>
+                        <CheckCircle size={15} color={T.success} style={{ marginTop:1, flexShrink:0 }}/>
+                        <div>
+                          <p style={{ margin:0, fontWeight:700, fontSize:'0.85rem', color:'#065f46' }}>Cleanup Results</p>
+                          <p style={{ margin:'0.2rem 0 0', fontSize:'0.8rem', color:'#047857' }}>Processed {cleanupStatus.processed||0} requests · Declined {cleanupStatus.declinedCount} expired</p>
+                          {cleanupStatus.errorCount>0 && <p style={{ margin:'0.2rem 0 0', fontSize:'0.8rem', color:T.warning }}>Errors: {cleanupStatus.errorCount}</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ padding:'0.875rem 1rem', background:T.warningPale, border:`1px solid ${T.warningBorder}`, borderRadius:'9px', display:'flex', alignItems:'flex-start', gap:'0.6rem' }}>
+                      <AlertCircle size={15} color={T.warning} style={{ marginTop:1, flexShrink:0 }}/>
+                      <div>
+                        <p style={{ margin:0, fontWeight:700, fontSize:'0.85rem', color:'#92400e' }}>What will happen?</p>
+                        <ul style={{ margin:'0.4rem 0 0', paddingLeft:'1.1rem', fontSize:'0.8rem', color:'#b45309', lineHeight:1.8 }}>
+                          <li>All pending leave requests with end dates in the past will be declined</li>
+                          <li>Status will be changed to "rejected"</li>
+                          <li>Notes will be set to "Automatically declined: Leave dates have passed"</li>
+                          <li>This action cannot be undone automatically</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
-                  {cleanupStatus.lastRunTime && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm text-muted">
-                        Last run: {new Date(cleanupStatus.lastRunTime).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                  {cleanupStatus.nextRunTime && (
-                    <div className="mt-2">
-                      <p className="text-sm text-muted">
-                        Next run: {new Date(cleanupStatus.nextRunTime).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
                 </div>
-              )}
-
-              {/* Cleanup Results */}
-              {cleanupStatus?.declinedCount !== undefined && (
-                <div className="mb-6 p-4 rounded-lg bg-green-50 border border-green-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <h4 className="font-semibold text-green-800">Cleanup Results</h4>
-                  </div>
-                  <p className="text-green-700">
-                    Processed {cleanupStatus.processed || 0} leave requests
-                  </p>
-                  <p className="text-green-700 font-semibold">
-                    Declined {cleanupStatus.declinedCount} expired requests
-                  </p>
-                  {cleanupStatus.errorCount > 0 && (
-                    <p className="text-amber-700 mt-2">
-                      Errors: {cleanupStatus.errorCount}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Info Box */}
-              <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#fff7ed', border: '1px solid #ffedd5' }}>
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-amber-800 mb-1">What will happen?</h4>
-                    <ul className="text-sm text-amber-700 space-y-1">
-                      <li>• All pending leave requests with end dates in the past will be declined</li>
-                      <li>• Status will be changed to "rejected"</li>
-                      <li>• Notes will be set to "Automatically declined: Leave dates have passed"</li>
-                      <li>• This action cannot be undone automatically</li>
-                    </ul>
-                  </div>
+                <div style={mFoot}>
+                  <button style={btnOutline} onClick={()=>setShowCleanupModal(false)} disabled={cleanupLoading}>Cancel</button>
+                  <button style={btnPrimary} onClick={handleLeaveCleanup} disabled={cleanupLoading}>
+                    {cleanupLoading?<><Clock size={14} style={{animation:'lmvspin 0.7s linear infinite'}}/> Running…</>:<><Check size={14}/> Run Cleanup Now</>}
+                  </button>
                 </div>
               </div>
+            </>
+          )}
 
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-3">
-                <button
-                  className="btn btn-outline"
-                  onClick={() => setShowCleanupModal(false)}
-                  disabled={cleanupLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleLeaveCleanup}
-                  disabled={cleanupLoading}
-                >
-                  {cleanupLoading ? (
-                    <>
-                      <Clock className="w-4 h-4 mr-2 animate-spin" />
-                      Running Cleanup...
-                    </>
+          {/* ── Attachment Viewer Modal ───────────────────────────── */}
+          {viewingAttachment && (
+            <>
+              <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.6)', backdropFilter:'blur(3px)', zIndex:40 }} onClick={()=>setViewingAttachment(null)}/>
+              <div style={{ ...modalShell('56rem'), maxHeight:'88vh', zIndex:50, top:'50%', left:'50%', transform:'translate(-50%,-50%)', position:'fixed' }}>
+                <div style={mHead}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                    <FileText size={18} color={T.primary}/>
+                    <div>
+                      <p style={{ margin:0, fontSize:'0.9rem', fontWeight:700, color:T.text }}>{viewingAttachment.file_name||'Attachment'}</p>
+                      <p style={{ margin:0, fontSize:'0.72rem', color:T.textMuted }}>{viewingAttachment.mime_type||'Unknown'}{viewingAttachment.file_size&&` · ${Math.round(viewingAttachment.file_size/1024)} KB`}</p>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
+                    <a href={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} download={viewingAttachment.file_name}
+                      style={{ ...btnPrimary, textDecoration:'none' }}><Download size={13}/> Download</a>
+                    <a href={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} target="_blank" rel="noopener noreferrer"
+                      style={{ ...btnOutline, textDecoration:'none' }}><Eye size={13}/> Full Screen</a>
+                    <button onClick={()=>setViewingAttachment(null)} style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'1.75rem', height:'1.75rem', border:'none', background:'transparent', cursor:'pointer', color:T.textMuted, borderRadius:'6px' }}><X size={16}/></button>
+                  </div>
+                </div>
+                <div style={{ flex:1, overflow:'auto', background:T.surfaceMuted, display:'flex', alignItems:'center', justifyContent:'center', padding:'1.25rem' }}>
+                  {viewingAttachment.mime_type?.includes('image') ? (
+                    <img src={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} alt={viewingAttachment.file_name||'Attachment'} style={{ maxWidth:'100%', maxHeight:'70vh', objectFit:'contain', borderRadius:'8px', boxShadow:'0 4px 24px rgba(15,23,42,.15)' }}/>
+                  ) : viewingAttachment.mime_type?.includes('pdf') ? (
+                    <iframe src={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} style={{ width:'100%', minHeight:'70vh', border:'none', borderRadius:'8px' }} title={viewingAttachment.file_name||'Attachment'}/>
                   ) : (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Run Cleanup Now
-                    </>
+                    <div style={{ textAlign:'center', padding:'2rem', background:T.surface, borderRadius:'12px', boxShadow:'0 2px 12px rgba(15,23,42,.08)' }}>
+                      <FileText size={48} color={T.primary} style={{ margin:'0 auto 1rem' }}/>
+                      <p style={{ fontWeight:700, color:T.text, margin:'0 0 0.4rem' }}>{viewingAttachment.file_name||'Attachment'}</p>
+                      <p style={{ color:T.textMuted, fontSize:'0.85rem', margin:'0 0 1.25rem' }}>This file type cannot be previewed. Please download to view.</p>
+                      <a href={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} download={viewingAttachment.file_name} style={{ ...btnPrimary, textDecoration:'none' }}><Download size={14}/> Download File</a>
+                    </div>
                   )}
-                </button>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );
-}
+};
 
 export default LeaveManagementView;

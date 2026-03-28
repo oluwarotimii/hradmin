@@ -839,15 +839,31 @@ const StaffLocationAssignmentView: React.FC = () => {
 
                           {/* Dropdown for multiple locations */}
                           {isHovered && locationNames.length > 1 && (
-                            <div className="location-dropdown">
+                            <div className="location-dropdown" style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              zIndex: 100,
+                              minWidth: '250px',
+                              maxWidth: '350px',
+                              background: T.surface,
+                              border: `1px solid ${T.border}`,
+                              borderRadius: '8px',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                              marginTop: '0.5rem',
+                              maxHeight: '400px',
+                              overflowY: 'auto'
+                            }}>
                               <div style={{
-                                padding: '0.4rem 0.6rem',
+                                padding: '0.5rem 0.75rem',
                                 fontSize: '0.7rem',
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 color: T.textMuted,
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.05em',
-                                borderBottom: `1px solid ${T.border}`
+                                borderBottom: `1px solid ${T.border}`,
+                                background: T.surfaceMuted,
+                                borderRadius: '8px 8px 0 0'
                               }}>
                                 All Locations ({locationNames.length})
                               </div>
@@ -913,12 +929,12 @@ const StaffLocationAssignmentView: React.FC = () => {
                               </span>
                             </label>
                             
-                            <div style={{ 
-                              display: 'grid', 
+                            <div style={{
+                              display: 'grid',
                               gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                               gap: '0.5rem',
                               marginTop: '0.5rem',
-                              maxHeight: '200px',
+                              maxHeight: '300px',
                               overflowY: 'auto',
                               padding: '0.5rem',
                               background: T.surfaceMuted,
