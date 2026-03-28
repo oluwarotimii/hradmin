@@ -4,14 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { holidayService, Holiday } from '../services/holidayService';
 import { getAllBranches, Branch } from '../services/branchManagementService';
 import { useAuth } from '../AuthContext';
-import { Calendar, Edit3, Trash2, Globe, Building2, Loader2 } from 'lucide-react';
+import { Calendar, Edit3, Trash2, Globe, Building2, Loader2, Users } from 'lucide-react';
 
 interface HolidayListProps {
   onEdit?: (holiday: Holiday) => void;
   onDelete?: (id: number) => void;
+  onAssignStaff?: (holiday: Holiday) => void;  // New prop for bulk exception
 }
 
-const HolidayList: React.FC<HolidayListProps> = ({ onEdit, onDelete }) => {
+const HolidayList: React.FC<HolidayListProps> = ({ onEdit, onDelete, onAssignStaff }) => {
   const { hasPermission } = useAuth();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -97,6 +98,13 @@ const HolidayList: React.FC<HolidayListProps> = ({ onEdit, onDelete }) => {
     if (!branchId) return 'All Branches';
     const branch = branches.find(b => parseInt(b.id) === branchId);
     return branch?.name || 'Unknown Branch';
+  };
+
+  const isPassed = (dateString: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const holidayDate = new Date(dateString);
+    return holidayDate < today;
   };
 
   const getCategoryIcon = (branchId: number | null, isMandatory: boolean) => {
@@ -251,14 +259,19 @@ const HolidayList: React.FC<HolidayListProps> = ({ onEdit, onDelete }) => {
               </tr>
             ) : (
               holidays.map((holiday) => (
-                <tr key={holiday.id} className="table-row">
+                <tr key={holiday.id} className={`table-row ${isPassed(holiday.date) ? 'opacity-60' : ''}`}>
                   <td className="table-cell">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-full bg-blue-50">
+                      <div className={`p-2 rounded-full ${isPassed(holiday.date) ? 'bg-gray-100' : 'bg-blue-50'}`}>
                         {getCategoryIcon(holiday.branch_id, holiday.is_mandatory)}
                       </div>
                       <div>
-                        <div className="font-medium text-primary">{holiday.holiday_name}</div>
+                        <div className="font-medium text-primary">
+                          {holiday.holiday_name}
+                          {isPassed(holiday.date) && (
+                            <span className="ml-2 text-[10px] uppercase tracking-wider bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">Passed</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -298,11 +311,23 @@ const HolidayList: React.FC<HolidayListProps> = ({ onEdit, onDelete }) => {
                   </td>
                   <td className="table-cell">
                     <div className="flex justify-end gap-2">
+                      {onAssignStaff && (
+                        <button
+                          className="btn btn-ghost btn-sm disabled:opacity-30"
+                          onClick={() => !isPassed(holiday.date) && onAssignStaff(holiday)}
+                          disabled={isPassed(holiday.date)}
+                          title={isPassed(holiday.date) ? "Cannot assign staff to a past holiday" : "Assign staff to work on this holiday"}
+                          style={{ color: isPassed(holiday.date) ? '#94a3b8' : '#2563eb' }}
+                        >
+                          <Users className="w-4 h-4" />
+                        </button>
+                      )}
                       {hasPermission('holiday:update') && (
                         <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => onEdit && onEdit(holiday)}
-                          title="Edit holiday"
+                          className="btn btn-ghost btn-sm disabled:opacity-30"
+                          onClick={() => !isPassed(holiday.date) && onEdit && onEdit(holiday)}
+                          disabled={isPassed(holiday.date)}
+                          title={isPassed(holiday.date) ? "Cannot edit a past holiday" : "Edit holiday"}
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>

@@ -3,13 +3,14 @@
 
 import React, { useState, useEffect } from 'react';
 import HolidayList from './HolidayList';
+import BulkHolidayExceptionModal from './BulkHolidayExceptionModal';
 import {
   holidayService,
   Holiday,
   CreateHolidayRequest
 } from '../services/holidayService';
 import { getAllBranches, Branch } from '../services/branchManagementService';
-import { Calendar, Plus, X, Loader2 } from 'lucide-react';
+import { Calendar, Plus, X, Loader2, Users } from 'lucide-react';
 
 const HolidayManagementView = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -28,6 +29,10 @@ const HolidayManagementView = () => {
 
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loadingHolidays, setLoadingHolidays] = useState(false);
+  
+  // Bulk exception modal state
+  const [showBulkExceptionModal, setShowBulkExceptionModal] = useState(false);
+  const [selectedHoliday, setSelectedHoliday] = useState<Holiday | null>(null);
 
   // Fetch branches on mount
   useEffect(() => {
@@ -301,7 +306,12 @@ const HolidayManagementView = () => {
         </div>
 
         <div className="hm-panel">
-          <HolidayList />
+          <HolidayList 
+            onAssignStaff={(holiday) => {
+              setSelectedHoliday(holiday);
+              setShowBulkExceptionModal(true);
+            }}
+          />
         </div>
 
         <button
@@ -414,6 +424,19 @@ const HolidayManagementView = () => {
               </form>
             </div>
           </div>
+        )}
+        {/* Bulk Exception Modal */}
+        {showBulkExceptionModal && selectedHoliday && (
+          <BulkHolidayExceptionModal
+            holiday={selectedHoliday}
+            onClose={() => {
+              setShowBulkExceptionModal(false);
+              setSelectedHoliday(null);
+            }}
+            onSuccess={() => {
+              window.dispatchEvent(new CustomEvent('holiday-refresh'));
+            }}
+          />
         )}
       </div>
     </>

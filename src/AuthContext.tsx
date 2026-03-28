@@ -100,20 +100,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             const permissions = JSON.parse(permissionsStr);
             setUserPermissions(permissions);
             
-            // SECURITY: Check if user has ANY permissions (prevent access if no permissions)
-            const permissionKeys = Object.keys(permissions);
-            const hasAnyPermission = permissionKeys.length > 0 && 
-              !permissionKeys.every(key => permissions[key] === false);
-            
-            // Admin OR users with wildcard (*) permission always allowed
-            const isAdmin = userInfo.role === 'admin' || permissions['*'];
-            
-            if (!hasAnyPermission && !isAdmin) {
-              console.warn('User has no permissions - denying access');
-              // Logout user with no permissions
-              handleAuthFailed();
-              return;
-            }
+            // NOTE: We do NOT block login based on permissions
+            // - All authenticated users can access the system
+            // - HR Admin Dashboard access is controlled by permissions
+            // - Users without dashboard permissions can still use self-service features
+            // - Admin (roleId: 1) and wildcard (*) users have full dashboard access
           } catch (error) {
             console.error('Error parsing permissions:', error);
           }

@@ -196,7 +196,6 @@ const StatusBadge = ({ status }: { status: string }) => {
     Active:   [T.primary, T.primaryPale, T.primaryBorder],
     active:   [T.primary, T.primaryPale, T.primaryBorder],
     Declined: [T.danger,  T.dangerPale,  T.dangerBorder],
-    Declined: [T.danger,  T.dangerPale,  T.dangerBorder],
     rejected: [T.danger,  T.dangerPale,  T.dangerBorder],
     Pending:  [T.warning, T.warningPale, T.warningBorder],
     submitted:[T.warning, T.warningPale, T.warningBorder],

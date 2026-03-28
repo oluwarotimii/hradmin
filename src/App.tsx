@@ -23,7 +23,6 @@ import AttendanceReportView from "./components/AttendanceReportView";
 import { EmployeeTable } from "./components/EmployeeTable";
 import KPIView from "./components/KPIView";
 import HolidayManagementView from "./components/HolidayManagementView";
-import HolidayDutyRosterView from "./components/HolidayDutyRosterView";
 import ShiftSchedulingView from "./components/ShiftSchedulingView";
 import SettingsView from "./components/SettingsView";
 import StaffLocationAssignmentView from "./components/StaffLocationAssignmentView";
@@ -188,15 +187,6 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
               >
                 <CalendarDays className="w-4 h-4" />
                 <span>Holidays</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("holiday-duty-roster")}
-                className={`sidebar-menu-button ${activeView === "holiday-duty-roster" ? "active" : ""}`}
-              >
-                <UserCheck className="w-4 h-4" />
-                <span>Duty Roster</span>
               </button>
             </li>
             <li className="sidebar-menu-item">
@@ -628,11 +618,13 @@ export default function App() {
     switch (activeView) {
       case "dashboard":
         // Check if user has dashboard access permission
-        // Admin (role === 'admin') OR users with wildcard (*) OR users with dashboard:access permission
+        // Admin (roleId === 1) OR users with wildcard (*) OR users with dashboard:access permission
+        const userRoleId = user?.roleId || user?.role_id;
+        const userPermissions = user?.permissions || [];
         const hasDashboardAccess = user && (
-          user.role === 'admin' || 
-          (user.permissions && user.permissions.includes('*')) ||
-          user.has_dashboard_access
+          userRoleId === 1 ||  // Admin (role_id: 1)
+          userPermissions.includes('*') ||  // Wildcard permission
+          user.has_dashboard_access  // Explicit dashboard access flag
         );
         
         if (!hasDashboardAccess) {
@@ -728,9 +720,6 @@ export default function App() {
 
       case "holidays":
         return <HolidayManagementView />;
-
-      case "holiday-duty-roster":
-        return <HolidayDutyRosterView />;
 
       case "shiftscheduling":
         return <ShiftSchedulingView />;

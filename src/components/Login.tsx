@@ -52,6 +52,39 @@ export function Login({ onLogin }: LoginProps) {
       const result = await login({ email, password });
 
       if (result.success) {
+        // Enforce dashboard permissions
+        const userInfoStr = localStorage.getItem('userInfo');
+        const userPermsStr = localStorage.getItem('userPermissions');
+        let hasAccess = false;
+        
+        if (userInfoStr) {
+           try {
+             const user = JSON.parse(userInfoStr);
+             const roleId = user.roleId || user.role_id;
+             if (roleId === 1 || user.has_dashboard_access) {
+                hasAccess = true;
+             }
+           } catch(e) {}
+        }
+        
+        if (userPermsStr) {
+           try {
+             const perms = JSON.parse(userPermsStr);
+             if (Array.isArray(perms)) {
+                if (perms.includes('*') || perms.includes('dashboard:access')) hasAccess = true;
+             } else {
+                if (perms['*'] || perms['dashboard:access']) hasAccess = true;
+             }
+           } catch(e) {}
+        }
+        
+        if (!hasAccess) {
+           import('../services/authService').then(m => m.logout());
+           setError("Unable to login: You lack the necessary permissions to access the HR Admin Dashboard.");
+           setLoading(false);
+           return;
+        }
+
         onLogin();
       } else {
         setError(result.message || "Login failed. Please try again.");
