@@ -613,7 +613,8 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
             { id: 'banking', label: 'Banking', icon: CreditCard },
             { id: 'medical', label: 'Medical', icon: Stethoscope },
             { id: 'resignation', label: 'Resignation', icon: FileCheck },
-            { id: 'documents', label: 'Documents', icon: FileText }
+            { id: 'documents', label: 'Documents', icon: FileText },
+            { id: 'guarantors', label: 'Guarantors', icon: UserCheck }
           ].map(tab => (
             <button
               key={tab.id}
@@ -952,6 +953,27 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(<Clock className="w-4 h-4 text-muted" />, 'Experience (Years)', editedStaff.experienceYears, 'experienceYears', 'number')}
                 {renderField(<BadgeCheck className="w-4 h-4 text-muted" />, 'Reference Check', editedStaff.referenceCheckStatus, 'referenceCheckStatus')}
                 {renderField(<BadgeCheck className="w-4 h-4 text-muted" />, 'Background Verification', editedStaff.backgroundVerificationStatus, 'backgroundVerificationStatus')}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Guarantors Tab */}
+        {activeTab === 'guarantors' && (
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-primary" />
+                Guarantors Information
+              </h4>
+              <div className="p-6 text-center text-muted">
+                <UserCheck className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-2">Guarantors Management</p>
+                <p className="text-sm mb-4">Manage staff guarantors and their documentation</p>
+                <p className="text-xs text-muted">
+                  Note: Guarantors can be added and managed through the staff guarantor section.
+                  This feature allows tracking of staff guarantors and their contact information.
+                </p>
               </div>
             </div>
           </div>

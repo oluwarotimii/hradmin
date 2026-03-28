@@ -627,25 +627,45 @@ export default function App() {
   const renderContent = () => {
     switch (activeView) {
       case "dashboard":
+        // Check if user has dashboard access permission
+        // Admin (role === 'admin') OR users with wildcard (*) OR users with dashboard:access permission
+        const hasDashboardAccess = user && (
+          user.role === 'admin' || 
+          (user.permissions && user.permissions.includes('*')) ||
+          user.has_dashboard_access
+        );
+        
+        if (!hasDashboardAccess) {
+          return (
+            <div className="card p-6">
+              <div className="text-center py-12">
+                <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-gray-700 mb-2">Access Denied</h2>
+                <p className="text-gray-600 mb-4">You don't have permission to access the HR Admin Dashboard.</p>
+                <p className="text-sm text-gray-500">Please contact your administrator if you believe this is an error.</p>
+              </div>
+            </div>
+          );
+        }
         return (
           <div>
             {/* Tabs */}
             <div className="tabs-list mb-8">
-              <button 
+              <button
                 className={`tabs-trigger ${activeTab === "overview" ? "active" : ""}`}
                 onClick={() => setActiveTab("overview")}
               >
                 <LayoutDashboard className="w-4 h-4" />
                 <span>Overview</span>
               </button>
-              <button 
+              <button
                 className={`tabs-trigger ${activeTab === "employees" ? "active" : ""}`}
                 onClick={() => setActiveTab("employees")}
               >
                 <Users className="w-4 h-4" />
                 <span>Employees</span>
               </button>
-              <button 
+              <button
                 className={`tabs-trigger ${activeTab === "analytics" ? "active" : ""}`}
                 onClick={() => setActiveTab("analytics")}
               >

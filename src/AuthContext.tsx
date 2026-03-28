@@ -32,7 +32,8 @@ const mockPermissions: Record<string, string[]> = {
     'holiday:read', 'holiday:create', 'holiday:update', 'holiday:delete',
     'holiday-duty-roster:read', 'holiday-duty-roster:create', 'holiday-duty-roster:update', 'holiday-duty-roster:delete',
     'shift:read', 'shift:create', 'shift:update', 'shift:delete',
-    'dashboard:access' // Admin always has dashboard access
+    'dashboard:access',
+    '*' // Admin has wildcard (all permissions)
   ],
   manager: [
     'leave:read', 'leave:update',
@@ -80,7 +81,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (isAuthenticated()) {
       const userInfo = getUserInfo();
       const token = getAuthToken();
-      
+
       // Check if token is expired
       if (token && isTokenExpired(token)) {
         console.log('Token expired on load - triggering logout');
@@ -98,6 +99,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           try {
             const permissions = JSON.parse(permissionsStr);
             setUserPermissions(permissions);
+            
+            // SECURITY: Check if user has ANY permissions (prevent access if no permissions)
+            const permissionKeys = Object.keys(permissions);
+            const hasAnyPermission = permissionKeys.length > 0 && 
+              !permissionKeys.every(key => permissions[key] === false);
+            
+            // Admin OR users with wildcard (*) permission always allowed
+            const isAdmin = userInfo.role === 'admin' || permissions['*'];
+            
+            if (!hasAnyPermission && !isAdmin) {
+              console.warn('User has no permissions - denying access');
+              // Logout user with no permissions
+              handleAuthFailed();
+              return;
+            }
           } catch (error) {
             console.error('Error parsing permissions:', error);
           }
@@ -168,7 +184,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // If we have permissions from backend, use those
     if (Object.keys(userPermissions).length > 0) {
-      // Check for wildcard (admin has all permissions)
+      // Check for wildcard (ANY user with * has ALL permissions)
       if (userPermissions['*']) {
         return true;
       }
