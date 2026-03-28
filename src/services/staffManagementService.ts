@@ -371,13 +371,30 @@ export const getAllStaff = async (page: number = 1, limit: number = 20, filters?
 // Helper function to map backend snake_case to frontend camelCase
 function mapStaffResponse(backendData: any): any {
   if (!backendData) return backendData;
+
+  console.log('[mapStaffResponse] Input data:', backendData);
+
+  // Handle full_name from users table (split into first, middle, last)
+  let firstName = backendData.firstName || backendData.first_name || '';
+  let middleName = backendData.middleName || backendData.middle_name || '';
+  let lastName = backendData.lastName || backendData.last_name || '';
   
-  return {
+  // If backend returns full_name, split it
+  if (backendData.full_name && !backendData.first_name && !backendData.last_name) {
+    const nameParts = backendData.full_name.trim().split(/\s+/);
+    firstName = nameParts[0] || '';
+    lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
+  }
+
+  const mapped = {
     ...backendData,
-    // Map basic fields
-    firstName: backendData.first_name || backendData.firstName,
-    lastName: backendData.last_name || backendData.lastName,
-    middleName: backendData.middle_name || backendData.middleName,
+    // Map name fields (from full_name or individual fields)
+    firstName: firstName,
+    lastName: lastName,
+    middleName: middleName,
+    // Map other fields - ensure ALL fields are mapped
+    employeeId: backendData.employee_id || backendData.employeeId,
     workEmail: backendData.work_email || backendData.workEmail,
     personalEmail: backendData.personal_email || backendData.personal_email,
     phoneNumber: backendData.phone_number || backendData.phoneNumber,
@@ -385,11 +402,15 @@ function mapStaffResponse(backendData: any): any {
     dateOfBirth: backendData.date_of_birth || backendData.dateOfBirth,
     bloodGroup: backendData.blood_group || backendData.bloodGroup,
     stateOfOrigin: backendData.state_of_origin || backendData.stateOfOrigin,
+    lga: backendData.lga,
     maritalStatus: backendData.marital_status || backendData.maritalStatus,
     currentAddress: backendData.current_address || backendData.currentAddress,
     permanentAddress: backendData.permanent_address || backendData.permanentAddress,
+    town: backendData.town,
+    zipCode: backendData.zip_code || backendData.zipCode,
     highestQualification: backendData.highest_qualification || backendData.highestQualification,
     universitySchool: backendData.university_school || backendData.universitySchool,
+    courseOfStudy: backendData.course_of_study || backendData.courseOfStudy,
     yearOfGraduation: backendData.year_of_graduation || backendData.yearOfGraduation,
     professionalCertifications: backendData.professional_certifications || backendData.professionalCertifications,
     languagesKnown: backendData.languages_known || backendData.languagesKnown,
@@ -407,8 +428,8 @@ function mapStaffResponse(backendData: any): any {
     probationEndDate: backendData.probation_end_date || backendData.probationEndDate,
     contractEndDate: backendData.contract_end_date || backendData.contractEndDate,
     noticePeriodDays: backendData.notice_period_days || backendData.noticePeriodDays,
-    overtimeEligibility: backendData.overtime_eligibility ?? backendData.overtimeEligibility,
-    gratuityApplicable: backendData.gratuity_applicable ?? backendData.gratuityApplicable,
+    overtimeEligibility: backendData.overtime_eligibility !== undefined ? (backendData.overtime_eligibility === 1 || backendData.overtime_eligibility === true || backendData.overtime_eligibility === '1' ? 'Yes' : 'No') : backendData.overtimeEligibility,
+    gratuityApplicable: backendData.gratuity_applicable !== undefined ? (backendData.gratuity_applicable === 1 || backendData.gratuity_applicable === true || backendData.gratuity_applicable === '1' ? 'Yes' : 'No') : backendData.gratuityApplicable,
     workMode: backendData.work_mode || backendData.workMode,
     resignationDate: backendData.resignation_date || backendData.resignationDate,
     noticePeriodStart: backendData.notice_period_start_date || backendData.noticePeriodStart,
@@ -432,18 +453,21 @@ function mapStaffResponse(backendData: any): any {
     dateEmployed: backendData.date_employed || backendData.joining_date || backendData.dateEmployed,
     jobStatus: backendData.job_status || backendData.jobStatus,
     status: backendData.status,
-    employeeId: backendData.employee_id || backendData.employeeId,
     // Construct full URL for profile picture
     avatar: backendData.employee_photo ? `${API_ENDPOINT}${backendData.employee_photo}` : backendData.avatar,
     profilePicture: backendData.employee_photo ? `${API_ENDPOINT}${backendData.employee_photo}` : backendData.profilePicture,
     allergies: backendData.allergies,
     specialMedicalNotes: backendData.special_medical_notes || backendData.specialMedicalNotes,
-    town: backendData.town,
-    zipCode: backendData.zip_code || backendData.zipCode,
-    lga: backendData.lga,
     payGrade: backendData.pay_grade || backendData.payGrade,
-    baseSalary: backendData.base_salary || backendData.baseSalary
+    baseSalary: backendData.base_salary || backendData.baseSalary,
+    // Location fields
+    assignedLocationId: backendData.assigned_location_id || backendData.assignedLocationId,
+    locationAssignments: backendData.location_assignments || backendData.locationAssignments,
+    locationNotes: backendData.location_notes || backendData.locationNotes
   };
+
+  console.log('[mapStaffResponse] Mapped data:', mapped);
+  return mapped;
 }
 
 // Get staff by ID
