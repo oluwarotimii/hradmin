@@ -252,7 +252,12 @@ const StaffLocationAssignmentView: React.FC = () => {
     if (Array.isArray(staff.location_assignments)) return staff.location_assignments;
     try {
       const parsed = JSON.parse(staff.location_assignments);
-      return Array.isArray(parsed) ? parsed : [];
+      // Handle both array format and object format with secondary_locations
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && parsed.secondary_locations && Array.isArray(parsed.secondary_locations)) {
+        return parsed.secondary_locations;
+      }
+      return [];
     } catch {
       return [];
     }
@@ -261,15 +266,27 @@ const StaffLocationAssignmentView: React.FC = () => {
   // Get all location names for a staff member
   const getLocationNames = (staff: StaffMember): string[] => {
     const assignmentIds = parseLocationAssignments(staff);
+    
+    // If no secondary locations but has primary, return just primary
     if (assignmentIds.length === 0 && staff.assigned_location_id) {
-      // Fallback to single assigned_location_id
       const loc = locations.find(l => l.id === staff.assigned_location_id);
       return loc ? [loc.name] : ['Unknown location'];
     }
-    return assignmentIds.map(id => {
-      const loc = locations.find(l => l.id === id);
-      return loc ? loc.name : null;
-    }).filter(Boolean) as string[];
+    
+    // Map IDs to names, including primary if it's not in the array
+    const allIds = new Set(assignmentIds);
+    if (staff.assigned_location_id) {
+      allIds.add(staff.assigned_location_id);
+    }
+    
+    const names = Array.from(allIds)
+      .map(id => {
+        const loc = locations.find(l => l.id === id);
+        return loc ? loc.name : null;
+      })
+      .filter(Boolean) as string[];
+    
+    return names.length > 0 ? names : ['No location assigned'];
   };
 
   // Pagination
@@ -841,31 +858,36 @@ const StaffLocationAssignmentView: React.FC = () => {
                           {isHovered && locationNames.length > 1 && (
                             <div className="location-dropdown" style={{
                               position: 'absolute',
-                              top: '100%',
+                              top: 'calc(100% + 8px)',
                               left: 0,
-                              zIndex: 100,
-                              minWidth: '250px',
-                              maxWidth: '350px',
+                              zIndex: 1000,
+                              minWidth: '300px',
+                              maxWidth: '400px',
                               background: T.surface,
-                              border: `1px solid ${T.border}`,
-                              borderRadius: '8px',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                              border: `2px solid ${T.border}`,
+                              borderRadius: '10px',
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
                               marginTop: '0.5rem',
-                              maxHeight: '400px',
-                              overflowY: 'auto'
+                              maxHeight: '500px',
+                              overflowY: 'auto',
+                              scrollBehavior: 'smooth'
                             }}>
                               <div style={{
-                                padding: '0.5rem 0.75rem',
-                                fontSize: '0.7rem',
+                                padding: '0.6rem 0.875rem',
+                                fontSize: '0.75rem',
                                 fontWeight: 700,
-                                color: T.textMuted,
+                                color: T.text,
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.05em',
-                                borderBottom: `1px solid ${T.border}`,
+                                borderBottom: `2px solid ${T.borderStrong}`,
                                 background: T.surfaceMuted,
-                                borderRadius: '8px 8px 0 0'
+                                borderRadius: '10px 10px 0 0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
                               }}>
-                                All Locations ({locationNames.length})
+                                <span>All Locations ({locationNames.length})</span>
+                                <MapPin size={14} color={T.primary} />
                               </div>
                               {locationNames.map((locName, idx) => {
                                 const loc = locations.find(l => l.name === locName);
