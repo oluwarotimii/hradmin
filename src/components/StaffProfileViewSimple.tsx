@@ -70,6 +70,25 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
 
   useEffect(() => {
     setEditedStaff(staff);
+    
+    const fetchFullStaffData = async () => {
+      setLoading(true);
+      try {
+        const response = await getStaffById(staff.id);
+        if (response.success && response.staff) {
+          setEditedStaff(response.staff);
+        }
+      } catch (err) {
+        console.error('Error fetching full staff details:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (staff && staff.id) {
+      fetchFullStaffData();
+    }
+
     // Load branches and departments
     loadDropdownData();
     // Load Nigerian states

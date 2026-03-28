@@ -454,8 +454,21 @@ function mapStaffResponse(backendData: any): any {
     jobStatus: backendData.job_status || backendData.jobStatus,
     status: backendData.status,
     // Construct full URL for profile picture
-    avatar: backendData.employee_photo ? `${API_ENDPOINT}${backendData.employee_photo}` : backendData.avatar,
-    profilePicture: backendData.employee_photo ? `${API_ENDPOINT}${backendData.employee_photo}` : backendData.profilePicture,
+    avatar: backendData.employee_photo 
+      ? (backendData.employee_photo.startsWith('http') ? backendData.employee_photo : `${API_ENDPOINT}${backendData.employee_photo}`) 
+      : backendData.profile_picture 
+        ? (backendData.profile_picture.startsWith('http') ? backendData.profile_picture : `${API_ENDPOINT}${backendData.profile_picture}`) 
+        : backendData.avatar,
+    profilePicture: backendData.employee_photo 
+      ? (backendData.employee_photo.startsWith('http') ? backendData.employee_photo : `${API_ENDPOINT}${backendData.employee_photo}`) 
+      : backendData.profile_picture 
+        ? (backendData.profile_picture.startsWith('http') ? backendData.profile_picture : `${API_ENDPOINT}${backendData.profile_picture}`) 
+        : backendData.profilePicture,
+    profile_picture: backendData.employee_photo 
+      ? (backendData.employee_photo.startsWith('http') ? backendData.employee_photo : `${API_ENDPOINT}${backendData.employee_photo}`) 
+      : backendData.profile_picture 
+        ? (backendData.profile_picture.startsWith('http') ? backendData.profile_picture : `${API_ENDPOINT}${backendData.profile_picture}`) 
+        : backendData.profile_picture,
     allergies: backendData.allergies,
     specialMedicalNotes: backendData.special_medical_notes || backendData.specialMedicalNotes,
     payGrade: backendData.pay_grade || backendData.payGrade,
