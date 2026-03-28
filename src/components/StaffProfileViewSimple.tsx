@@ -671,9 +671,9 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(<Calendar className="w-4 h-4 text-muted" />, 'Date Employed', formatDate(editedStaff.joiningDate || editedStaff.dateEmployed))}
                 {renderField(<Clock className="w-4 h-4 text-muted" />, 'Years Employed', computeYearsEmployed(editedStaff.joiningDate || editedStaff.dateEmployed))}
                 {renderField(<Shield className="w-4 h-4 text-muted" />, 'Status', editedStaff.status)}
-                {renderField(<FileText className="w-4 h-4 text-muted" />, 'Employee ID', editedStaff.employeeId)}
-                {renderField(<Users className="w-4 h-4 text-muted" />, 'Employment Type', editedStaff.employmentType)}
-                {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Branch', editedStaff.branch)}
+                {renderField(<FileText className="w-4 h-4 text-muted" />, 'Employee ID', editedStaff.employeeId || editedStaff.employee_id || 'Not specified')}
+                {renderField(<Users className="w-4 h-4 text-muted" />, 'Employment Type', editedStaff.employmentType || editedStaff.employment_type || 'Not specified')}
+                {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Branch', editedStaff.branch || editedStaff.branch_name || 'Not specified')}
               </div>
             </div>
           </div>
@@ -691,7 +691,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(<User className="w-4 h-4 text-muted" />, 'First Name', editedStaff.firstName, 'firstName')}
                 {renderField(<User className="w-4 h-4 text-muted" />, 'Middle Name', editedStaff.middleName, 'middleName')}
                 {renderField(<User className="w-4 h-4 text-muted" />, 'Last Name', editedStaff.lastName, 'lastName')}
-                {renderField(<Calendar className="w-4 h-4 text-muted" />, 'Date of Birth', editedStaff.dateOfBirth, 'dateOfBirth', 'date')}
+                {renderField(<Calendar className="w-4 h-4 text-muted" />, 'Date of Birth', formatDate(editedStaff.dateOfBirth || editedStaff.date_of_birth), 'dateOfBirth', 'date')}
                 {renderField(
                   <User className="w-4 h-4 text-muted" />,
                   'Gender',
@@ -703,7 +703,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(
                   <Activity className="w-4 h-4 text-muted" />,
                   'Blood Group',
-                  editedStaff.bloodGroup,
+                  editedStaff.bloodGroup || editedStaff.blood_group,
                   'bloodGroup',
                   'select',
                   bloodGroupOptions
@@ -711,7 +711,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(
                   <MapPin className="w-4 h-4 text-muted" />,
                   'State of Origin',
-                  editedStaff.stateOfOrigin,
+                  editedStaff.stateOfOrigin || editedStaff.state_of_origin,
                   'stateOfOrigin',
                   'select',
                   nigerianStates
@@ -727,7 +727,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(
                   <Users className="w-4 h-4 text-muted" />,
                   'Marital Status',
-                  editedStaff.maritalStatus,
+                  editedStaff.maritalStatus || editedStaff.marital_status,
                   'maritalStatus',
                   'select',
                   maritalStatusOptions
@@ -758,16 +758,16 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(
                   <MapPin className="w-4 h-4 text-muted" />,
                   'Branch',
-                  editedStaff.branch,
+                  editedStaff.branch || editedStaff.branch_name,
                   'branchId',
                   'select',
                   branches.map(b => ({ value: b.id, label: b.name }))
                 )}
-                {renderField(<Calendar className="w-4 h-4 text-muted" />, 'Date Joined', formatDate(editedStaff.joiningDate || editedStaff.dateEmployed), 'dateJoined', 'date')}
+                {renderField(<Calendar className="w-4 h-4 text-muted" />, 'Date Joined', formatDate(editedStaff.joiningDate || editedStaff.dateEmployed), 'joiningDate', 'date')}
                 {renderField(
                   <Users className="w-4 h-4 text-muted" />,
                   'Employment Type',
-                  editedStaff.employmentType,
+                  editedStaff.employmentType || editedStaff.employment_type,
                   'employmentType',
                   'select',
                   employmentTypeOptions
@@ -775,21 +775,21 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(
                   <Target className="w-4 h-4 text-muted" />,
                   'Job Status',
-                  editedStaff.jobStatus,
+                  editedStaff.jobStatus || editedStaff.status,
                   'jobStatus',
                   'select',
                   jobStatusOptions
                 )}
-                {renderField(<Clock className="w-4 h-4 text-muted" />, 'Weekly Hours', editedStaff.weeklyWorkingHours, 'weeklyWorkingHours', 'number')}
-                {renderField(<CalendarDays className="w-4 h-4 text-muted" />, 'Probation End', formatDate(editedStaff.probationEndDate), 'probationEndDate', 'date')}
-                {renderField(<CalendarDays className="w-4 h-4 text-muted" />, 'Contract End', formatDate(editedStaff.contractEndDate), 'contractEndDate', 'date')}
-                {renderField(<Clock className="w-4 h-4 text-muted" />, 'Notice Period', `${editedStaff.noticePeriodDays || 'N/A'} days`, 'noticePeriodDays', 'number')}
-                {renderField(<Award className="w-4 h-4 text-muted" />, 'Pay Grade', editedStaff.payGrade, 'payGrade')}
-                {renderField(<Banknote className="w-4 h-4 text-muted" />, 'Base Salary', editedStaff.baseSalary, 'baseSalary', 'number')}
+                {renderField(<Clock className="w-4 h-4 text-muted" />, 'Weekly Hours', editedStaff.weeklyWorkingHours || editedStaff.weekly_working_hours, 'weeklyWorkingHours', 'number')}
+                {renderField(<CalendarDays className="w-4 h-4 text-muted" />, 'Probation End', formatDate(editedStaff.probationEndDate || editedStaff.probation_end_date), 'probationEndDate', 'date')}
+                {renderField(<CalendarDays className="w-4 h-4 text-muted" />, 'Contract End', formatDate(editedStaff.contractEndDate || editedStaff.contract_end_date), 'contractEndDate', 'date')}
+                {renderField(<Clock className="w-4 h-4 text-muted" />, 'Notice Period', `${editedStaff.noticePeriodDays || editedStaff.notice_period_days || 'N/A'} days`, 'noticePeriodDays', 'number')}
+                {renderField(<Award className="w-4 h-4 text-muted" />, 'Pay Grade', editedStaff.payGrade || editedStaff.pay_grade, 'payGrade')}
+                {renderField(<Banknote className="w-4 h-4 text-muted" />, 'Base Salary', editedStaff.baseSalary || editedStaff.base_salary, 'baseSalary', 'number')}
                 {renderField(
                   <Banknote className="w-4 h-4 text-muted" />,
                   'Gratuity Applicable',
-                  editedStaff.gratuityApplicable === '1' || editedStaff.gratuityApplicable === true || editedStaff.gratuityApplicable === 'Yes' ? 'Yes' : 'No',
+                  editedStaff.gratuityApplicable === '1' || editedStaff.gratuityApplicable === true || editedStaff.gratuityApplicable === 'Yes' || editedStaff.gratuity_applicable === 1 ? 'Yes' : 'No',
                   'gratuityApplicable',
                   'select',
                   gratuityOptions
@@ -797,7 +797,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(
                   <Clock className="w-4 h-4 text-muted" />,
                   'Overtime Eligible',
-                  editedStaff.overtimeEligibility === '1' || editedStaff.overtimeEligibility === true || editedStaff.overtimeEligibility === 'Yes' ? 'Yes' : 'No',
+                  editedStaff.overtimeEligibility === '1' || editedStaff.overtimeEligibility === true || editedStaff.overtimeEligibility === 'Yes' || editedStaff.overtime_eligibility === 1 ? 'Yes' : 'No',
                   'overtimeEligibility',
                   'select',
                   overtimeEligibilityOptions
@@ -805,7 +805,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 {renderField(
                   <Briefcase className="w-4 h-4 text-muted" />,
                   'Work Mode',
-                  editedStaff.workMode,
+                  editedStaff.workMode || editedStaff.work_mode,
                   'workMode',
                   'select',
                   workModeOptions
@@ -824,14 +824,14 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 Contact Information
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Work Email', editedStaff.workEmail, 'workEmail')}
-                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Personal Email', editedStaff.email, 'email')}
-                {renderField(<Phone className="w-4 h-4 text-muted" />, 'Phone Number', editedStaff.phoneNumber, 'phoneNumber')}
-                {renderField(<Phone className="w-4 h-4 text-muted" />, 'Alternate Phone', editedStaff.alternatePhone, 'alternatePhone')}
-                {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Current Address', editedStaff.currentAddress, 'currentAddress', 'textarea')}
-                {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Permanent Address', editedStaff.permanentAddress, 'permanentAddress', 'textarea')}
+                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Work Email', editedStaff.workEmail || editedStaff.work_email, 'workEmail')}
+                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Personal Email', editedStaff.email || editedStaff.personal_email, 'email')}
+                {renderField(<Phone className="w-4 h-4 text-muted" />, 'Phone Number', editedStaff.phoneNumber || editedStaff.phone_number, 'phoneNumber')}
+                {renderField(<Phone className="w-4 h-4 text-muted" />, 'Alternate Phone', editedStaff.alternatePhone || editedStaff.alternate_phone, 'alternatePhone')}
+                {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Current Address', editedStaff.currentAddress || editedStaff.current_address, 'currentAddress', 'textarea')}
+                {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Permanent Address', editedStaff.permanentAddress || editedStaff.permanent_address, 'permanentAddress', 'textarea')}
                 {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Town/City', editedStaff.town, 'town')}
-                {renderField(<MapPin className="w-4 h-4 text-muted" />, 'ZIP Code', editedStaff.zipCode, 'zipCode')}
+                {renderField(<MapPin className="w-4 h-4 text-muted" />, 'ZIP Code', editedStaff.zipCode || editedStaff.zip_code, 'zipCode')}
               </div>
             </div>
           </div>
