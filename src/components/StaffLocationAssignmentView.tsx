@@ -810,14 +810,17 @@ const StaffLocationAssignmentView: React.FC = () => {
                       )}
                     </td>
 
-                    {/* Location assignments with hover dropdown */}
-                    <td style={{ padding: '1rem 1.25rem', position: 'relative' }}>
+                    {/* Location assignments with click modal */}
+                    <td style={{ padding: '1rem 1.25rem' }}>
                       {locationNames.length > 0 ? (
-                        <div style={{ position: 'relative' }}>
-                          {/* Primary location badge */}
-                          <div
-                            onMouseEnter={() => locationNames.length > 1 && setHoveredStaffId(staff.user_id)}
-                            onMouseLeave={() => setHoveredStaffId(null)}
+                        <>
+                          {/* Primary location badge - Click to open modal */}
+                          <button
+                            onClick={() => {
+                              if (locationNames.length > 1) {
+                                setHoveredStaffId(staff.user_id);
+                              }
+                            }}
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -831,6 +834,18 @@ const StaffLocationAssignmentView: React.FC = () => {
                               border: `1px solid ${T.primaryBorder}`,
                               cursor: locationNames.length > 1 ? 'pointer' : 'default',
                               transition: 'all 0.12s',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (locationNames.length > 1) {
+                                e.currentTarget.style.background = T.primary;
+                                e.currentTarget.style.color = '#fff';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (locationNames.length > 1) {
+                                e.currentTarget.style.background = T.primaryPale;
+                                e.currentTarget.style.color = T.primary;
+                              }
                             }}
                           >
                             <MapPin size={12} />
@@ -852,43 +867,83 @@ const StaffLocationAssignmentView: React.FC = () => {
                                 +{locationNames.length - 1}
                               </span>
                             )}
-                          </div>
+                          </button>
 
-                          {/* Dropdown for multiple locations */}
+                          {/* Locations Modal - Shows on Click */}
                           {isHovered && locationNames.length > 1 && (
-                            <div className="location-dropdown" style={{
-                              position: 'absolute',
-                              top: 'calc(100% + 8px)',
-                              left: 0,
-                              zIndex: 1000,
-                              minWidth: '300px',
-                              maxWidth: '400px',
-                              background: T.surface,
-                              border: `2px solid ${T.border}`,
-                              borderRadius: '10px',
-                              boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                              marginTop: '0.5rem',
-                              maxHeight: '500px',
-                              overflowY: 'auto',
-                              scrollBehavior: 'smooth'
-                            }}>
+                            <>
+                              {/* Dark overlay */}
+                              <div
+                                style={{
+                                  position: 'fixed' as any,
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  background: 'rgba(0,0,0,0.6)',
+                                  zIndex: 2147483647, // Maximum z-index value
+                                }}
+                                onClick={() => setHoveredStaffId(null)}
+                              />
+
+                              {/* Modal centered on screen */}
                               <div style={{
-                                padding: '0.6rem 0.875rem',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                color: T.text,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em',
-                                borderBottom: `2px solid ${T.borderStrong}`,
-                                background: T.surfaceMuted,
-                                borderRadius: '10px 10px 0 0',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between'
+                                position: 'fixed' as any,
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                zIndex: 2147483647, // Maximum z-index value
+                                minWidth: '400px',
+                                maxWidth: '600px',
+                                background: T.surface,
+                                border: `3px solid ${T.primary}`,
+                                borderRadius: '12px',
+                                boxShadow: '0 24px 96px rgba(0,0,0,0.4)',
+                                maxHeight: '80vh',
+                                overflowY: 'auto',
+                                overflowX: 'hidden',
+                                scrollBehavior: 'smooth'
                               }}>
-                                <span>All Locations ({locationNames.length})</span>
-                                <MapPin size={14} color={T.primary} />
-                              </div>
+                                <div style={{
+                                  padding: '0.875rem 1.25rem',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 700,
+                                  color: T.text,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.05em',
+                                  borderBottom: `2px solid ${T.borderStrong}`,
+                                  background: T.primaryPale,
+                                  borderRadius: '12px 12px 0 0',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  position: 'sticky',
+                                  top: 0,
+                                  zIndex: 1
+                                }}>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <MapPin size={18} color={T.primary} />
+                                    {staff.full_name}'s Locations ({locationNames.length})
+                                  </span>
+                                  <button
+                                    onClick={() => setHoveredStaffId(null)}
+                                    style={{
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '0.25rem',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      borderRadius: '4px',
+                                      transition: 'background 0.15s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = T.surfaceMuted}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                  >
+                                    <X size={18} color={T.text} />
+                                  </button>
+                                </div>
                               {locationNames.map((locName, idx) => {
                                 const loc = locations.find(l => l.name === locName);
                                 const color = loc?.color || T.primary;
@@ -916,15 +971,16 @@ const StaffLocationAssignmentView: React.FC = () => {
                                   </div>
                                 );
                               })}
-                            </div>
+                              </div>
+                            </>
                           )}
-                        </div>
+                        </>
                       ) : (
                         <span style={{ fontSize: '0.8rem', color: T.textMuted, fontStyle: 'italic' }}>
                           No location assigned
                         </span>
                       )}
-                    </td>
+                      </td>
 
                     {/* Notes */}
                     <td style={{ padding: '1rem 1.25rem' }}>
