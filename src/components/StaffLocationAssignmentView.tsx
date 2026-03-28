@@ -163,6 +163,7 @@ const StaffLocationAssignmentView: React.FC = () => {
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({
     assigned_location_id: 0,
+    secondary_locations: [] as number[],
     location_notes: ''
   });
 
@@ -299,9 +300,19 @@ const StaffLocationAssignmentView: React.FC = () => {
     setError(null);
 
     try {
+      // Prepare payload with location_assignments in JSON format
+      const payload = {
+        assigned_location_id: editForm.assigned_location_id,
+        location_notes: editForm.location_notes,
+        location_assignments: {
+          primary_location: editForm.assigned_location_id,
+          secondary_locations: editForm.secondary_locations
+        }
+      };
+
       const response = await axios.put(
         `${API_ENDPOINT}/staff-location-assignments/${userId}`,
-        editForm,
+        payload,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -754,7 +765,7 @@ const StaffLocationAssignmentView: React.FC = () => {
                           fontSize: '0.82rem',
                           fontWeight: 700,
                           flexShrink: 0,
-                          boxShadow: `0 2px 8px ${avatarColor}55`,
+                          boxShadow: `0 2px 8px ${avatarColor}5`,
                         }}>
                           {staff.full_name.split(' ').map(n => n[0]).slice(0, 2).join('')}
                         </div>
@@ -880,26 +891,179 @@ const StaffLocationAssignmentView: React.FC = () => {
                     {/* Notes */}
                     <td style={{ padding: '1rem 1.25rem' }}>
                       {isEditing ? (
-                        <textarea
-                          value={editForm.location_notes}
-                          onChange={(e) => setEditForm({ ...editForm, location_notes: e.target.value })}
-                          placeholder="Add notes..."
-                          rows={2}
-                          className="input-focus"
-                          style={{ 
-                            ...inputS, 
-                            width: '100%', 
-                            boxSizing: 'border-box',
-                            resize: 'vertical',
-                            minHeight: '60px'
-                          }}
-                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {/* Secondary Locations Multi-Selector */}
+                          <div>
+                            <label style={{ 
+                              display: 'block', 
+                              fontSize: '0.82rem', 
+                              fontWeight: 600, 
+                              color: T.text,
+                              marginBottom: '0.4rem'
+                            }}>
+                              Secondary Locations
+                              <span style={{ 
+                                display: 'block', 
+                                fontSize: '0.7rem', 
+                                fontWeight: 400, 
+                                color: T.textMuted,
+                                marginTop: '0.25rem'
+                              }}>
+                                Staff can check in at ANY of these locations
+                              </span>
+                            </label>
+                            
+                            <div style={{ 
+                              display: 'grid', 
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                              gap: '0.5rem',
+                              marginTop: '0.5rem',
+                              maxHeight: '200px',
+                              overflowY: 'auto',
+                              padding: '0.5rem',
+                              background: T.surfaceMuted,
+                              borderRadius: '6px'
+                            }}>
+                              {locations.map(location => {
+                                const isSelected = editForm.secondary_locations.includes(location.id);
+                                const isPrimary = editForm.assigned_location_id === location.id;
+                                
+                                return (
+                                  <button
+                                    key={location.id}
+                                    type="button"
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        // Remove from secondary
+                                        setEditForm({
+                                          ...editForm,
+                                          secondary_locations: editForm.secondary_locations.filter(id => id !== location.id)
+                                        });
+                                      } else {
+                                        // Add to secondary (don't add if it's the primary)
+                                        if (!isPrimary) {
+                                          setEditForm({
+                                            ...editForm,
+                                            secondary_locations: [...editForm.secondary_locations, location.id]
+                                          });
+                                        }
+                                      }
+                                    }}
+                                    disabled={isPrimary}
+                                    style={{
+                                      padding: '0.5rem 0.65rem',
+                                      borderRadius: '6px',
+                                      border: isSelected 
+                                        ? `2px solid ${T.primary}` 
+                                        : isPrimary
+                                          ? `2px solid ${T.success}`
+                                          : `1.5px solid ${T.border}`,
+                                      background: isSelected 
+                                        ? T.primaryPale 
+                                        : isPrimary
+                                          ? T.successPale
+                                          : T.surface,
+                                      color: isSelected || isPrimary ? T.primary : T.textSub,
+                                      fontSize: '0.72rem',
+                                      fontWeight: isSelected || isPrimary ? 600 : 500,
+                                      cursor: isPrimary ? 'not-allowed' : 'pointer',
+                                      opacity: isPrimary ? 0.6 : 1,
+                                      transition: 'all 0.12s',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      gap: '0.4rem',
+                                      minHeight: '2.5rem'
+                                    }}
+                                  >
+                                    <span style={{ 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '0.35rem',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      flex: 1
+                                    }}>
+                                      <MapPin size={11} />
+                                      {location.name}
+                                    </span>
+                                    {isSelected && <div style={{ color: T.primary, flexShrink: 0 }}><CheckCircle size={12} /></div>}
+                                    {isPrimary && <span style={{ fontSize: '0.6rem', fontWeight: 700, flexShrink: 0 }}>PRI</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            
+                            {editForm.secondary_locations.length > 0 && (
+                              <div style={{ 
+                                marginTop: '0.75rem',
+                                padding: '0.5rem 0.75rem',
+                                background: T.primaryPale,
+                                borderRadius: '6px',
+                                fontSize: '0.75rem'
+                              }}>
+                                <strong style={{ color: T.primary }}>Selected:</strong>{' '}
+                                <span style={{ color: T.primary, fontWeight: 600 }}>{editForm.secondary_locations.length}</span> location(s)
+                                <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                  {editForm.secondary_locations.map(id => {
+                                    const loc = locations.find(l => l.id === id);
+                                    if (!loc) return null;
+                                    return (
+                                      <span key={id} style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem',
+                                        padding: '0.2rem 0.5rem',
+                                        background: T.surface,
+                                        color: T.primary,
+                                        borderRadius: '4px',
+                                        fontWeight: 600,
+                                        fontSize: '0.7rem'
+                                      }}>
+                                        <MapPin size={9} />
+                                        {loc.name}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Notes Textarea */}
+                          <div>
+                            <label style={{ 
+                              display: 'block', 
+                              fontSize: '0.82rem', 
+                              fontWeight: 600, 
+                              color: T.text,
+                              marginBottom: '0.4rem'
+                            }}>
+                              Notes
+                            </label>
+                            <textarea
+                              value={editForm.location_notes}
+                              onChange={(e) => setEditForm({ ...editForm, location_notes: e.target.value })}
+                              placeholder="Add notes..."
+                              rows={2}
+                              className="input-focus"
+                              style={{
+                                ...inputS,
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                resize: 'vertical',
+                                minHeight: '60px'
+                              }}
+                            />
+                          </div>
+                        </div>
                       ) : (
-                        <p style={{ margin: 0, fontSize: '0.8rem', color: T.textSub, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {staff.location_notes || <span style={{ color: T.textMuted, fontStyle: 'italic' }}>No notes</span>}
-                        </p>
+                        <span style={{ fontSize: '0.8rem', color: T.textMuted, fontStyle: 'italic' }}>
+                          Configure locations
+                        </span>
                       )}
-                    </td>
+                      </td>
 
                     {/* Actions */}
                     <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
@@ -937,13 +1101,32 @@ const StaffLocationAssignmentView: React.FC = () => {
                         <button
                           onClick={() => {
                             setEditingStaffId(staff.user_id);
+                            
+                            // Parse existing secondary locations
+                            let secondaryLocs: number[] = [];
+                            if (staff.location_assignments) {
+                              if (Array.isArray(staff.location_assignments)) {
+                                secondaryLocs = staff.location_assignments;
+                              } else {
+                                try {
+                                  const parsed = JSON.parse(staff.location_assignments);
+                                  if (parsed.secondary_locations && Array.isArray(parsed.secondary_locations)) {
+                                    secondaryLocs = parsed.secondary_locations;
+                                  }
+                                } catch (e) {
+                                  console.error('Failed to parse location_assignments:', e);
+                                }
+                              }
+                            }
+                            
                             setEditForm({
                               assigned_location_id: staff.assigned_location_id || 0,
+                              secondary_locations: secondaryLocs,
                               location_notes: staff.location_notes || ''
                             });
                           }}
-                          style={{ 
-                            ...btnOutline, 
+                          style={{
+                            ...btnOutline,
                             padding: '0.4rem 0.75rem',
                             fontSize: '0.75rem',
                           }}
