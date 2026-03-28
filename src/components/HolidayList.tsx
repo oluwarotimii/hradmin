@@ -73,7 +73,7 @@ const HolidayList: React.FC<HolidayListProps> = ({ onEdit, onDelete, onAssignSta
       if (filters.startDate && filters.endDate) {
         params.startDate = filters.startDate;
         params.endDate = filters.endDate;
-      } else if (filters.year) {
+      } else if (filters.year && filters.year !== 'all') {
         // Default to year range
         params.startDate = `${filters.year}-01-01`;
         params.endDate = `${filters.year}-12-31`;
@@ -191,6 +191,7 @@ const HolidayList: React.FC<HolidayListProps> = ({ onEdit, onDelete, onAssignSta
               value={filters.year}
               onChange={(e) => setFilters({...filters, year: e.target.value, startDate: '', endDate: ''})}
             >
+              <option value="all">All Years</option>
               {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
                 <option key={year} value={year.toString()}>
                   {year}
