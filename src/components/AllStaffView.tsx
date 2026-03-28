@@ -8,6 +8,7 @@ import { StaffMember as ApiStaffMember } from '../services/staffManagementServic
 import { StaffProfileView } from './StaffProfileViewSimple';
 import StaffInvitationView from './StaffInvitationView';
 import { getAllStaff, activateStaff, deactivateStaff } from '../services/staffManagementService';
+import { API_ENDPOINT } from '../config/config';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -142,7 +143,11 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
       guardianBusinessName: 'N/A', guardianBusinessAddress: 'N/A',
       leaves: [], offDays: [], documents: [],
       status: (apiStaff.status === 'active' ? 'Active' : 'Inactive'),
-      avatar: `${firstName.charAt(0)}${lastName.charAt(0)}`
+      avatar: (apiStaff as any).employee_photo 
+        ? ((apiStaff as any).employee_photo.startsWith('http') ? (apiStaff as any).employee_photo : `${API_ENDPOINT}${(apiStaff as any).employee_photo}`)
+        : (apiStaff as any).profile_picture
+          ? ((apiStaff as any).profile_picture.startsWith('http') ? (apiStaff as any).profile_picture : `${API_ENDPOINT}${(apiStaff as any).profile_picture}`)
+          : `${firstName.charAt(0)}${lastName.charAt(0)}`
     };
   };
 
@@ -407,12 +412,17 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
                   {/* Avatar */}
                   <div style={{
                     width: '2.75rem', height: '2.75rem', borderRadius: '10px',
-                    background: avatarColor, color: '#fff',
+                    background: staff.avatar?.includes('http') ? 'transparent' : avatarColor, color: '#fff',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '0.82rem', fontWeight: 700, flexShrink: 0,
-                    letterSpacing: '0.02em', boxShadow: `0 2px 8px ${avatarColor}55`,
+                    letterSpacing: '0.02em', boxShadow: staff.avatar?.includes('http') ? 'none' : `0 2px 8px ${avatarColor}55`,
+                    overflow: 'hidden'
                   }}>
-                    {staff.avatar || `${staff.firstName[0]}${staff.lastName[0]}`}
+                    {staff.avatar?.includes('http') ? (
+                      <img src={staff.avatar} alt={staff.firstName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      staff.avatar || `${staff.firstName[0]}${staff.lastName[0]}`
+                    )}
                   </div>
 
                   {/* Info */}
