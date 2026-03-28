@@ -65,6 +65,8 @@ export interface UpdateLeaveTypeRequest {
   carryoverLimit?: number;
   accrualMethod?: string;
   accrualRate?: number;
+  expiryRuleId?: number | null;
+  isActive?: boolean;
 }
 
 export interface CreateLeaveRequest {
@@ -246,21 +248,16 @@ export const createLeaveType = async (leaveTypeData: CreateLeaveTypeRequest): Pr
       };
     }
 
-    // Prepare the payload, ensuring nullable fields are handled correctly
+    // Prepare the payload with snake_case field names to match backend API
     const payload: any = {
       name: leaveTypeData.name,
       description: leaveTypeData.description,
-      daysPerYear: leaveTypeData.daysPerYear !== null ? leaveTypeData.daysPerYear : 0,
-      isPaid: leaveTypeData.isPaid,
-      allowCarryover: leaveTypeData.allowCarryover,
-      accrualMethod: leaveTypeData.accrualMethod,
-      accrualRate: leaveTypeData.accrualRate
+      days_per_year: leaveTypeData.daysPerYear !== null ? leaveTypeData.daysPerYear : 0,
+      is_paid: leaveTypeData.isPaid,
+      allow_carryover: leaveTypeData.allowCarryover,
+      carryover_limit: leaveTypeData.allowCarryover && leaveTypeData.carryoverLimit !== null ? leaveTypeData.carryoverLimit : 0,
+      expiry_rule_id: null
     };
-
-    // Only include carryoverLimit if carryover is allowed and the value is provided
-    if (leaveTypeData.allowCarryover && leaveTypeData.carryoverLimit !== null) {
-      payload.carryoverLimit = leaveTypeData.carryoverLimit;
-    }
 
     const response = await axios.post(`${API_ENDPOINT}/leave/types`, payload, {
       headers: {
@@ -331,7 +328,17 @@ export const updateLeaveType = async (leaveTypeId: number, leaveTypeData: Update
       };
     }
 
-    const response = await axios.put(`${API_ENDPOINT}/leave/types/${leaveTypeId}`, leaveTypeData, {
+    // Transform camelCase to snake_case for backend API
+    const payload: any = {};
+    if (leaveTypeData.name !== undefined) payload.name = leaveTypeData.name;
+    if (leaveTypeData.daysPerYear !== undefined) payload.days_per_year = leaveTypeData.daysPerYear;
+    if (leaveTypeData.isPaid !== undefined) payload.is_paid = Boolean(leaveTypeData.isPaid);
+    if (leaveTypeData.allowCarryover !== undefined) payload.allow_carryover = Boolean(leaveTypeData.allowCarryover);
+    if (leaveTypeData.carryoverLimit !== undefined) payload.carryover_limit = leaveTypeData.carryoverLimit;
+    if (leaveTypeData.expiryRuleId !== undefined) payload.expiry_rule_id = leaveTypeData.expiryRuleId;
+    if (leaveTypeData.isActive !== undefined) payload.is_active = Boolean(leaveTypeData.isActive);
+
+    const response = await axios.put(`${API_ENDPOINT}/leave/types/${leaveTypeId}`, payload, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
