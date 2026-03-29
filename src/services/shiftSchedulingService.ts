@@ -1,6 +1,12 @@
 // src/services/shiftSchedulingService.ts
 
 import { apiServices } from './apiServices';
+import { 
+  createShiftTiming as apiCreateShiftTiming,
+  updateShiftTiming as apiUpdateShiftTiming,
+  deleteShiftTiming as apiDeleteShiftTiming,
+  getAllShiftTimings as apiGetShiftTimings
+} from './attendanceService';
 import {
   ShiftTemplate,
   CreateShiftTemplateRequest,
@@ -382,6 +388,51 @@ class ShiftSchedulingService {
       return response;
     } catch (error) {
       console.error(`Error deleting shift exception with id ${id}:`, error);
+      throw error;
+    }
+  }
+
+  // Shift Timing methods (Repurposed for Multi-shift support)
+  async getShiftTimings() {
+    try {
+      console.log('[ShiftService] Fetching shift timings...');
+      const response = await apiGetShiftTimings();
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error fetching shift timings:', error.message);
+      throw error;
+    }
+  }
+
+  async createShiftTiming(data: any) {
+    try {
+      console.log('[ShiftService] Creating shift timing:', data);
+      const response = await apiCreateShiftTiming(data);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error creating shift timing:', error.message);
+      throw error;
+    }
+  }
+
+  async updateShiftTiming(id: number, data: any) {
+    try {
+      console.log('[ShiftService] Updating shift timing', id, data);
+      const response = await apiUpdateShiftTiming(id, data);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error updating shift timing', id + ':', error.message);
+      throw error;
+    }
+  }
+
+  async deleteShiftTiming(id: number) {
+    try {
+      console.log('[ShiftService] Deleting shift timing', id);
+      const response = await apiDeleteShiftTiming(id);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error deleting shift timing', id + ':', error.message);
       throw error;
     }
   }

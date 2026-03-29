@@ -4,7 +4,7 @@ import {
   ArrowLeft, User, Phone, Mail, MapPin, Calendar, Briefcase, FileText, Edit2, Save, X,
   CreditCard, GraduationCap, Award, Activity, AlertCircle, BookOpen, Building2, Clock,
   Shield, Stethoscope, Banknote, Target, Users, FileCheck, BadgeCheck, CalendarDays, ChevronDown,
-  Upload, Download, Trash2, Eye, File, FileType, Camera, CheckCircle
+  Upload, Download, Trash2, Eye, File, FileType, Camera, CheckCircle, UserCheck
 } from 'lucide-react';
 import { StaffMember } from '../data/staffData';
 import { getStaffById, updateStaff } from '../services/staffManagementService';
