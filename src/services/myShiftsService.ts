@@ -145,7 +145,7 @@ class MyShiftsService {
       if (params?.branchId) queryParams.append('branchId', params.branchId.toString());
 
       const response = await axios.get(
-        `${API_ENDPOINT}/team-shifts?${queryParams.toString()}`,
+        `${API_ENDPOINT}/my-shifts/team?${queryParams.toString()}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
