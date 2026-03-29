@@ -250,6 +250,7 @@ const ShiftSchedulingView = () => {
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
   const [templateForm, setTemplateForm] = useState({
     name: '',
+    branch_id: null as number | null,
     start_time: '08:00:00',
     end_time: '17:00:00',
     break_duration_minutes: 60,
@@ -267,9 +268,13 @@ const ShiftSchedulingView = () => {
     effective_to: '',
     assignment_type: 'permanent' as 'permanent' | 'temporary' | 'rotating',
     recurrence_pattern: 'none' as 'none' | 'daily' | 'weekly' | 'monthly',
+    recurrence_days: '' as string | undefined,
     recurrence_day_of_week: '',
     recurrence_end_date: '',
   });
+  
+  const [isMultiShift, setIsMultiShift] = useState(false);
+  const [multiShiftDays, setMultiShiftDays] = useState<string[]>(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
 
   // Assignment filters state
   const [assignmentFilters, setAssignmentFilters] = useState({
@@ -390,17 +395,59 @@ const ShiftSchedulingView = () => {
     return { type: 'Night', color: '#4338ca', bg: '#eef2ff', icon: Moon };
   };
 
-  const detectConflict = (userId: number, startDate: string, endDate: string, excludeId?: number) => {
+  const detectConflict = (userId: number, startDate: string, endDate: string, excludeId?: number, newRecurrenceDays?: string, newRecurrencePattern?: string) => {
     const start = new Date(startDate);
     const end = endDate ? new Date(endDate) : null;
+    
+    // Helper to get days from assignment
+    const getDaysFromAssignment = (pattern: string, daysStr: string | null): string[] => {
+      if (!pattern || pattern === 'none' || pattern === 'daily') {
+        return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      }
+      if (pattern === 'weekly' && daysStr) {
+        try {
+          const parsed = JSON.parse(daysStr);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+    
+    // Get days for the new assignment
+    const newDays = getDaysFromAssignment(newRecurrencePattern || 'weekly', newRecurrenceDays || null);
+    
     return assignments.find(a => {
       if (a.id === excludeId || a.user_id !== userId || a.status !== 'active') return false;
+      
       const aStart = new Date(a.effective_from);
       const aEnd = a.effective_to ? new Date(a.effective_to) : null;
-      let overlap = false;
-      if (end && aEnd) overlap = start <= aEnd && end >= aStart;
-      else overlap = start >= aStart && (!aEnd || start <= aEnd);
-      if (!overlap) return false;
+      
+      // Check if date ranges overlap
+      let dateOverlap = false;
+      if (end && aEnd) dateOverlap = start <= aEnd && end >= aStart;
+      else dateOverlap = start >= aStart && (!aEnd || start <= aEnd);
+      
+      if (!dateOverlap) return false;
+      
+      // Get days for existing assignment
+      const template = templates.find(t => t.id === a.shift_template_id);
+      const existingPattern = a.recurrence_pattern || template?.recurrence_pattern || 'none';
+      const existingDays = getDaysFromAssignment(existingPattern, a.recurrence_days || template?.recurrence_days || null);
+      
+      // If either assignment covers all days (none/daily pattern), there's a conflict
+      if (newDays.length === 7 || existingDays.length === 7) {
+        return true;
+      }
+      
+      // Check for day overlap
+      if (newDays.length > 0 && existingDays.length > 0) {
+        const hasDayOverlap = newDays.some(day => existingDays.includes(day));
+        return hasDayOverlap;
+      }
+      
+      // Fallback to old logic if no recurrence days are specified
       const et = templates.find(t => t.id === a.shift_template_id);
       const nt = templates.find(t => t.id === assignmentForm.shift_template_id);
       if (et && nt && et.recurrence_days && nt.recurrence_days) {
@@ -472,38 +519,107 @@ const ShiftSchedulingView = () => {
   };
 
   const resetTemplateForm = () => {
-    setTemplateForm({ name: '', start_time: '08:00:00', end_time: '17:00:00', break_duration_minutes: 60, effective_from: new Date().toISOString().split('T')[0], recurrence_pattern: 'weekly', recurrence_days: '["monday","tuesday","wednesday","thursday","friday"]' });
+    setTemplateForm({ 
+      name: '', 
+      branch_id: null,
+      start_time: '08:00:00', 
+      end_time: '17:00:00', 
+      break_duration_minutes: 60, 
+      effective_from: new Date().toISOString().split('T')[0], 
+      recurrence_pattern: 'weekly', 
+      recurrence_days: '["monday","tuesday","wednesday","thursday","friday"]' 
+    });
     setEditingTemplate(null);
   };
 
   const openEditTemplate = (t: ShiftTemplate) => {
     setEditingTemplate(t);
-    setTemplateForm({ name: t.name, start_time: t.start_time, end_time: t.end_time, break_duration_minutes: t.break_duration_minutes, recurrence_pattern: t.recurrence_pattern || 'weekly', recurrence_days: t.recurrence_days || '["monday","tuesday","wednesday","thursday","friday"]' });
+    setTemplateForm({ 
+      name: t.name, 
+      branch_id: t.branch_id || null,
+      start_time: t.start_time, 
+      end_time: t.end_time, 
+      break_duration_minutes: t.break_duration_minutes, 
+      recurrence_pattern: t.recurrence_pattern || 'weekly', 
+      recurrence_days: t.recurrence_days || '["monday","tuesday","wednesday","thursday","friday"]' 
+    });
     setShowTemplateModal(true);
   };
 
   // ─── Assignment handlers ─────────────────────────────────────────────────
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const conflict = detectConflict(assignmentForm.user_id, assignmentForm.effective_from, assignmentForm.effective_to || '');
-    if (conflict) { 
-      setError('This employee already has an active shift assignment during this period. Please check the dates or use a different employee.'); 
-      return; 
+
+    // Get the selected template to extract its recurrence days
+    const selectedTemplate = templates.find(t => t.id === assignmentForm.shift_template_id);
+    
+    // Build recurrence_days from assignmentForm OR from the selected template
+    let recurrenceDays: string | undefined;
+    if (assignmentForm.recurrence_pattern === 'weekly') {
+      // Use assignmentForm's recurrence_days if set, otherwise use template's
+      if (assignmentForm.recurrence_days) {
+        recurrenceDays = typeof assignmentForm.recurrence_days === 'string' 
+          ? assignmentForm.recurrence_days 
+          : JSON.stringify(assignmentForm.recurrence_days);
+      } else if (selectedTemplate?.recurrence_days) {
+        recurrenceDays = selectedTemplate.recurrence_days;
+      } else {
+        // Default to Mon-Fri if nothing is specified
+        recurrenceDays = JSON.stringify(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
+      }
+    }
+
+    const conflict = detectConflict(
+      assignmentForm.user_id,
+      assignmentForm.effective_from,
+      assignmentForm.effective_to || '',
+      undefined,
+      recurrenceDays,
+      assignmentForm.recurrence_pattern
+    );
+    if (conflict) {
+      setError('This employee already has an active shift assignment during this period. Please check the dates or use a different employee.');
+      return;
     }
     setLoading(true);
     try {
-      const res = await shiftSchedulingService.assignShiftToEmployee({ 
-        user_id: assignmentForm.user_id, 
-        shift_template_id: assignmentForm.shift_template_id, 
-        effective_from: assignmentForm.effective_from, 
-        effective_to: assignmentForm.effective_to || null 
+      if (isMultiShift) {
+        const template = templates.find(t => t.id === assignmentForm.shift_template_id);
+        const daysStr = multiShiftDays.join(',');
+        const res = await shiftSchedulingService.createShiftTiming({
+          user_id: assignmentForm.user_id,
+          shift_name: `${template?.name || 'Shift'} [${daysStr}]`,
+          start_time: template?.start_time || '08:00:00',
+          end_time: template?.end_time || '17:00:00',
+          effective_from: assignmentForm.effective_from,
+          effective_to: assignmentForm.effective_to || null
+        });
+        if (res.success) {
+          setSuccessMessage('Secondary shift assigned successfully');
+          setShowAssignmentModal(false);
+          resetAssignmentForm();
+          loadData();
+          setTimeout(() => setSuccessMessage(null), 3000);
+        } else {
+          setError(res.message || 'Failed to create secondary shift');
+        }
+        return;
+      }
+
+      const res = await shiftSchedulingService.assignShiftToEmployee({
+        user_id: assignmentForm.user_id,
+        shift_template_id: assignmentForm.shift_template_id,
+        effective_from: assignmentForm.effective_from,
+        effective_to: assignmentForm.effective_to || null,
+        recurrence_pattern: assignmentForm.recurrence_pattern,
+        recurrence_days: recurrenceDays ? JSON.parse(recurrenceDays) : undefined
       });
-      if (res.success) { 
-        setSuccessMessage('Assignment created'); 
-        setShowAssignmentModal(false); 
-        resetAssignmentForm(); 
-        loadData(); 
-        setTimeout(() => setSuccessMessage(null), 3000); 
+      if (res.success) {
+        setSuccessMessage('Assignment created');
+        setShowAssignmentModal(false);
+        resetAssignmentForm();
+        loadData();
+        setTimeout(() => setSuccessMessage(null), 3000);
       }
       else setError(res.message || 'Failed');
     } catch (err: any) { setError(err.message || 'Failed'); } finally { setLoading(false); }
@@ -512,18 +628,44 @@ const ShiftSchedulingView = () => {
   const handleUpdateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAssignment) return;
+
+    // Get the selected template to extract its recurrence days
+    const selectedTemplate = templates.find(t => t.id === assignmentForm.shift_template_id);
     
-    const conflict = detectConflict(assignmentForm.user_id, assignmentForm.effective_from, assignmentForm.effective_to || '', editingAssignment.id);
-    if (conflict) { 
-      setError('This employee already has another active shift assignment during this period. Please adjust the dates.'); 
-      return; 
+    // Build recurrence_days from assignmentForm OR from the selected template
+    let recurrenceDays: string | undefined;
+    if (assignmentForm.recurrence_pattern === 'weekly') {
+      // Use assignmentForm's recurrence_days if set, otherwise use template's
+      if (assignmentForm.recurrence_days) {
+        recurrenceDays = typeof assignmentForm.recurrence_days === 'string' 
+          ? assignmentForm.recurrence_days 
+          : JSON.stringify(assignmentForm.recurrence_days);
+      } else if (selectedTemplate?.recurrence_days) {
+        recurrenceDays = selectedTemplate.recurrence_days;
+      } else {
+        // Default to Mon-Fri if nothing is specified
+        recurrenceDays = JSON.stringify(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
+      }
     }
-    
+
+    const conflict = detectConflict(
+      assignmentForm.user_id,
+      assignmentForm.effective_from,
+      assignmentForm.effective_to || '',
+      editingAssignment.id,
+      recurrenceDays,
+      assignmentForm.recurrence_pattern
+    );
+    if (conflict) {
+      setError('This employee already has another active shift assignment during this period. Please adjust the dates.');
+      return;
+    }
+
     setLoading(true);
     try {
       // Build update payload with only changed fields
       const updateData: any = {};
-      
+
       // Only include fields that have meaningful values
       if (assignmentForm.shift_template_id && assignmentForm.shift_template_id !== 0) {
         updateData.shift_template_id = assignmentForm.shift_template_id;
@@ -539,28 +681,43 @@ const ShiftSchedulingView = () => {
       }
       if (assignmentForm.recurrence_pattern && assignmentForm.recurrence_pattern !== 'none') {
         updateData.recurrence_pattern = assignmentForm.recurrence_pattern;
+        if (recurrenceDays) {
+          updateData.recurrence_days = JSON.parse(recurrenceDays);
+        }
       }
-      
+
       console.log('[ShiftSchedulingView] Updating assignment with data:', updateData);
-      
+
       const res = await shiftSchedulingService.updateEmployeeShiftAssignment(editingAssignment.id, updateData);
-      if (res.success) { 
-        setSuccessMessage('Assignment updated successfully'); 
-        setShowAssignmentModal(false); 
-        resetAssignmentForm(); 
-        loadData(); 
-        setTimeout(() => setSuccessMessage(null), 3000); 
+      if (res.success) {
+        setSuccessMessage('Assignment updated successfully');
+        setShowAssignmentModal(false);
+        resetAssignmentForm();
+        loadData();
+        setTimeout(() => setSuccessMessage(null), 3000);
       }
       else setError(res.message || 'Failed to update');
-    } catch (err: any) { 
+    } catch (err: any) {
       console.error('[ShiftSchedulingView] Update error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to update assignment'); 
+      setError(err.response?.data?.message || err.message || 'Failed to update assignment');
     } finally { setLoading(false); }
   };
 
   const resetAssignmentForm = () => {
-    setAssignmentForm({ user_id: 0, shift_template_id: 0, effective_from: new Date().toISOString().split('T')[0], effective_to: '', assignment_type: 'permanent', recurrence_pattern: 'none', recurrence_day_of_week: '', recurrence_end_date: '' });
+    setAssignmentForm({ 
+      user_id: 0, 
+      shift_template_id: 0, 
+      effective_from: new Date().toISOString().split('T')[0], 
+      effective_to: '', 
+      assignment_type: 'permanent', 
+      recurrence_pattern: 'none', 
+      recurrence_days: undefined,
+      recurrence_day_of_week: '', 
+      recurrence_end_date: '' 
+    });
     setEditingAssignment(null);
+    setIsMultiShift(false);
+    setMultiShiftDays(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
   };
 
   // Bulk Assign handlers
@@ -922,6 +1079,7 @@ const ShiftSchedulingView = () => {
         <thead>
           <tr>
             <Th>Template</Th>
+            <Th>Branch</Th>
             <Th>Break</Th>
             <Th>Pattern</Th>
             <Th>Days</Th>
@@ -936,6 +1094,7 @@ const ShiftSchedulingView = () => {
           ) : templates.map(t => {
             const st = getShiftType(t.start_time, t.end_time);
             const Icon = st.icon;
+            const branch = branches.find(b => b.id === t.branch_id);
             return (
               <tr key={t.id} style={{ transition: 'background 0.1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceAlt)}
@@ -950,6 +1109,13 @@ const ShiftSchedulingView = () => {
                       <span style={{ fontSize: '0.72rem', color: colors.textMuted, marginTop: 2, display: 'block' }}>{t.start_time?.substring(0, 5)} – {t.end_time?.substring(0, 5)}</span>
                     </div>
                   </div>
+                </Td>
+                <Td>
+                  {branch ? (
+                    <span style={{ fontSize: '0.8rem', color: colors.textSecondary, fontWeight: 500 }}>{branch.name}</span>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: colors.textMuted, fontStyle: 'italic' }}>Global</span>
+                  )}
                 </Td>
                 <Td>
                   <span style={{ fontSize: '0.8rem', color: colors.textSecondary }}>{t.break_duration_minutes} min</span>
@@ -1488,6 +1654,18 @@ const ShiftSchedulingView = () => {
                 <FormField label="Template Name" required>
                   <input style={inputStyle} type="text" value={templateForm.name} onChange={e => setTemplateForm({ ...templateForm, name: e.target.value })} placeholder="e.g. Morning Shift, Standard Hours, Night Rotation" required />
                 </FormField>
+                <FormField label="Branch" hint="Leave empty for global template (available to all branches)">
+                  <select
+                    style={inputStyle}
+                    value={templateForm.branch_id || ''}
+                    onChange={e => setTemplateForm({ ...templateForm, branch_id: e.target.value ? Number(e.target.value) : null })}
+                  >
+                    <option value="">Global Template (All Branches)</option>
+                    {branches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </FormField>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
                   <FormField label="Start Time" required>
                     <input style={inputStyle} type="time" value={templateForm.start_time} onChange={e => setTemplateForm({ ...templateForm, start_time: e.target.value })} required />
@@ -1554,17 +1732,33 @@ const ShiftSchedulingView = () => {
                     {staffMembers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </FormField>
-                <FormField label="Shift Template" required>
-                  <select 
-                    style={inputStyle} 
-                    value={editingAssignment ? (assignmentForm.shift_template_id || editingAssignment.shift_template_id) : (assignmentForm.shift_template_id || '')} 
-                    onChange={e => setAssignmentForm({ ...assignmentForm, shift_template_id: Number(e.target.value) })} 
+                <FormField label="Shift Template" required hint="Select any template (global or branch-specific)">
+                  <select
+                    style={inputStyle}
+                    value={editingAssignment ? (assignmentForm.shift_template_id || editingAssignment.shift_template_id) : (assignmentForm.shift_template_id || '')}
+                    onChange={e => {
+                      const templateId = Number(e.target.value);
+                      const template = templates.find(t => t.id === templateId);
+                      setAssignmentForm({
+                        ...assignmentForm,
+                        shift_template_id: templateId,
+                        // Auto-populate recurrence_days and pattern from template
+                        recurrence_days: template?.recurrence_days || '',
+                        recurrence_pattern: (template?.recurrence_pattern as any) || assignmentForm.recurrence_pattern
+                      });
+                    }}
                     required
                   >
                     <option value="">Select Template</option>
                     {templates.map(t => {
                       const h = calculateHours(t.start_time, t.end_time, t.break_duration_minutes);
-                      return <option key={t.id} value={t.id}>{t.name} ({t.start_time?.substring(0,5)} – {t.end_time?.substring(0,5)}, {h}h)</option>;
+                      const branch = branches.find(b => b.id === t.branch_id);
+                      return (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.start_time?.substring(0,5)} – {t.end_time?.substring(0,5)}, {h}h)
+                          {branch ? ` - ${branch.name}` : ' (Global)'}
+                        </option>
+                      );
                     })}
                   </select>
                 </FormField>
@@ -1587,7 +1781,42 @@ const ShiftSchedulingView = () => {
                     />
                   </FormField>
                 </div>
-                {editingAssignment && (
+
+                {/* Multi-Shift Toggle */}
+                {!editingAssignment && (
+                  <div style={{ padding: '0.875rem', background: isMultiShift ? colors.primaryPale : colors.surfaceAlt, border: `1px solid ${isMultiShift ? colors.primaryBorder : colors.border}`, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <Zap size={15} color={isMultiShift ? colors.primary : colors.textMuted} />
+                      <div>
+                        <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: colors.textPrimary }}>Secondary Shift (Multi-Shift)</p>
+                        <p style={{ margin: '0.1rem 0 0', fontSize: '0.72rem', color: colors.textMuted }}>Assign multiple shifts using day-of-week constraints</p>
+                      </div>
+                    </div>
+                    <label style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                      <input type="checkbox" style={{ opacity: 0, width: 0, height: 0 }} checked={isMultiShift} onChange={e => setIsMultiShift(e.target.checked)} />
+                      <div style={{ width: '2.5rem', height: '1.4rem', background: isMultiShift ? colors.primary : colors.border, borderRadius: '99px', transition: 'background 0.2s', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '2px', left: isMultiShift ? 'calc(100% - 1.1rem - 2px)' : '2px', width: '1.1rem', height: '1.1rem', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                      </div>
+                    </label>
+                  </div>
+                )}
+
+                {isMultiShift && (
+                  <FormField label="Applicable Days" hint="Select the days this specific shift applies to">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.25rem' }}>
+                      {daysOfWeek.map(d => (
+                        <DayPill 
+                          key={d} 
+                          day={d} 
+                          active={multiShiftDays.includes(d)} 
+                          onClick={() => setMultiShiftDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])} 
+                        />
+                      ))}
+                    </div>
+                  </FormField>
+                )}
+
+                {!isMultiShift && editingAssignment && (
                   <FormField label="Assignment Type">
                     <select 
                       style={inputStyle} 
