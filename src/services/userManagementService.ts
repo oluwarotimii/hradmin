@@ -443,7 +443,7 @@ export const updateUserProfile = async (profileData: Partial<User>): Promise<{ s
 };
 
 // Change password
-// PUT {{baseUrl}}/users/change-password
+// POST /api/password-change/change
 export const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; message?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
@@ -454,7 +454,7 @@ export const changePassword = async (currentPassword: string, newPassword: strin
       };
     }
 
-    const response = await axios.put(`${API_ENDPOINT}/users/change-password`, {
+    const response = await axios.post(`${API_ENDPOINT}/password-change/change`, {
       currentPassword,
       newPassword
     }, {
