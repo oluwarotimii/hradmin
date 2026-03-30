@@ -1,9 +1,8 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm install && npm run build",
   "outputDirectory": "build",
   "framework": "vite",
-  "installCommand": "npm install",
   "env": {
-    "VITE_API_URL": "https://hrapi.tripa.com.ng/api"
+    "VITE_API_URL": "http://hrapi.femtechaccess.com.ng/api"
   }
 }
