@@ -1,6 +1,6 @@
 import axios from 'axios';
+import { API_ENDPOINT } from '../config/config';
 
-const API_ENDPOINT = import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api';
 const LEAVE_BASE = `${API_ENDPOINT}/leave/allocations`;
 
 // ============================================================================

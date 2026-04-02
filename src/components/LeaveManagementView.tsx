@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye, Paperclip, ExternalLink, Image } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
+import { API_ENDPOINT } from '../config/config';
 import {
   getAllLeaveRequests,
   updateLeaveRequestStatus,
@@ -965,7 +966,7 @@ const LeaveManagementView = () => {
                             const isImage = mimeType.includes('image')||fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i);
                             const isPDF = mimeType.includes('pdf')||fileName.match(/\.pdf$/i);
                             return (
-                              <a key={i} href={`${filePath.startsWith('http')?filePath:`http://localhost:3000${filePath}`}`} target="_blank" rel="noopener noreferrer"
+                              <a key={i} href={`${filePath.startsWith('http')?filePath:`${API_ENDPOINT}${filePath}`}`} target="_blank" rel="noopener noreferrer"
                                 style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'9px', textDecoration:'none', transition:'box-shadow 0.15s, border-color 0.15s' }}
                                 onMouseEnter={e=>{(e.currentTarget as HTMLAnchorElement).style.borderColor=T.primaryBorder;(e.currentTarget as HTMLAnchorElement).style.boxShadow='0 2px 10px rgba(15,23,42,.08)';}}
                                 onMouseLeave={e=>{(e.currentTarget as HTMLAnchorElement).style.borderColor=T.border;(e.currentTarget as HTMLAnchorElement).style.boxShadow='none';}}>
@@ -1122,7 +1123,7 @@ const LeaveManagementView = () => {
                                       <Eye size={11}/> View
                                     </button>
                                   )}
-                                  <a href={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${att.file_path}`} download={att.file_name}
+                                  <a href={`${API_ENDPOINT}${att.file_path}`} download={att.file_name}
                                     style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.3rem 0.6rem', border:'none', borderRadius:'6px', background:T.primary, color:'#fff', cursor:'pointer', fontSize:'0.72rem', fontWeight:600, textDecoration:'none' }}>
                                     <Download size={11}/> Download
                                   </a>
@@ -1356,24 +1357,24 @@ const LeaveManagementView = () => {
                     </div>
                   </div>
                   <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
-                    <a href={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} download={viewingAttachment.file_name}
+                    <a href={`${API_ENDPOINT}${viewingAttachment.file_path}`} download={viewingAttachment.file_name}
                       style={{ ...btnPrimary, textDecoration:'none' }}><Download size={13}/> Download</a>
-                    <a href={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} target="_blank" rel="noopener noreferrer"
+                    <a href={`${API_ENDPOINT}${viewingAttachment.file_path}`} target="_blank" rel="noopener noreferrer"
                       style={{ ...btnOutline, textDecoration:'none' }}><Eye size={13}/> Full Screen</a>
                     <button onClick={()=>setViewingAttachment(null)} style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'1.75rem', height:'1.75rem', border:'none', background:'transparent', cursor:'pointer', color:T.textMuted, borderRadius:'6px' }}><X size={16}/></button>
                   </div>
                 </div>
                 <div style={{ flex:1, overflow:'auto', background:T.surfaceMuted, display:'flex', alignItems:'center', justifyContent:'center', padding:'1.25rem' }}>
                   {viewingAttachment.mime_type?.includes('image') ? (
-                    <img src={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} alt={viewingAttachment.file_name||'Attachment'} style={{ maxWidth:'100%', maxHeight:'70vh', objectFit:'contain', borderRadius:'8px', boxShadow:'0 4px 24px rgba(15,23,42,.15)' }}/>
+                    <img src={`${API_ENDPOINT}${viewingAttachment.file_path}`} alt={viewingAttachment.file_name||'Attachment'} style={{ maxWidth:'100%', maxHeight:'70vh', objectFit:'contain', borderRadius:'8px', boxShadow:'0 4px 24px rgba(15,23,42,.15)' }}/>
                   ) : viewingAttachment.mime_type?.includes('pdf') ? (
-                    <iframe src={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} style={{ width:'100%', minHeight:'70vh', border:'none', borderRadius:'8px' }} title={viewingAttachment.file_name||'Attachment'}/>
+                    <iframe src={`${API_ENDPOINT}${viewingAttachment.file_path}`} style={{ width:'100%', minHeight:'70vh', border:'none', borderRadius:'8px' }} title={viewingAttachment.file_name||'Attachment'}/>
                   ) : (
                     <div style={{ textAlign:'center', padding:'2rem', background:T.surface, borderRadius:'12px', boxShadow:'0 2px 12px rgba(15,23,42,.08)' }}>
                       <FileText size={48} color={T.primary} style={{ margin:'0 auto 1rem' }}/>
                       <p style={{ fontWeight:700, color:T.text, margin:'0 0 0.4rem' }}>{viewingAttachment.file_name||'Attachment'}</p>
                       <p style={{ color:T.textMuted, fontSize:'0.85rem', margin:'0 0 1.25rem' }}>This file type cannot be previewed. Please download to view.</p>
-                      <a href={`${import.meta.env.VITE_API_Endpoint||'http://localhost:3000/api'}${viewingAttachment.file_path}`} download={viewingAttachment.file_name} style={{ ...btnPrimary, textDecoration:'none' }}><Download size={14}/> Download File</a>
+                      <a href={`${API_ENDPOINT}${viewingAttachment.file_path}`} download={viewingAttachment.file_name} style={{ ...btnPrimary, textDecoration:'none' }}><Download size={14}/> Download File</a>
                     </div>
                   )}
                 </div>
