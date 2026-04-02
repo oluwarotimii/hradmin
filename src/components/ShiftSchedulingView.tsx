@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { API_ENDPOINT } from '../config/config';
 import {
   shiftSchedulingService,
   ShiftTemplate,
@@ -761,7 +762,7 @@ const ShiftSchedulingView = () => {
       }
 
       const response = await axios.post(
-        'http://localhost:3000/api/shift-scheduling/employee-shift-assignments/bulk',
+        `${API_ENDPOINT}/shift-scheduling/employee-shift-assignments/bulk`,
         payload,
         {
           headers: {

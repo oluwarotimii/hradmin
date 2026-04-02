@@ -11,8 +11,7 @@ import {
   Settings, Clock, Save, AlertCircle, MapPin, Timer
 } from 'lucide-react';
 import axios from 'axios';
-
-const API_ENDPOINT = import.meta.env.VITE_API_Endpoint || 'http://localhost:3000/api';
+import { API_ENDPOINT } from '../config/config';
 
 // Design tokens
 const colors = {
