@@ -200,13 +200,13 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
               </button>
             </li>
             <li className="sidebar-menu-item">
-              <button
+              {/* <button
                 onClick={() => onNavigate("my-shifts")}
                 className={`sidebar-menu-button ${activeView === "my-shifts" ? "active" : ""}`}
               >
                 <CalendarDays className="w-4 h-4" />
                 <span>My Shifts</span>
-              </button>
+              </button> */}
             </li>
           </ul>
         </div>
@@ -735,7 +735,7 @@ export default function App() {
         return <ShiftSchedulingView />;
 
       case "my-shifts":
-        return <MyShiftsView />;
+        // return <MyShiftsView />;
 
       case "usermanagement":
         return <UserManagementView />;
