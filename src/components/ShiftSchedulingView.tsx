@@ -553,16 +553,20 @@ const ShiftSchedulingView = () => {
 
     // Get the selected template to extract its recurrence days
     const selectedTemplate = templates.find(t => t.id === assignmentForm.shift_template_id);
-    
-    // Build recurrence_days from assignmentForm OR from the selected template
+
+    // Build recurrence_days from assignmentForm OR from multiShiftDays (for multi-shift mode)
     let recurrenceDays: string | undefined;
     if (assignmentForm.recurrence_pattern === 'weekly') {
-      // Use assignmentForm's recurrence_days if set, otherwise use template's
-      if (assignmentForm.recurrence_days) {
-        recurrenceDays = typeof assignmentForm.recurrence_days === 'string' 
-          ? assignmentForm.recurrence_days 
+      if (isMultiShift && multiShiftDays.length > 0) {
+        // Multi-shift mode: use the explicitly selected days from the checkbox UI
+        recurrenceDays = JSON.stringify(multiShiftDays);
+      } else if (assignmentForm.recurrence_days) {
+        // Normal mode: use assignmentForm's recurrence_days
+        recurrenceDays = typeof assignmentForm.recurrence_days === 'string'
+          ? assignmentForm.recurrence_days
           : JSON.stringify(assignmentForm.recurrence_days);
       } else if (selectedTemplate?.recurrence_days) {
+        // Fall back to template's recurrence_days
         recurrenceDays = selectedTemplate.recurrence_days;
       } else {
         // Default to Mon-Fri if nothing is specified
@@ -593,7 +597,9 @@ const ShiftSchedulingView = () => {
           start_time: template?.start_time || '08:00:00',
           end_time: template?.end_time || '17:00:00',
           effective_from: assignmentForm.effective_from,
-          effective_to: assignmentForm.effective_to || null
+          effective_to: assignmentForm.effective_to || null,
+          recurrence_pattern: 'weekly',
+          recurrence_days: recurrenceDays ? JSON.parse(recurrenceDays) : undefined
         });
         if (res.success) {
           setSuccessMessage('Secondary shift assigned successfully');
