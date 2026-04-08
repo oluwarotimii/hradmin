@@ -102,31 +102,47 @@ export function Login({ onLogin }: LoginProps) {
       justifyContent: 'center',
       alignItems: 'center',
       minHeight: '100vh',
-      backgroundColor: '#f8fafc',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      backgroundColor: '#f1f5f9',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      padding: '1rem'
     }}>
       <div style={{
         backgroundColor: '#ffffff',
-        padding: '2rem',
-        borderRadius: '0.75rem',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        padding: '2.5rem',
+        borderRadius: '1rem',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04)',
         width: '100%',
-        maxWidth: '400px'
+        maxWidth: '420px',
+        borderTop: '4px solid #1e40af'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{
-            fontSize: '1.875rem',
-            fontWeight: 'bold',
-            color: '#1e293b',
-            marginBottom: '0.5rem'
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '3.5rem',
+            height: '3.5rem',
+            borderRadius: '0.75rem',
+            background: '#1e40af',
+            marginBottom: '1rem'
           }}>
-            HR Dashboard Login
+            <span style={{ color: '#ffffff', fontSize: '1.25rem', fontWeight: 700 }}>F</span>
+          </div>
+          <h1 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#0f172a',
+            marginBottom: '0.375rem',
+            letterSpacing: '-0.025em'
+          }}>
+            Femtech HR
           </h1>
           <p style={{
             color: '#64748b',
-            fontSize: '0.875rem'
+            fontSize: '0.875rem',
+            margin: 0
           }}>
-            Enter your credentials to access the dashboard
+            Admin Dashboard
           </p>
         </div>
 
@@ -141,10 +157,11 @@ export function Login({ onLogin }: LoginProps) {
           <div style={{ marginBottom: '1rem' }}>
             <label style={{
               display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
+              fontSize: '0.813rem',
+              fontWeight: '600',
               color: '#374151',
-              marginBottom: '0.5rem'
+              marginBottom: '0.375rem',
+              letterSpacing: '0.01em'
             }}>
               Email
             </label>
@@ -153,16 +170,19 @@ export function Login({ onLogin }: LoginProps) {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (emailError) setEmailError(""); // Clear error when user starts typing
+                if (emailError) setEmailError("");
               }}
+              placeholder="you@company.com"
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                border: emailError ? '1px solid #ef4444' : '1px solid #d1d5db',
-                borderRadius: '0.375rem',
+                padding: '0.688rem 0.875rem',
+                border: emailError ? '1.5px solid #ef4444' : '1.5px solid #e2e8f0',
+                borderRadius: '0.5rem',
                 fontSize: '0.875rem',
                 backgroundColor: '#ffffff',
-                transition: 'border-color 0.2s, box-shadow 0.2s'
+                color: '#0f172a',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => {
                 const target = e.target as HTMLInputElement;
@@ -171,7 +191,7 @@ export function Login({ onLogin }: LoginProps) {
               }}
               onBlur={(e) => {
                 const target = e.target as HTMLInputElement;
-                target.style.borderColor = emailError ? '#ef4444' : '#d1d5db';
+                target.style.borderColor = emailError ? '#ef4444' : '#e2e8f0';
                 target.style.boxShadow = 'none';
               }}
               required
@@ -182,20 +202,22 @@ export function Login({ onLogin }: LoginProps) {
               <p style={{
                 color: '#dc2626',
                 fontSize: '0.75rem',
-                marginTop: '0.25rem'
+                marginTop: '0.375rem',
+                marginBottom: 0
               }}>
                 {emailError}
               </p>
             )}
           </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ marginBottom: '1.25rem' }}>
             <label style={{
               display: 'block',
-              fontSize: '0.875rem',
-              fontWeight: '500',
+              fontSize: '0.813rem',
+              fontWeight: '600',
               color: '#374151',
-              marginBottom: '0.5rem'
+              marginBottom: '0.375rem',
+              letterSpacing: '0.01em'
             }}>
               Password
             </label>
@@ -203,14 +225,17 @@ export function Login({ onLogin }: LoginProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #d1d5db',
-                borderRadius: '0.375rem',
+                padding: '0.688rem 0.875rem',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '0.5rem',
                 fontSize: '0.875rem',
                 backgroundColor: '#ffffff',
-                transition: 'border-color 0.2s, box-shadow 0.2s'
+                color: '#0f172a',
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => {
                 const target = e.target as HTMLInputElement;
@@ -219,7 +244,7 @@ export function Login({ onLogin }: LoginProps) {
               }}
               onBlur={(e) => {
                 const target = e.target as HTMLInputElement;
-                target.style.borderColor = '#d1d5db';
+                target.style.borderColor = '#e2e8f0';
                 target.style.boxShadow = 'none';
               }}
               required
@@ -232,9 +257,9 @@ export function Login({ onLogin }: LoginProps) {
             <div style={{
               backgroundColor: '#fef2f2',
               color: '#dc2626',
-              padding: '0.75rem',
-              borderRadius: '0.375rem',
-              fontSize: '0.875rem',
+              padding: '0.625rem 0.875rem',
+              borderRadius: '0.5rem',
+              fontSize: '0.813rem',
               marginBottom: '1rem',
               border: '1px solid #fecaca'
             }}>
@@ -246,25 +271,36 @@ export function Login({ onLogin }: LoginProps) {
             type="submit"
             style={{
               width: '100%',
-              backgroundColor: loading ? '#60a5fa' : '#2563eb',
+              backgroundColor: loading ? '#60a5fa' : '#1e40af',
               color: '#ffffff',
               padding: '0.75rem 1rem',
-              borderRadius: '0.375rem',
+              borderRadius: '0.5rem',
               fontSize: '0.875rem',
-              fontWeight: '500',
+              fontWeight: '600',
               border: 'none',
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s',
-              opacity: loading ? 0.8 : 1
+              transition: 'background-color 0.15s, transform 0.1s',
+              opacity: loading ? 0.8 : 1,
+              letterSpacing: '0.01em'
             }}
             onMouseOver={(e) => {
               if (!loading) {
-                (e.target as HTMLButtonElement).style.backgroundColor = '#1d4ed8';
+                (e.target as HTMLButtonElement).style.backgroundColor = '#1e3a8a';
               }
             }}
             onMouseOut={(e) => {
                 if (!loading) {
-                (e.target as HTMLButtonElement).style.backgroundColor = '#2563eb';
+                (e.target as HTMLButtonElement).style.backgroundColor = loading ? '#60a5fa' : '#1e40af';
+              }
+            }}
+            onMouseDown={(e) => {
+              if (!loading) {
+                (e.target as HTMLButtonElement).style.transform = 'scale(0.98)';
+              }
+            }}
+            onMouseUp={(e) => {
+              if (!loading) {
+                (e.target as HTMLButtonElement).style.transform = 'scale(1)';
               }
             }}
             disabled={loading}
@@ -272,15 +308,6 @@ export function Login({ onLogin }: LoginProps) {
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
-
-        <div style={{
-          textAlign: 'center',
-          marginTop: '1.5rem',
-          fontSize: '0.75rem',
-          color: '#9ca3af'
-        }}>
-          Demo credentials: admin@example.com / password
-        </div>
       </div>
     </div>
   );
