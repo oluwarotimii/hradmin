@@ -895,7 +895,7 @@ const AttendanceView = () => {
                     </td>
                     <td className="table-cell">
                       {record.actual_working_hours ? (
-                        <span style={{ fontWeight: 500 }}>{record.actual_working_hours.toFixed(2)}h</span>
+                        <span style={{ fontWeight: 500 }}>{Number(record.actual_working_hours).toFixed(2)}h</span>
                       ) : (
                         <span className="text-muted">-</span>
                       )}

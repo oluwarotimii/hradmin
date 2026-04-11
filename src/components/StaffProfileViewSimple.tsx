@@ -6,6 +6,7 @@ import {
   Shield, Stethoscope, Banknote, Target, Users, FileCheck, BadgeCheck, CalendarDays, ChevronDown,
   Upload, Download, Trash2, Eye, File, FileType, Camera, CheckCircle, UserCheck
 } from 'lucide-react';
+import { API_ENDPOINT } from '../config/config';
 import { StaffMember } from '../data/staffData';
 import { getStaffById, updateStaff } from '../services/staffManagementService';
 import { getAllBranches } from '../services/branchManagementService';
@@ -528,7 +529,10 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
           <div style={{ position: 'relative' }}>
             {editedStaff.profile_picture ? (
               <img
-                src={editedStaff.profile_picture}
+                src={editedStaff.profile_picture.startsWith('http')
+                  ? editedStaff.profile_picture
+                  : `${API_ENDPOINT}${editedStaff.profile_picture}`
+                }
                 alt={`${editedStaff.firstName}'s profile`}
                 style={{
                   width: '8rem',
