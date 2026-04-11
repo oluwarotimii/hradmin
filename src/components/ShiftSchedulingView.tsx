@@ -13,6 +13,7 @@ import {
   ShiftException,
   CreateShiftExceptionRequest
 } from '../services/shiftSchedulingService';
+import type { ShiftTiming } from '../services/attendanceService';
 import { getAllStaff } from '../services/staffManagementService';
 import { getAllBranches, Branch } from '../services/branchManagementService';
 import { exceptionTypeService, ExceptionType } from '../services/exceptionTypeService';
@@ -66,6 +67,13 @@ const FormField = ({ label, required, children, hint }: any) => (
     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem' }}>{label}{required && <span style={{ color: '#dc2626', marginLeft: 3 }}>*</span>}</label>
     {children}
     {hint && <p style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.3rem' }}>{hint}</p>}
+  </div>
+);
+
+const DetailRow = ({ label, value }: { label: string; value: string }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
+    <span style={{ fontSize: '0.88rem', fontWeight: 500, color: '#0f172a' }}>{value}</span>
   </div>
 );
 
@@ -240,6 +248,7 @@ const ShiftSchedulingView = () => {
 
   const [templates, setTemplates] = useState<TemplateWithStats[]>([]);
   const [assignments, setAssignments] = useState<EmployeeShiftAssignment[]>([]);
+  const [shiftTimings, setShiftTimings] = useState<ShiftTiming[]>([]);
   const [exceptions, setExceptions] = useState<ShiftException[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -262,6 +271,9 @@ const ShiftSchedulingView = () => {
 
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<EmployeeShiftAssignment | null>(null);
+
+  // View details modal state
+  const [viewingItem, setViewingItem] = useState<{ type: 'assignment' | 'shiftTiming'; data: any } | null>(null);
   const [assignmentForm, setAssignmentForm] = useState({
     user_id: 0,
     shift_template_id: 0,
@@ -370,6 +382,17 @@ const ShiftSchedulingView = () => {
           const allAssignments = res.data.employeeShiftAssignments || [];
           console.log('[ShiftSchedulingView] Loaded', allAssignments.length, 'assignments');
           setAssignments(allAssignments);
+        }
+        // Also load shift timings (multi-shift assignments)
+        try {
+          const timingsRes = await shiftSchedulingService.getShiftTimings();
+          if (timingsRes.success && timingsRes.data) {
+            const allTimings = timingsRes.data.shiftTimings || [];
+            console.log('[ShiftSchedulingView] Loaded', allTimings.length, 'shift timings (multi-shift)');
+            setShiftTimings(allTimings);
+          }
+        } catch (err) {
+          console.error('[ShiftSchedulingView] Failed to load shift timings:', err);
         }
       } else if (activeTab === 'exceptions') {
         const res = await shiftSchedulingService.getAllShiftExceptions();
@@ -708,6 +731,57 @@ const ShiftSchedulingView = () => {
       console.error('[ShiftSchedulingView] Update error:', err);
       setError(err.response?.data?.message || err.message || 'Failed to update assignment');
     } finally { setLoading(false); }
+  };
+
+  // Open the assignment edit modal and populate the form with existing data
+  const openEditAssignment = (assignment: EmployeeShiftAssignment) => {
+    setEditingAssignment(assignment);
+
+    // Parse recurrence_days if available
+    const recurrenceDays = assignment.recurrence_days
+      ? (typeof assignment.recurrence_days === 'string' ? assignment.recurrence_days : JSON.stringify(assignment.recurrence_days))
+      : '';
+
+    // Detect multi-shift: has recurrence_pattern 'weekly' with specific recurrence_days
+    const isMulti = assignment.recurrence_pattern === 'weekly' && recurrenceDays;
+    let multiDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    if (isMulti && recurrenceDays) {
+      try {
+        const parsed = JSON.parse(recurrenceDays);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          multiDays = parsed;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    setIsMultiShift(isMulti);
+    setMultiShiftDays(multiDays);
+
+    setAssignmentForm({
+      user_id: assignment.user_id,
+      shift_template_id: assignment.shift_template_id,
+      effective_from: assignment.effective_from ? assignment.effective_from.split('T')[0] : new Date().toISOString().split('T')[0],
+      effective_to: assignment.effective_to ? assignment.effective_to.split('T')[0] : '',
+      assignment_type: assignment.assignment_type || 'permanent',
+      recurrence_pattern: assignment.recurrence_pattern || 'none',
+      recurrence_days: recurrenceDays || undefined,
+      recurrence_day_of_week: assignment.recurrence_day_of_week || '',
+      recurrence_end_date: assignment.recurrence_end_date || ''
+    });
+
+    setShowAssignmentModal(true);
+  };
+
+  // Open the view details modal for a regular assignment
+  const openViewAssignment = (assignment: EmployeeShiftAssignment) => {
+    setViewingItem({ type: 'assignment', data: assignment });
+  };
+
+  // Open the view details modal for a multi-shift (shift timing) entry
+  const openViewShiftTiming = (timing: ShiftTiming) => {
+    setViewingItem({ type: 'shiftTiming', data: timing });
   };
 
   const resetAssignmentForm = () => {
@@ -1304,6 +1378,7 @@ const ShiftSchedulingView = () => {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px,1fr))', gap: '0.75rem' }}>
         <StatCard icon={Users} label="Total Assignments" value={filteredAssignments.length} accent={colors.primary} pale={colors.primaryPale} />
+        <StatCard icon={Zap} label="Multi-Shift" value={shiftTimings.filter(t => t.user_id).length} accent={colors.purple} pale={colors.purplePale} />
         <StatCard icon={CheckCircle} label="Active" value={filteredAssignments.filter(a => a.status === 'active').length} accent={colors.success} pale={colors.successPale} />
         <StatCard icon={AlertCircle} label="Pending" value={filteredAssignments.filter(a => a.status === 'pending').length} accent={colors.warning} pale={colors.warningPale} />
         <StatCard icon={Timer} label="Coverage" value={`${staffMembers.filter(s => filteredAssignments.some(a => a.user_id === s.id && a.status === 'active')).length}/${staffMembers.length}`} accent={colors.purple} pale={colors.purplePale} />
@@ -1339,64 +1414,129 @@ const ShiftSchedulingView = () => {
                 </button>
               )}
             />
-          ) : filteredAssignments.map(a => {
-            const tmpl = templates.find(t => t.id === a.shift_template_id);
-            const staff = staffMembers.find(s => s.id === a.user_id);
-            const st = tmpl ? getShiftType(tmpl.start_time, tmpl.end_time) : null;
-            const Icon = st?.icon || Clock;
-            const typeColors: Record<string, [string, string]> = { permanent: [colors.primaryPale, colors.primary], temporary: [colors.accentPale, colors.accent], rotating: [colors.purplePale, colors.purple] };
-            const [tBg, tC] = typeColors[a.assignment_type] || typeColors.permanent;
-            return (
-              <tr key={a.id} onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceAlt)} onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <Td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <Avatar name={staff?.name || '?'} />
-                    <div>
-                      <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary }}>{staff?.name || `User ${a.user_id}`}</p>
-                      <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{staff?.email || staff?.department}</p>
-                    </div>
-                  </div>
-                </Td>
-                <Td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <div style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: st?.bg || colors.surfaceMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Icon size={12} color={st?.color || colors.textMuted} />
-                    </div>
-                    <div>
-                      <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: colors.textPrimary }}>{tmpl?.name || `Template ${a.shift_template_id}`}</p>
-                      <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{tmpl ? `${tmpl.start_time?.substring(0, 5)} – ${tmpl.end_time?.substring(0, 5)}` : ''}</p>
-                    </div>
-                  </div>
-                </Td>
-                <Td>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    <span style={{ fontSize: '0.78rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.success, display: 'inline-block' }} />
-                      {new Date(a.effective_from).toLocaleDateString()}
-                    </span>
-                    {a.effective_to ? (
-                      <span style={{ fontSize: '0.78rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.danger, display: 'inline-block' }} />
-                        {new Date(a.effective_to).toLocaleDateString()}
-                      </span>
-                    ) : <span style={badge(colors.successPale, colors.success)}>Ongoing</span>}
-                  </div>
-                </Td>
-                <Td><span style={badge(tBg, tC)}>{a.assignment_type}</span></Td>
-                <Td><StatusDot status={a.status} /></Td>
-                <Td right>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
-                    <button style={{ ...btnGhost, color: colors.success, padding: '0.4rem 0.6rem', border: `1px solid ${colors.successBorder}`, borderRadius: '6px', background: colors.successPale }} onClick={() => { setEditingAssignment(a); setShowAssignmentModal(true); }}>
-                      <Edit3 size={13} />
-                    </button>
-                    <button style={{ ...btnGhost, color: colors.danger, padding: '0.4rem 0.6rem', border: `1px solid ${colors.dangerBorder}`, borderRadius: '6px', background: colors.dangerPale }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </Td>
-              </tr>
-            );
-          })}
+          ) : (
+            <>
+              {filteredAssignments.map(a => {
+                const tmpl = templates.find(t => t.id === a.shift_template_id);
+                const staff = staffMembers.find(s => s.id === a.user_id);
+                const st = tmpl ? getShiftType(tmpl.start_time, tmpl.end_time) : null;
+                const Icon = st?.icon || Clock;
+                const typeColors: Record<string, [string, string]> = { permanent: [colors.primaryPale, colors.primary], temporary: [colors.accentPale, colors.accent], rotating: [colors.purplePale, colors.purple] };
+                const [tBg, tC] = typeColors[a.assignment_type] || typeColors.permanent;
+                return (
+                  <tr key={`a-${a.id}`} onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceAlt)} onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                    <Td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <Avatar name={staff?.name || '?'} />
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary }}>{staff?.name || `User ${a.user_id}`}</p>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{staff?.email || staff?.department}</p>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <div style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: st?.bg || colors.surfaceMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Icon size={12} color={st?.color || colors.textMuted} />
+                        </div>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: colors.textPrimary }}>{tmpl?.name || `Template ${a.shift_template_id}`}</p>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{tmpl ? `${tmpl.start_time?.substring(0, 5)} – ${tmpl.end_time?.substring(0, 5)}` : ''}</p>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <span style={{ fontSize: '0.78rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.success, display: 'inline-block' }} />
+                          {new Date(a.effective_from).toLocaleDateString()}
+                        </span>
+                        {a.effective_to ? (
+                          <span style={{ fontSize: '0.78rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.danger, display: 'inline-block' }} />
+                            {new Date(a.effective_to).toLocaleDateString()}
+                          </span>
+                        ) : <span style={badge(colors.successPale, colors.success)}>Ongoing</span>}
+                      </div>
+                    </Td>
+                    <Td><span style={badge(tBg, tC)}>{a.assignment_type}</span></Td>
+                    <Td><StatusDot status={a.status} /></Td>
+                    <Td right>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                        <button style={{ ...btnGhost, color: colors.primary, padding: '0.4rem 0.6rem', border: `1px solid ${colors.primaryBorder}`, borderRadius: '6px', background: colors.primaryPale }} onClick={() => openViewAssignment(a)} title="View Details">
+                          <Clock size={13} />
+                        </button>
+                        <button style={{ ...btnGhost, color: colors.success, padding: '0.4rem 0.6rem', border: `1px solid ${colors.successBorder}`, borderRadius: '6px', background: colors.successPale }} onClick={() => openEditAssignment(a)}>
+                          <Edit3 size={13} />
+                        </button>
+                        <button style={{ ...btnGhost, color: colors.danger, padding: '0.4rem 0.6rem', border: `1px solid ${colors.dangerBorder}`, borderRadius: '6px', background: colors.dangerPale }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                );
+              })}
+              {/* Multi-Shift (Shift Timing) Entries */}
+              {shiftTimings.filter(t => t.user_id).map(t => {
+                const staff = staffMembers.find(s => s.id === t.user_id);
+                // Parse the shift_name to extract days if it has [days] pattern
+                const dayMatch = t.shift_name.match(/\[(.*?)\]/);
+                const daysLabel = dayMatch ? dayMatch[1] : '';
+                const baseName = dayMatch ? t.shift_name.replace(/\[.*?\]\s*/, '') : t.shift_name;
+                return (
+                  <tr key={`st-${t.id}`} style={{ background: colors.purplePale }} onMouseEnter={e => (e.currentTarget.style.background = colors.purpleBorder)} onMouseLeave={e => (e.currentTarget.style.background = colors.purplePale)}>
+                    <Td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <Avatar name={staff?.name || '?'} />
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary }}>{staff?.name || `User ${t.user_id}`}</p>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>Multi-Shift</p>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <div style={{ width: '2rem', height: '2rem', borderRadius: '6px', background: colors.purplePale, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Zap size={12} color={colors.purple} />
+                        </div>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: colors.textPrimary }}>{baseName}</p>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: colors.purple }}>{t.start_time?.substring(0, 5)} – {t.end_time?.substring(0, 5)}{daysLabel ? ` · ${daysLabel}` : ''}</p>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <span style={{ fontSize: '0.78rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.success, display: 'inline-block' }} />
+                          {new Date(t.effective_from).toLocaleDateString()}
+                        </span>
+                        {t.effective_to ? (
+                          <span style={{ fontSize: '0.78rem', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.danger, display: 'inline-block' }} />
+                            {new Date(t.effective_to).toLocaleDateString()}
+                          </span>
+                        ) : <span style={badge(colors.purplePale, colors.purple)}>Ongoing</span>}
+                      </div>
+                    </Td>
+                    <Td><span style={badge(colors.purplePale, colors.purple)}>multi-shift</span></Td>
+                    <Td><StatusDot status="active" /></Td>
+                    <Td right>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                        <button style={{ ...btnGhost, color: colors.primary, padding: '0.4rem 0.6rem', border: `1px solid ${colors.primaryBorder}`, borderRadius: '6px', background: colors.primaryPale }} onClick={() => openViewShiftTiming(t)} title="View Details">
+                          <Clock size={13} />
+                        </button>
+                        <button style={{ ...btnGhost, color: colors.danger, padding: '0.4rem 0.6rem', border: `1px solid ${colors.dangerBorder}`, borderRadius: '6px', background: colors.dangerPale }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                );
+              })}
+            </>
+          )}
         </tbody>
       </TableWrap>
     </div>
@@ -2275,6 +2415,114 @@ const ShiftSchedulingView = () => {
             >
               {loading ? <><RotateCcw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Assigning…</> : <><Users size={14} /> Assign to {bulkAssignSelectedUsers.length} Staff</>}
             </button>
+          </ModalFooter>
+        </Modal>
+      )}
+
+      {/* ── View Details Modal ──────────────────────────────────────────── */}
+      {viewingItem && (
+        <Modal onClose={() => setViewingItem(null)} width="32rem">
+          <ModalHeader
+            title={viewingItem.type === 'assignment' ? 'Shift Assignment Details' : 'Multi-Shift Details'}
+            sub={viewingItem.type === 'assignment' ? 'Regular shift template assignment' : 'Day-specific shift timing'}
+            accentColor={viewingItem.type === 'assignment' ? colors.primary : colors.purple}
+            icon={viewingItem.type === 'assignment' ? Clock : Zap}
+            onClose={() => setViewingItem(null)}
+          />
+          <ModalBody>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Employee */}
+              <DetailRow
+                label="Employee"
+                value={(() => {
+                  const staff = staffMembers.find(s => s.id === viewingItem.data.user_id);
+                  return staff ? `${staff.name} (${staff.email})` : `User ${viewingItem.data.user_id}`;
+                })()}
+              />
+
+              {/* Shift Name */}
+              <DetailRow
+                label="Shift"
+                value={(() => {
+                  if (viewingItem.type === 'shiftTiming') {
+                    const dayMatch = viewingItem.data.shift_name.match(/\[(.*?)\]/);
+                    return dayMatch ? viewingItem.data.shift_name.replace(/\[.*?\]\s*/, '') : viewingItem.data.shift_name;
+                  }
+                  const tmpl = templates.find(t => t.id === viewingItem.data.shift_template_id);
+                  return tmpl?.name || `Template ${viewingItem.data.shift_template_id}`;
+                })()}
+              />
+
+              {/* Time */}
+              <DetailRow
+                label="Time"
+                value={(() => {
+                  const start = viewingItem.data.start_time || (() => {
+                    const tmpl = templates.find(t => t.id === viewingItem.data.shift_template_id);
+                    return tmpl?.start_time;
+                  })();
+                  const end = viewingItem.data.end_time || (() => {
+                    const tmpl = templates.find(t => t.id === viewingItem.data.shift_template_id);
+                    return tmpl?.end_time;
+                  })();
+                  return start && end ? `${start.substring(0, 5)} – ${end.substring(0, 5)}` : 'N/A';
+                })()}
+              />
+
+              {/* Applicable Days (for multi-shift) */}
+              {viewingItem.type === 'shiftTiming' && viewingItem.data.shift_name.includes('[') && (
+                <DetailRow
+                  label="Applicable Days"
+                  value={viewingItem.data.shift_name.match(/\[(.*?)\]/)?.[1] || 'N/A'}
+                />
+              )}
+
+              {/* Period */}
+              <DetailRow
+                label="Effective From"
+                value={new Date(viewingItem.data.effective_from).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+              />
+              <DetailRow
+                label="Effective To"
+                value={viewingItem.data.effective_to ? new Date(viewingItem.data.effective_to).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Ongoing (no end date)'}
+              />
+
+              {/* Type */}
+              {viewingItem.type === 'assignment' && (
+                <DetailRow
+                  label="Assignment Type"
+                  value={viewingItem.data.assignment_type.charAt(0).toUpperCase() + viewingItem.data.assignment_type.slice(1)}
+                />
+              )}
+
+              {/* Status */}
+              <DetailRow
+                label="Status"
+                value={viewingItem.data.status ? viewingItem.data.status.charAt(0).toUpperCase() + viewingItem.data.status.slice(1) : 'Active'}
+              />
+
+              {/* Recurrence */}
+              {viewingItem.type === 'assignment' && viewingItem.data.recurrence_pattern && viewingItem.data.recurrence_pattern !== 'none' && (
+                <DetailRow
+                  label="Recurrence"
+                  value={viewingItem.data.recurrence_pattern.charAt(0).toUpperCase() + viewingItem.data.recurrence_pattern.slice(1)}
+                />
+              )}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <button style={btnGhost} onClick={() => setViewingItem(null)}>Close</button>
+            {viewingItem.type === 'assignment' && (
+              <button
+                style={btnPrimary}
+                onClick={() => {
+                  openEditAssignment(viewingItem.data);
+                  setViewingItem(null);
+                }}
+              >
+                <Edit3 size={14} /> Edit
+              </button>
+            )}
           </ModalFooter>
         </Modal>
       )}

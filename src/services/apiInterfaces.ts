@@ -71,6 +71,10 @@ export interface EmployeeShiftAssignment {
   effective_to: string | null; // ISO date string or null
   assignment_type: 'permanent' | 'temporary' | 'rotating';
   status: 'active' | 'inactive' | 'expired';
+  recurrence_pattern?: 'none' | 'daily' | 'weekly' | 'monthly';
+  recurrence_days?: string | string[];
+  recurrence_day_of_week?: string;
+  recurrence_end_date?: string;
   created_by: number | null;
   created_at: string; // ISO datetime string
   updated_at: string; // ISO datetime string
