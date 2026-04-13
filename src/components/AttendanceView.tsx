@@ -397,7 +397,7 @@ const AttendanceView = () => {
         new Date(r.date).toLocaleDateString(),
         r.check_in_time || '-',
         r.check_out_time || '-',
-        r.actual_working_hours ? r.actual_working_hours.toFixed(2) : '-',
+        r.actual_working_hours ? Number(r.actual_working_hours).toFixed(2) : '-',
         r.status,
         r.branch_name || '-',
         r.department || '-'
@@ -1528,7 +1528,7 @@ const AttendanceView = () => {
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Hours Worked</p>
-                  <p className="font-semibold">{viewingRecord.actual_working_hours ? `${viewingRecord.actual_working_hours.toFixed(2)}h` : '-'}</p>
+                  <p className="font-semibold">{viewingRecord.actual_working_hours ? `${Number(viewingRecord.actual_working_hours).toFixed(2)}h` : '-'}</p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Location Verified</p>
