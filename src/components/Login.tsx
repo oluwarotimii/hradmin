@@ -135,7 +135,7 @@ export function Login({ onLogin }: LoginProps) {
             marginBottom: '0.375rem',
             letterSpacing: '-0.025em'
           }}>
-            Femtech HR
+            Femtech TMS
           </h1>
           <p style={{
             color: '#64748b',

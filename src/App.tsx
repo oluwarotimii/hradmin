@@ -53,7 +53,8 @@ import {
   CalendarDays,
   MapPin,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  HelpCircle
 } from "lucide-react";
 import { Login } from "./components/Login";
 import RoleManagementView from "./components/RoleManagementView";
@@ -65,6 +66,7 @@ import { isAuthenticated, logout, getUserInfo, setupAxiosInterceptors } from "./
 import { useAuth } from "./AuthContext";
 import { getAllStaff } from "./services/staffManagementService";
 import { createLeaveRequest, getAllLeaveTypes } from "./services/leaveManagementService";
+import { HelpView } from "./components/HelpView";
 
 interface SidebarProps {
   activeView: string;
@@ -96,11 +98,11 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
     <div className="sidebar shadow-lg">
       <div className="sidebar-header">
         <div className="flex items-center gap-3">
-          <div className="logo-box bg-primary-600 shadow-md">
-            <PieChart className="w-5 h-5 text-white" />
+          <div className="logo-box bg-primary-600 shadow-md overflow-hidden">
+            <img src="/femtech.png" alt="Femtech TMS" className="w-10 h-10 object-contain" />
           </div>
           <div>
-            <p className="font-bold text-base text-primary leading-none">HR Dashboard</p>
+            <p className="font-bold text-base text-primary leading-none">Femtech TMS</p>
             <p className="text-xs text-secondary mt-1">Management Portal</p>
           </div>
         </div>
@@ -247,6 +249,15 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
               >
                 <Settings className="w-4 h-4" />
                 <span>Settings</span>
+              </button>
+            </li>
+            <li className="sidebar-menu-item">
+              <button
+                onClick={() => onNavigate("help")}
+                className={`sidebar-menu-button ${activeView === "help" ? "active" : ""}`}
+              >
+                <HelpCircle className="w-4 h-4" />
+                <span>Help & Guide</span>
               </button>
             </li>
           </ul>
@@ -643,7 +654,7 @@ export default function App() {
               <div className="text-center py-12">
                 <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold text-gray-700 mb-2">Access Denied</h2>
-                <p className="text-gray-600 mb-4">You don't have permission to access the HR Admin Dashboard.</p>
+                <p className="text-gray-600 mb-4">You don't have permission to access the Femtech TMS Admin Dashboard.</p>
                 <p className="text-sm text-gray-500">Please contact your administrator if you believe this is an error.</p>
               </div>
             </div>
@@ -743,6 +754,8 @@ export default function App() {
         return <RoleManagementView />;
       case "settings":
         return <SettingsView />;
+      case "help":
+        return <HelpView />;
       case "staff-location-assignments":
         return <StaffLocationAssignmentView />;
 
@@ -755,7 +768,7 @@ export default function App() {
     switch (activeView) {
       case "dashboard":
         return {
-          title: "HR Dashboard",
+          title: "Femtech TMS",
           subtitle: "Welcome back! Here's what's happening with your organization today."
         };
       case "allstaff":
@@ -866,7 +879,12 @@ export default function App() {
       case "settings":
         return {
           title: "Settings",
-          subtitle: "Configure your HR dashboard preferences"
+          subtitle: "Configure your TMS preferences"
+        };
+      case "help":
+        return {
+          title: "Help & User Guide",
+          subtitle: "Learn how to use each module in Femtech TMS"
         };
       case "staff-location-assignments":
         return {
@@ -896,7 +914,7 @@ export default function App() {
         backgroundColor: '#f8fafc'
       }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#2563eb' }}>HR Dashboard</div>
+          <div style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#2563eb' }}>Femtech TMS</div>
           <div style={{ fontSize: '1rem', color: '#64748b' }}>Checking system status...</div>
         </div>
       </div>
