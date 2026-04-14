@@ -206,7 +206,7 @@ export default function AttendanceCalendar({
                 textTransform: "uppercase",
                 marginBottom: 4
               }}>
-                HR Dashboard
+                Femtech TMS
               </div>
               <h1 style={{
                 margin: 0,

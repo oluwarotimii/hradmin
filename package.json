@@ -1,8 +1,8 @@
 {
-      "name": "Femtech HR Admin",
+      "name": "Femtech TMS Admin",
       "version": "1.0.0",
       "private": true,
-      "description": "Femtech Human Resource Admin Dashboard",
+      "description": "Femtech TMS Admin Dashboard",
       "main": "server.js",
       "scripts": {
             "dev": "vite",
