@@ -20,11 +20,68 @@ export interface StaffInvitation {
   roleId: string;
   branchId: string;
   departmentId: string;
-  status: 'pending' | 'accepted' | 'expired';
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled' | 'declined';
   inviteLink: string;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
+  // Tracking fields
+  first_login_at?: string | null;
+  first_login_ip?: string | null;
+  profile_completed?: boolean;
+  last_activity_at?: string | null;
+  declined_at?: string | null;
+  acceptedAt?: string | null;
+  roleName?: string;
+  branchName?: string;
+  departmentName?: string;
+  invitedByName?: string;
+}
+
+export interface BulkInviteInvitation {
+  firstName: string;
+  lastName: string;
+  personalEmail: string;
+  phone?: string;
+  roleId: string;
+  branchId?: string;
+  departmentId?: string;
+}
+
+export interface BulkInviteResult {
+  index: number;
+  email: string;
+  success: boolean;
+  message?: string;
+  code?: string;
+  data?: any;
+}
+
+export interface InvitationStats {
+  overview: {
+    total: number;
+    pending: number;
+    accepted: number;
+    expired: number;
+    cancelled: number;
+    declined: number;
+  };
+  acceptedTracking: {
+    total_accepted: number;
+    first_logged_in: number;
+    accepted_not_logged_in: number;
+    profile_completed_count: number;
+    logged_in_not_completed: number;
+  };
+  recent7Days: {
+    total: number;
+    pending: number;
+    recently_accepted: number;
+    expired: number;
+  };
+  expiringSoon: number;
+  byRole: { role_name: string; count: number }[];
+  byBranch: { branch_name: string; count: number }[];
 }
 
 export interface StaffInvitationRequest {
@@ -165,46 +222,87 @@ export const validateStaffInvitationData = (invitationData: StaffInvitationReque
 // Invite new staff member
 export const inviteStaff = async (invitationData: StaffInvitationRequest): Promise<{ success: boolean; invitation?: StaffInvitation; message?: string }> => {
   try {
-    // Validate input data
     const validation = validateStaffInvitationData(invitationData);
     if (!validation.isValid) {
-      return {
-        success: false,
-        message: `Validation failed: ${validation.errors.join(', ')}`
-      };
+      return { success: false, message: `Validation failed: ${validation.errors.join(', ')}` };
     }
 
     const token = localStorage.getItem('authToken');
     if (!token) {
-      return {
-        success: false,
-        message: 'Authentication token not found. Please log in again.'
-      };
+      return { success: false, message: 'Authentication token not found. Please log in again.' };
     }
 
     const response = await axios.post(`${API_ENDPOINT}/staff-invitation`, invitationData, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     });
 
-    return {
-      success: true,
-      invitation: response.data.invitation || response.data,
-    };
+    return { success: true, invitation: response.data.invitation || response.data };
   } catch (error: any) {
     console.error('Error inviting staff:', error);
     if (error.response?.status === 401 || error.response?.status === 403) {
-      return {
-        success: false,
-        message: 'Access denied. Please check your permissions or log in again.'
-      };
+      return { success: false, message: 'Access denied. Please check your permissions or log in again.' };
     }
+    return { success: false, message: error.response?.data?.message || error.message || 'Failed to invite staff' };
+  }
+};
+
+// Bulk invite multiple staff members
+export const bulkInviteStaff = async (invitations: BulkInviteInvitation[]): Promise<{
+  success: boolean;
+  total: number;
+  successCount: number;
+  failureCount: number;
+  results: BulkInviteResult[];
+  message?: string;
+}> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, total: 0, successCount: 0, failureCount: 0, results: [], message: 'Not authenticated' };
+    }
+
+    const response = await axios.post(`${API_ENDPOINT}/staff-invitation/bulk`, { invitations }, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+
+    const data = response.data;
+    return {
+      success: data.success,
+      total: data.data?.total || invitations.length,
+      successCount: data.data?.successCount || 0,
+      failureCount: data.data?.failureCount || 0,
+      results: data.data?.results || [],
+      message: data.message,
+    };
+  } catch (error: any) {
+    console.error('Error bulk inviting staff:', error);
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'Failed to invite staff',
+      total: invitations.length,
+      successCount: 0,
+      failureCount: invitations.length,
+      results: [],
+      message: error.response?.data?.message || error.message || 'Failed to send bulk invitations',
     };
+  }
+};
+
+// Get invitation statistics
+export const getInvitationStats = async (): Promise<{ success: boolean; stats?: InvitationStats; message?: string }> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, message: 'Not authenticated' };
+    }
+
+    const response = await axios.get(`${API_ENDPOINT}/staff-invitation/stats`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+
+    return { success: true, stats: response.data.data };
+  } catch (error: any) {
+    console.error('Error fetching invitation stats:', error);
+    return { success: false, message: error.response?.data?.message || error.message || 'Failed to fetch stats' };
   }
 };
 
