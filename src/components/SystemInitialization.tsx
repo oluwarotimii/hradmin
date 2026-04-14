@@ -210,10 +210,10 @@ function CompleteSetupWizard({ onComplete }: { onComplete: () => void }) {
         setMigrationStatus("error");
         setMigrationMessage(result.message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Migration error:", error);
       setMigrationStatus("error");
-      setMigrationMessage("Failed to run migrations. Please check your connection and try again.");
+      setMigrationMessage(error?.message || "Failed to run migrations. Please check your connection and try again.");
     }
   };
 
@@ -226,9 +226,11 @@ function CompleteSetupWizard({ onComplete }: { onComplete: () => void }) {
       } else {
         setInitError(result.message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to initialize system", error);
-      setInitError("Failed to initialize system. Please check your connection and try again.");
+      // Use the actual error message if available, only fall back to generic if it's a network error
+      const errorMsg = error?.message || "Failed to initialize system. Please check your connection and try again.";
+      setInitError(errorMsg);
     }
   };
 

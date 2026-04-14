@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, User, Briefcase, Building, Send, RefreshCw, Trash2, Calendar, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
+import { X, Mail, User, Briefcase, Building, Send, RefreshCw, Trash2, Calendar, CheckCircle, Clock, XCircle, AlertCircle, Users } from 'lucide-react';
 import {
   inviteStaff,
   getAllStaffInvitations,
@@ -10,6 +10,7 @@ import {
 } from '../services/staffManagementService';
 import { getAllBranches as getAllBranchesService } from '../services/branchManagementService';
 import { getAllDepartments } from '../services/departmentManagementService';
+import BulkInviteModal from './BulkInviteModal';
 
 interface StaffInvitationViewProps {
   onSuccess?: () => void;
@@ -172,6 +173,7 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
 
   // Form states
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const [showBulkInvite, setShowBulkInvite] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [personalEmail, setPersonalEmail] = useState('');
@@ -202,14 +204,19 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
           firstName: inv.first_name || inv.firstName,
           lastName: inv.last_name || inv.lastName,
           fullName: `${inv.first_name || inv.firstName || ''} ${inv.last_name || inv.lastName || ''}`.trim(),
-          status: (inv.status || 'pending') as 'pending' | 'accepted' | 'expired' | 'cancelled',
+          status: (inv.status || 'pending') as 'pending' | 'accepted' | 'expired' | 'cancelled' | 'declined',
           roleName: inv.role_name || inv.roleName || 'N/A',
           branchName: inv.branch_name || inv.branchName || 'N/A',
           departmentName: inv.department_name || inv.departmentName || 'N/A',
           invitedBy: inv.invited_by_name || inv.invitedByName || 'System',
           createdAt: inv.created_at || inv.createdAt,
           expiresAt: inv.expires_at || inv.expiresAt,
-          acceptedAt: inv.accepted_at || inv.acceptedAt
+          acceptedAt: inv.accepted_at || inv.acceptedAt,
+          first_login_at: inv.first_login_at,
+          first_login_ip: inv.first_login_ip,
+          profile_completed: !!inv.profile_completed,
+          last_activity_at: inv.last_activity_at,
+          declined_at: inv.declined_at,
         }));
         setInvitations(mappedInvitations);
       } else {
@@ -341,8 +348,9 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
     switch (status) {
       case 'pending': return Clock;
       case 'accepted': return CheckCircle;
-      case 'expired': 
-      case 'cancelled': return XCircle;
+      case 'expired':
+      case 'cancelled':
+      case 'declined': return XCircle;
       default: return Clock;
     }
   };
@@ -437,6 +445,14 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
           >
             <Send size={16} />
             Send Invitation
+          </button>
+          <button
+            onClick={() => setShowBulkInvite(true)}
+            style={{ ...btnOutline }}
+            className="btn-outline-hover"
+          >
+            <Users size={16} />
+            Bulk Invite
           </button>
         </div>
       </div>
@@ -704,6 +720,8 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
                 <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Candidate</th>
                 <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Position</th>
                 <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>First Login</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profile</th>
                 <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Invited</th>
                 <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expires</th>
                 <th style={{ padding: '0.875rem 1.25rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
@@ -764,6 +782,31 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
                         <StatusIcon size={11} />
                         {invitation.status.charAt(0).toUpperCase() + invitation.status.slice(1)}
                       </span>
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      {invitation.status === 'accepted' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: T.success }}>
+                          <CheckCircle size={12} />
+                          {invitation.first_login_at ? formatDate(invitation.first_login_at) : 'Not yet'}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: T.textMuted }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem' }}>
+                      {invitation.status === 'accepted' ? (
+                        invitation.profile_completed ? (
+                          <span style={{ ...statusBadge('accepted'), background: T.successPale, color: T.success, borderColor: T.successBorder, fontSize: '0.72rem' }}>
+                            <CheckCircle size={10} /> Complete
+                          </span>
+                        ) : (
+                          <span style={{ ...statusBadge('pending'), fontSize: '0.72rem' }}>
+                            <Clock size={10} /> Incomplete
+                          </span>
+                        )
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: T.textMuted }}>—</span>
+                      )}
                     </td>
                     <td style={{ padding: '1rem 1.25rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: T.textMuted }}>
@@ -860,6 +903,17 @@ const StaffInvitationView: React.FC<StaffInvitationViewProps> = ({ onSuccess, on
           </div>
         )}
       </div>
+
+      {/* ── Bulk Invite Modal ────────────────────────────────────── */}
+      {showBulkInvite && (
+        <BulkInviteModal
+          roles={roles}
+          branches={branches}
+          departments={departments}
+          onSuccess={() => { setShowBulkInvite(false); loadData(); }}
+          onClose={() => setShowBulkInvite(false)}
+        />
+      )}
     </div>
   );
 };

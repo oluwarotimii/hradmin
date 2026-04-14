@@ -66,7 +66,7 @@ import { isAuthenticated, logout, getUserInfo, setupAxiosInterceptors } from "./
 import { useAuth } from "./AuthContext";
 import { getAllStaff } from "./services/staffManagementService";
 import { createLeaveRequest, getAllLeaveTypes } from "./services/leaveManagementService";
-import { HelpView } from "./components/HelpView";
+import HelpView from "./components/HelpView";
 
 interface SidebarProps {
   activeView: string;

@@ -30,8 +30,8 @@ interface ApiError {
 // Helper function to extract error information from Axios errors
 const extractError = (error: unknown): ApiError => {
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{ message?: string; error?: string }>;
-    
+    const axiosError = error as AxiosError<{ message?: string; error?: string; code?: string; details?: string; stack?: string }>;
+
     // Network error (no response from server)
     if (!axiosError.response) {
       return {
@@ -44,12 +44,13 @@ const extractError = (error: unknown): ApiError => {
     // Server returned an error response
     const status = axiosError.response.status;
     const data = axiosError.response.data;
-    
+
     let message = 'An unexpected error occurred.';
-    
+
     if (status === 404) {
       message = 'The requested endpoint is not available. Please check your API configuration.';
     } else if (status === 500) {
+      // Use the actual error message from the backend (migration errors, DB errors, etc.)
       message = data?.message || data?.error || 'Internal server error. Please try again later.';
     } else if (status === 400) {
       message = data?.message || data?.error || 'Invalid request. Please check your input.';
@@ -66,7 +67,7 @@ const extractError = (error: unknown): ApiError => {
     return {
       status,
       message,
-      code: axiosError.code,
+      code: data?.code || axiosError.code || undefined,
       isNetworkError: false
     };
   }
@@ -86,7 +87,7 @@ export const systemApi = {
       console.log('Making API call to:', Endpoint.CHECK_INITIALIZATION_STATUS);
       const response = await axios.get(Endpoint.CHECK_INITIALIZATION_STATUS, {
         timeout: 10000, // 10 second timeout
-        validateStatus: (status) => status < 500 // Don't throw on 4xx errors
+        validateStatus: (status) => status < 502 // Accept 500 as response (has error detail in body) // Don't throw on 4xx errors
       });
       console.log('API Response:', response.data);
 
@@ -134,7 +135,7 @@ export const systemApi = {
       console.log('Making API call to:', `${Endpoint.CHECK_INITIALIZATION_STATUS}/migrate`);
       const response = await axios.post(`${Endpoint.CHECK_INITIALIZATION_STATUS}/migrate`, null, {
         timeout: 30000, // 30 second timeout for migrations
-        validateStatus: (status) => status < 500
+        validateStatus: (status) => status < 502 // Accept 500 as response (has error detail in body)
       });
       console.log('API Response:', response.data);
 
@@ -183,7 +184,7 @@ export const systemApi = {
         phone: data.phone
       }, {
         timeout: 30000, // 30 second timeout
-        validateStatus: (status) => status < 500
+        validateStatus: (status) => status < 502 // Accept 500 as response (has error detail in body)
       });
       console.log('API Response:', response.data);
 
@@ -236,7 +237,7 @@ export const systemApi = {
         phone: data.phone
       }, {
         timeout: 30000, // 30 second timeout
-        validateStatus: (status) => status < 500
+        validateStatus: (status) => status < 502 // Accept 500 as response (has error detail in body)
       });
       console.log('API Response:', response.data);
 
