@@ -741,12 +741,13 @@ export function getAttendanceMetrics() {
  * Check if a staff member is on an active off day today
  * Returns true if the staff member has an off day for today's date
  */
-export function isStaffOnActiveOffDay(staff: StaffMember): boolean {
+export function isStaffOnActiveOffDay(staff: any): boolean {
   const today = new Date();
   const todayString = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
   
   // Check if staff has any off days that match today's date
-  return staff.offDays.some(offDay => offDay.date === todayString);
+  if (!staff.offDays || !Array.isArray(staff.offDays)) return false;
+  return staff.offDays.some((offDay: any) => offDay.date === todayString);
 }
 
 /**

@@ -302,9 +302,182 @@ export interface BulkCreateHolidayDutyRosterRequest {
   }>;
 }
 
-// Response interface
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
   data?: T;
+}
+
+// Staff-related interfaces
+export interface StaffMember {
+  id: string;
+  user_id: number;
+  employee_id: string;
+  employeeId?: string;
+  first_name: string;
+  firstName: string; 
+  last_name: string;
+  lastName: string;
+  middle_name?: string;
+  middleName?: string;
+  email: string;
+  personal_email: string;
+  personalEmail?: string;
+  phone_number?: string;
+  phoneNumber: string; 
+  alternate_phone?: string;
+  alternatePhone?: string;
+  date_of_birth?: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  gender: 'Male' | 'Female' | 'Other';
+  stateOfOrigin: string;
+  lga: string;
+  address: string;
+  designation?: string;
+  departmentRole: string;
+  department: string;
+  branch_id?: number;
+  branchId?: number;
+  branch_name?: string;
+  branchName?: string;
+  branchType?: 'Single' | 'Multiple' | 'All';
+  branches?: any[];
+  status: 'active' | 'inactive' | 'terminated' | 'Active' | 'Inactive' | 'Suspended' | 'Terminated' | 'Resigned';
+  joining_date?: string;
+  joiningDate?: string;
+  date_employed?: string;
+  dateEmployed?: string;
+  employment_type?: string;
+  employmentType?: string;
+  jobStatus?: string;
+  employee_photo?: string;
+  profile_picture?: string;
+  profilePicture?: string;
+  avatar?: string;
+  education?: any[];
+  leaves?: any[];
+  offDays?: any[];
+  documents?: any[];
+  guardianFirstName?: string;
+  guardianLastName?: string;
+  guardianDOB?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
+  guardianAddress?: string;
+  guardianBusinessName?: string;
+  guardianBusinessAddress?: string;
+  [key: string]: any;
+}
+
+export interface CreateStaffRequest {
+  user_id?: number;
+  designation: string;
+  department: string;
+  branch_id?: number;
+  personal_email: string;
+  email: string;
+  [key: string]: any;
+}
+
+export interface UpdateStaffRequest extends Partial<CreateStaffRequest> {
+  status?: 'active' | 'inactive' | 'terminated';
+}
+
+export interface StaffInvitation {
+  id: string;
+  firstName: string;
+  lastName: string;
+  personalEmail: string;
+  roleId: string;
+  branchId: string;
+  departmentId: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled' | 'declined';
+  inviteLink: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+  first_login_at?: string | null;
+  profile_completed?: boolean;
+  roleName?: string;
+  branchName?: string;
+  departmentName?: string;
+  invitedByName?: string;
+}
+
+export interface StaffInvitationRequest {
+  firstName: string;
+  lastName: string;
+  personalEmail: string;
+  roleId: string;
+  branchId: string;
+  departmentId: string;
+}
+
+export interface BulkInviteInvitation {
+  firstName: string;
+  lastName: string;
+  personalEmail: string;
+  phone?: string;
+  roleId: string;
+  branchId?: string;
+  departmentId?: string;
+}
+
+export interface BulkInviteResult {
+  index: number;
+  email: string;
+  success: boolean;
+  message?: string;
+  code?: string;
+  data?: any;
+}
+
+export interface InvitationStats {
+  overview: {
+    total: number;
+    pending: number;
+    accepted: number;
+    expired: number;
+    cancelled: number;
+    declined: number;
+  };
+  acceptedTracking: {
+    total_accepted: number;
+    first_logged_in: number;
+    accepted_not_logged_in: number;
+    profile_completed_count: number;
+    logged_in_not_completed: number;
+  };
+  recent7Days: {
+    total: number;
+    pending: number;
+    recently_accepted: number;
+    expired: number;
+  };
+  expiringSoon: number;
+  byRole: { role_name: string; count: number }[];
+  byBranch: { branch_name: string; count: number }[];
+}
+
+export interface StaffMemberRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  roleId: string;
+  branchId: string;
+  departmentId: string;
+  position: string;
+  startDate: string;
+  salary: number;
+}
+
+export interface StaffMemberExtended extends StaffMember {
+  phone: string;
+  position: string;
+  startDate: string;
+  salary: number;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -7,8 +7,7 @@ import {
   Upload, Download, Trash2, Eye, File, FileType, Camera, CheckCircle, UserCheck
 } from 'lucide-react';
 import { API_ENDPOINT } from '../config/config';
-import { StaffMember } from '../data/staffData';
-import { getStaffById, updateStaff } from '../services/staffManagementService';
+import { StaffMember, getStaffById, updateStaff } from '../services/staffManagementService';
 import { getAllBranches } from '../services/branchManagementService';
 import { getAllDepartments } from '../services/departmentManagementService';
 import { uploadStaffDocument, getStaffDocuments, deleteStaffDocument, getDocumentUrl, downloadStaffDocument, StaffDocument } from '../services/staffDocumentService';
@@ -212,7 +211,6 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       if (isValidValue(editedStaff.lastName)) apiData.last_name = editedStaff.lastName;
       if (isValidValue(editedStaff.middleName)) apiData.middle_name = editedStaff.middleName;
       if (isValidValue(editedStaff.email)) apiData.personal_email = editedStaff.email;
-      if (isValidValue(editedStaff.workEmail)) apiData.work_email = editedStaff.workEmail;
       if (isValidValue(editedStaff.phoneNumber)) apiData.phone_number = editedStaff.phoneNumber;
       if (isValidValue(editedStaff.alternatePhone)) apiData.alternate_phone = editedStaff.alternatePhone;
       if (isValidValue(editedStaff.designation || editedStaff.departmentRole)) apiData.designation = editedStaff.designation || editedStaff.departmentRole;
@@ -406,7 +404,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
     const isSuperAdmin = user?.roleId === 1 || user?.role === 'admin';
     
     // Explicitly disable email fields for non-super admins
-    const shouldDisable = disabled || (!isSuperAdmin && (field === 'workEmail' || field === 'email'));
+    const shouldDisable = disabled || (!isSuperAdmin && (field === 'email'));
     
     const isEditable = isEditing && field && !shouldDisable;
     const currentValue = field ? editedStaff[field] : value;
@@ -855,7 +853,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 Contact Information
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Email (Login)', editedStaff.email || editedStaff.personal_email || editedStaff.work_email, 'email')}
+                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Email (Login)', editedStaff.personalEmail || editedStaff.email, 'personalEmail')}
                 {renderField(<Phone className="w-4 h-4 text-muted" />, 'Phone Number', editedStaff.phoneNumber || editedStaff.phone_number, 'phoneNumber')}
                 {renderField(<Phone className="w-4 h-4 text-muted" />, 'Alternate Phone', editedStaff.alternatePhone || editedStaff.alternate_phone, 'alternatePhone')}
                 {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Current Address', editedStaff.currentAddress || editedStaff.current_address, 'currentAddress', 'textarea')}
