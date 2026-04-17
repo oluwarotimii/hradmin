@@ -855,8 +855,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 Contact Information
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Work Email', editedStaff.workEmail || editedStaff.work_email, 'workEmail')}
-                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Personal Email', editedStaff.email || editedStaff.personal_email, 'email')}
+                {renderField(<Mail className="w-4 h-4 text-muted" />, 'Email (Login)', editedStaff.email || editedStaff.personal_email || editedStaff.work_email, 'email')}
                 {renderField(<Phone className="w-4 h-4 text-muted" />, 'Phone Number', editedStaff.phoneNumber || editedStaff.phone_number, 'phoneNumber')}
                 {renderField(<Phone className="w-4 h-4 text-muted" />, 'Alternate Phone', editedStaff.alternatePhone || editedStaff.alternate_phone, 'alternatePhone')}
                 {renderField(<MapPin className="w-4 h-4 text-muted" />, 'Current Address', editedStaff.currentAddress || editedStaff.current_address, 'currentAddress', 'textarea')}
