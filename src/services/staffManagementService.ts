@@ -1,127 +1,31 @@
 import axios from 'axios';
 import { API_ENDPOINT } from '../config/config';
 import { Role } from './roleManagementService';
-import { Branch } from './branchManagementService';
-import { Department } from './departmentManagementService';
 import {
   StaffMember,
   CreateStaffRequest,
   UpdateStaffRequest,
   StaffInvitation,
-  StaffInvitationRequest
+  StaffInvitationRequest,
+  BulkInviteInvitation,
+  BulkInviteResult,
+  InvitationStats,
+  StaffMemberRequest,
+  StaffMemberExtended
 } from './apiInterfaces';
 
-// Define interfaces for staff invitation
-export interface StaffInvitation {
-  id: string;
-  firstName: string;
-  lastName: string;
-  personalEmail: string;
-  roleId: string;
-  branchId: string;
-  departmentId: string;
-  status: 'pending' | 'accepted' | 'expired' | 'cancelled' | 'declined';
-  inviteLink: string;
-  expiresAt: string;
-  createdAt: string;
-  updatedAt: string;
-  // Tracking fields
-  first_login_at?: string | null;
-  first_login_ip?: string | null;
-  profile_completed?: boolean;
-  last_activity_at?: string | null;
-  declined_at?: string | null;
-  acceptedAt?: string | null;
-  roleName?: string;
-  branchName?: string;
-  departmentName?: string;
-  invitedByName?: string;
-}
-
-export interface BulkInviteInvitation {
-  firstName: string;
-  lastName: string;
-  personalEmail: string;
-  phone?: string;
-  roleId: string;
-  branchId?: string;
-  departmentId?: string;
-}
-
-export interface BulkInviteResult {
-  index: number;
-  email: string;
-  success: boolean;
-  message?: string;
-  code?: string;
-  data?: any;
-}
-
-export interface InvitationStats {
-  overview: {
-    total: number;
-    pending: number;
-    accepted: number;
-    expired: number;
-    cancelled: number;
-    declined: number;
-  };
-  acceptedTracking: {
-    total_accepted: number;
-    first_logged_in: number;
-    accepted_not_logged_in: number;
-    profile_completed_count: number;
-    logged_in_not_completed: number;
-  };
-  recent7Days: {
-    total: number;
-    pending: number;
-    recently_accepted: number;
-    expired: number;
-  };
-  expiringSoon: number;
-  byRole: { role_name: string; count: number }[];
-  byBranch: { branch_name: string; count: number }[];
-}
-
-export interface StaffInvitationRequest {
-  firstName: string;
-  lastName: string;
-  personalEmail: string;
-  roleId: string;
-  branchId: string;
-  departmentId: string;
-}
-
-export interface StaffMemberRequest {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  roleId: string;
-  branchId: string;
-  departmentId: string;
-  position: string;
-  startDate: string;
-  salary: number;
-}
-
-export interface StaffMemberExtended {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  roleId: string;
-  branchId: string;
-  departmentId: string;
-  position: string;
-  startDate: string;
-  salary: number;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export {
+  type StaffMember,
+  type CreateStaffRequest,
+  type UpdateStaffRequest,
+  type StaffInvitation,
+  type StaffInvitationRequest,
+  type BulkInviteInvitation,
+  type BulkInviteResult,
+  type InvitationStats,
+  type StaffMemberRequest,
+  type StaffMemberExtended
+};
 
 // Validation functions
 export const validateEmail = (email: string): boolean => {
@@ -147,7 +51,7 @@ export const validateStaffData = (staffData: CreateStaffRequest | StaffMemberReq
   }
 
   // Check for email depending on the type of object
-  const email = 'work_email' in staffData ? staffData.work_email : staffData.email;
+  const email = staffData.email;
   if (!email || !validateEmail(email)) {
     errors.push('Valid email is required');
   }
@@ -492,8 +396,6 @@ function mapStaffResponse(backendData: any): any {
     lastName: lastName,
     middleName: middleName,
     // Map other fields - ensure ALL fields are mapped
-    employeeId: backendData.employee_id || backendData.employeeId,
-    workEmail: backendData.work_email || backendData.workEmail,
     personalEmail: backendData.personal_email || backendData.personal_email,
     phoneNumber: backendData.phone_number || backendData.phoneNumber,
     alternatePhone: backendData.alternate_phone_number || backendData.alternate_phone || backendData.alternatePhone,

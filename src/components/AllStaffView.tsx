@@ -3,11 +3,10 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Users, UserX, Plus, Mail, Phone, MapPin, Briefcase, Calendar, UserCheck, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { StaffMember, isStaffOnActiveOffDay } from '../data/staffData';
-import { StaffMember as ApiStaffMember } from '../services/staffManagementService';
+import { isStaffOnActiveOffDay } from '../data/staffData';
 import { StaffProfileView } from './StaffProfileViewSimple';
 import StaffInvitationView from './StaffInvitationView';
-import { getAllStaff, activateStaff, deactivateStaff } from '../services/staffManagementService';
+import { StaffMember, getAllStaff, activateStaff, deactivateStaff } from '../services/staffManagementService';
 import { API_ENDPOINT } from '../config/config';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -121,35 +120,6 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
 
   useEffect(() => { if (initialSelectedStaff) setSelectedStaff(initialSelectedStaff); }, [initialSelectedStaff]);
 
-  const mapApiToUiStaff = (apiStaff: ApiStaffMember): StaffMember => {
-    const fullNameParts = apiStaff.full_name ? apiStaff.full_name.split(' ') : [];
-    const firstName = fullNameParts[0] || 'N/A';
-    const lastName = fullNameParts.length > 1 ? fullNameParts[fullNameParts.length - 1] : apiStaff.employee_id || 'N/A';
-    const middleName = fullNameParts.length > 2 ? fullNameParts.slice(1, -1).join(' ') : '';
-    return {
-      id: apiStaff.id.toString(), firstName, middleName, lastName,
-      dateOfBirth: apiStaff.date_of_birth || 'N/A', placeOfBirth: 'N/A',
-      gender: apiStaff.gender || 'Male', stateOfOrigin: 'N/A', lga: 'N/A',
-      phoneNumber: apiStaff.phone_number || 'N/A',
-      email: apiStaff.email || apiStaff.work_email || apiStaff.personal_email || 'N/A',
-      address: 'N/A', education: [],
-      department: apiStaff.department || 'N/A',
-      departmentRole: apiStaff.designation || 'N/A',
-      branchType: 'Single', jobStatus: apiStaff.employment_type || 'Permanent',
-      dateEmployed: apiStaff.joining_date || 'N/A', branches: [],
-      guardianFirstName: 'N/A', guardianLastName: 'N/A', guardianDOB: 'N/A',
-      guardianPhone: apiStaff.emergency_contact_phone || 'N/A',
-      guardianEmail: 'N/A', guardianAddress: 'N/A',
-      guardianBusinessName: 'N/A', guardianBusinessAddress: 'N/A',
-      leaves: [], offDays: [], documents: [],
-      status: (apiStaff.status === 'active' ? 'Active' : 'Inactive'),
-      avatar: (apiStaff as any).employee_photo 
-        ? ((apiStaff as any).employee_photo.startsWith('http') ? (apiStaff as any).employee_photo : `${API_ENDPOINT}${(apiStaff as any).employee_photo}`)
-        : (apiStaff as any).profile_picture
-          ? ((apiStaff as any).profile_picture.startsWith('http') ? (apiStaff as any).profile_picture : `${API_ENDPOINT}${(apiStaff as any).profile_picture}`)
-          : `${firstName.charAt(0)}${lastName.charAt(0)}`
-    };
-  };
 
   const loadStaffList = async () => {
     try {
@@ -161,7 +131,7 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
       if (minYearsFilter !== '' && minYearsFilter !== null) filters.minYears = Number(minYearsFilter);
       const response = await getAllStaff(currentPage, itemsPerPage, filters);
       if (response.success) {
-        const mappedStaff = response.staff?.map(mapApiToUiStaff) || [];
+        const mappedStaff = response.staff || [];
         setStaffList(mappedStaff);
         if (response.pagination) {
           setTotalItems(response.pagination.totalItems);
