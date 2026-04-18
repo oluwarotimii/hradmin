@@ -44,6 +44,8 @@ interface StaffMember {
   email: string;
   staff_id?: string;
   department?: string;
+  recordId?: number;
+  userId?: number;
 }
 
 // Helper functions for avatar display
@@ -248,11 +250,13 @@ const LeaveAllocationView = () => {
           const fullName = [firstName, middleName, lastName].filter(n => n).join(' ').trim();
 
           return {
-            id: s.id,
+            id: Number(s.user_id || s.userId || s.id), // Use User ID as primary ID for allocation mapping
+            recordId: s.id, // Keep staff record ID separately
             name: fullName || s.name || s.full_name || s.staff_name || s.email || 'Unknown',
             email: s.work_email || s.email || s.personal_email || '',
             staff_id: s.staff_id || s.staffId || s.id?.toString(),
-            department: s.department || s.department_name || ''
+            department: s.department || s.department_name || '',
+            userId: Number(s.user_id || s.userId || s.id)
           };
         });
         console.log('Mapped staff members:', mappedStaff);
@@ -1196,7 +1200,7 @@ const LeaveAllocationView = () => {
                   >
                     <option value="" disabled>Select Staff</option>
                     {staffMembers.map(staff => (
-                      <option key={staff.id} value={staff.id}>
+                      <option key={`${staff.id}-${staff.recordId}`} value={staff.id}>
                         {staff.name}
                       </option>
                     ))}
@@ -1215,7 +1219,7 @@ const LeaveAllocationView = () => {
                     <option value="" disabled>Select Leave Type</option>
                     {leaveTypes.map(type => (
                       <option key={type.id} value={type.id}>
-                        {type.name} — {type.days_per_year || type.daysPerYear} days/year
+                        {type.name} — {type.daysPerYear} days/year
                       </option>
                     ))}
                   </select>
@@ -1388,7 +1392,7 @@ const LeaveAllocationView = () => {
                       <option value="" disabled>Select type…</option>
                       {leaveTypes.map(t => (
                         <option key={t.id} value={t.id} style={{ color: '#0f1117' }}>
-                          {t.name} ({t.daysPerYear || t.days_per_year} days/yr)
+                          {t.name} ({t.daysPerYear} days/yr)
                         </option>
                       ))}
                     </select>
@@ -1825,7 +1829,7 @@ const LeaveAllocationView = () => {
                     <option value="" disabled>Select Leave Type</option>
                     {leaveTypes.map(type => (
                       <option key={type.id} value={type.id} style={{ color: '#1f2937' }}>
-                        {type.name} ({type.days_per_year || type.daysPerYear} days/year)
+                        {type.name} ({type.daysPerYear} days/year)
                       </option>
                     ))}
                   </select>
@@ -1957,10 +1961,10 @@ const LeaveAllocationView = () => {
                     className="input w-full"
                     required
                   />
-                  {editForm.used_days > (editForm.allocated_days + editForm.carried_over_days) && (
+                  {(editForm.used_days || 0) > ((editForm.allocated_days || 0) + (editForm.carried_over_days || 0)) && (
                     <p className="mt-1 text-sm text-error-600 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
-                      Used days cannot exceed allocated + carried over days ({editForm.allocated_days + editForm.carried_over_days})
+                      Used days cannot exceed allocated + carried over days ({(editForm.allocated_days || 0) + (editForm.carried_over_days || 0)})
                     </p>
                   )}
                 </div>
@@ -1979,8 +1983,8 @@ const LeaveAllocationView = () => {
                 <div className="bg-primary-50 p-3 rounded-lg">
                   <p className="text-sm text-primary-800">
                     <strong>Remaining Days:</strong>{' '}
-                    <span className={editForm.allocated_days + editForm.carried_over_days - editForm.used_days < 0 ? 'text-error-600 font-semibold' : 'text-primary-600 font-semibold'}>
-                      {editForm.allocated_days + editForm.carried_over_days - editForm.used_days}
+                    <span className={(editForm.allocated_days || 0) + (editForm.carried_over_days || 0) - (editForm.used_days || 0) < 0 ? 'text-error-600 font-semibold' : 'text-primary-600 font-semibold'}>
+                      {(editForm.allocated_days || 0) + (editForm.carried_over_days || 0) - (editForm.used_days || 0)}
                     </span>
                   </p>
                 </div>
@@ -1999,7 +2003,7 @@ const LeaveAllocationView = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={editForm.used_days > (editForm.allocated_days + editForm.carried_over_days)}
+                  disabled={(editForm.used_days || 0) > ((editForm.allocated_days || 0) + (editForm.carried_over_days || 0))}
                   className="btn btn-primary flex-1"
                 >
                   Update Allocation
