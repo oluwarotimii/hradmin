@@ -349,11 +349,14 @@ const ShiftSchedulingView = () => {
         getAllBranches(),
         exceptionTypeService.getExceptionTypes(true)
       ]);
-      if (staffRes.success && staffRes.staff) {
-        setStaffMembers(staffRes.staff.map((s: any) => ({
+      
+      const staffList = staffRes.staff || staffRes.data?.staff;
+      
+      if (staffRes.success && staffList) {
+        setStaffMembers(staffList.map((s: any) => ({
           id: s.user_id || s.id, // Use user_id as the primary identifier for shift operations
           staff_id: s.id,
-          name: [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ') || s.email,
+          name: s.full_name || [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ') || s.email,
           email: s.work_email || s.email,
           department: s.department,
           branch_id: s.branch_id
@@ -366,6 +369,7 @@ const ShiftSchedulingView = () => {
           setExceptionForm(prev => ({ ...prev, exception_type_id: typesRes.data.exceptionTypes[0].id }));
         }
       }
+      
       if (activeTab === 'templates') {
         const res = await shiftSchedulingService.getShiftTemplates();
         if (res.success && res.data) {
@@ -377,14 +381,12 @@ const ShiftSchedulingView = () => {
         }
       } else if (activeTab === 'assignments') {
         console.log('[ShiftSchedulingView] Loading all assignments (fetching all pages)...');
-        // Fetch all assignments by getting all pages
         const res = await shiftSchedulingService.getEmployeeShiftAssignments(1, 1000);
         if (res.success && res.data) {
           const allAssignments = res.data.employeeShiftAssignments || [];
           console.log('[ShiftSchedulingView] Loaded', allAssignments.length, 'assignments');
           setAssignments(allAssignments);
         }
-        // Also load shift timings (multi-shift assignments)
         try {
           const timingsRes = await shiftSchedulingService.getShiftTimings();
           if (timingsRes.success && timingsRes.data) {
@@ -1428,10 +1430,10 @@ const ShiftSchedulingView = () => {
                   <tr key={`a-${a.id}`} onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceAlt)} onMouseLeave={e => (e.currentTarget.style.background = '')}>
                     <Td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                        <Avatar name={staff?.name || '?'} />
+                        <Avatar name={staff?.name || a.user_name || '?'} />
                         <div>
-                          <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary }}>{staff?.name || `User ${a.user_id}`}</p>
-                          <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{staff?.email || staff?.department}</p>
+                          <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary }}>{staff?.name || a.user_name || `User ${a.user_id}`}</p>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{staff?.email || staff?.department || 'Staff Member'}</p>
                         </div>
                       </div>
                     </Td>
@@ -1441,7 +1443,7 @@ const ShiftSchedulingView = () => {
                           <Icon size={12} color={st?.color || colors.textMuted} />
                         </div>
                         <div>
-                          <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: colors.textPrimary }}>{tmpl?.name || `Template ${a.shift_template_id}`}</p>
+                          <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600, color: colors.textPrimary }}>{tmpl?.name || a.template_name || `Template ${a.shift_template_id}`}</p>
                           <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{tmpl ? `${tmpl.start_time?.substring(0, 5)} – ${tmpl.end_time?.substring(0, 5)}` : ''}</p>
                         </div>
                       </div>
@@ -1617,10 +1619,10 @@ const ShiftSchedulingView = () => {
                 <tr key={ex.id} onMouseEnter={e => (e.currentTarget.style.background = colors.surfaceAlt)} onMouseLeave={e => (e.currentTarget.style.background = '')}>
                   <Td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                      <Avatar name={staff?.name || '?'} />
+                      <Avatar name={staff?.name || ex.user_name || '?'} />
                       <div>
-                        <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary }}>{staff?.name || `User ${ex.user_id}`}</p>
-                        <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{staff?.department}</p>
+                        <p style={{ margin: 0, fontWeight: 600, color: colors.textPrimary }}>{staff?.name || ex.user_name || `User ${ex.user_id}`}</p>
+                        <p style={{ margin: 0, fontSize: '0.72rem', color: colors.textMuted }}>{staff?.department || 'Staff Member'}</p>
                       </div>
                     </div>
                   </Td>

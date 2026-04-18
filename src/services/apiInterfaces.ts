@@ -70,7 +70,7 @@ export interface EmployeeShiftAssignment {
   effective_from: string; // ISO date string
   effective_to: string | null; // ISO date string or null
   assignment_type: 'permanent' | 'temporary' | 'rotating';
-  status: 'active' | 'inactive' | 'expired';
+  status: 'active' | 'inactive' | 'expired' | 'pending' | 'cancelled';
   recurrence_pattern?: 'none' | 'daily' | 'weekly' | 'monthly';
   recurrence_days?: string | string[];
   recurrence_day_of_week?: string;
@@ -78,6 +78,11 @@ export interface EmployeeShiftAssignment {
   created_by: number | null;
   created_at: string; // ISO datetime string
   updated_at: string; // ISO datetime string
+  // Joined fields
+  user_name?: string;
+  template_name?: string;
+  assigned_by_name?: string;
+  approved_by_name?: string;
 }
 
 export interface AssignShiftToEmployeeRequest {
