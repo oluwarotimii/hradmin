@@ -338,9 +338,9 @@ export const getAllStaff = async (page: number = 1, limit: number = 20, filters?
     let paginationData = undefined;
     
     if (responseData.staff && Array.isArray(responseData.staff)) {
-      staffArray = responseData.staff;
+      staffArray = responseData.staff.map(mapStaffResponse);
     } else if (Array.isArray(responseData)) {
-      staffArray = responseData;
+      staffArray = responseData.map(mapStaffResponse);
     }
     
     // Extract pagination info
@@ -618,13 +618,13 @@ export const getStaffByDepartment = async (department: string): Promise<{ succes
     // Extract staff array from different possible field names
     let staffArray: StaffMember[] = [];
     if (Array.isArray(staffData)) {
-      staffArray = staffData;
+      staffArray = staffData.map(mapStaffResponse);
     } else if (staffData.staff && Array.isArray(staffData.staff)) {
-      staffArray = staffData.staff;
+      staffArray = staffData.staff.map(mapStaffResponse);
     } else if (staffData.data && Array.isArray(staffData.data)) {
-      staffArray = staffData.data;
+      staffArray = staffData.data.map(mapStaffResponse);
     } else if (staffData.results && Array.isArray(staffData.results)) {
-      staffArray = staffData.results;
+      staffArray = staffData.results.map(mapStaffResponse);
     }
 
     return {

@@ -32,6 +32,10 @@ interface StaffMember {
   email: string;
   department?: string;
   branch_id?: number;
+  userId?: number;
+  full_name?: string;
+  work_email?: string;
+  employee_id?: string;
 }
 
 interface AttendanceWithStaff extends AttendanceRecord {
@@ -167,17 +171,26 @@ const AttendanceView = () => {
         holidayService.getHolidays({ startDate, endDate })
       ]);
 
+      let currentMappedStaff = staffMembers;
       if (staffRes.success && staffRes.staff) {
-        const mappedStaff = staffRes.staff.map((s: any) => ({
-          id: s.id,
-          name: s.full_name || s.name || 'Unknown',
-          email: s.work_email || s.email,
-          department: s.department,
-          branch_id: s.branch_id,
-          full_name: s.full_name,
-          employee_id: s.employee_id
-        }));
-        setStaffMembers(mappedStaff);
+        currentMappedStaff = staffRes.staff.map((s: any) => {
+          const firstName = s.firstName || s.first_name || '';
+          const lastName = s.lastName || s.last_name || '';
+          const middleName = s.middleName || s.middle_name || '';
+          const fullName = s.full_name || [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
+          
+          return {
+            id: s.id, // Staff Record ID
+            userId: Number(s.user_id || s.userId || s.id), // Actual User Auth ID
+            name: fullName || s.name || 'Unknown',
+            email: s.work_email || s.email,
+            department: s.department,
+            branch_id: s.branch_id || s.branchId,
+            full_name: fullName,
+            employee_id: s.employee_id || s.employeeId
+          };
+        });
+        setStaffMembers(currentMappedStaff);
       }
 
       if (branchesRes.success && branchesRes.branches) {
@@ -191,11 +204,13 @@ const AttendanceView = () => {
       if (attendanceRes.success && attendanceRes.records) {
         // Update pagination info - handle both snake_case and camelCase
         if (attendanceRes.pagination) {
+          const apiPagination = attendanceRes.pagination as any;
           const paginationData = {
-            currentPage: attendanceRes.pagination.current_page || attendanceRes.pagination.currentPage || 1,
-            pageSize: attendanceRes.pagination.per_page || attendanceRes.pagination.pageSize || 20,
-            totalItems: attendanceRes.pagination.total_records || attendanceRes.pagination.totalItems || 0,
-            totalPages: attendanceRes.pagination.total_pages || attendanceRes.pagination.totalPages || 0
+            currentPage: apiPagination.current_page || apiPagination.currentPage || 1,
+            pageSize: apiPagination.per_page || apiPagination.pageSize || 20,
+            totalItems: apiPagination.total_records || apiPagination.totalItems || 0,
+            totalPages: apiPagination.total_pages || apiPagination.totalPages || 0,
+            itemsPerPage: apiPagination.per_page || apiPagination.pageSize || 20
           };
           
           setPagination(paginationData);
@@ -204,11 +219,12 @@ const AttendanceView = () => {
         }
 
         // DEBUG: Log pagination data to console
+        const apiPagination = attendanceRes.pagination as any;
         console.log('📊 ATTENDANCE PAGINATION DATA:', {
           currentPage,
           pageSize,
-          totalRecords: attendanceRes.pagination?.total_records || attendanceRes.pagination?.totalItems || 0,
-          totalPages: attendanceRes.pagination?.total_pages || attendanceRes.pagination?.totalPages || 0,
+          totalRecords: apiPagination?.total_records || apiPagination?.totalItems || 0,
+          totalPages: apiPagination?.total_pages || apiPagination?.totalPages || 0,
           recordsOnPage: attendanceRes.records.length,
           pagination: attendanceRes.pagination,
           records: attendanceRes.records.map((r: any) => ({
@@ -223,11 +239,12 @@ const AttendanceView = () => {
 
         // Enrich attendance records with staff info
         const enriched = attendanceRes.records.map((record: AttendanceRecord) => {
-          const staff = staffRes.staff?.find((s: any) => s.id === record.user_id);
-          const branch = branchesRes.branches?.find((b: Branch) => b.id === staff?.branch_id);
+          // Find staff by matching the record's user_id against the staff's userId
+          const staff = currentMappedStaff.find((s: any) => s.userId === record.user_id);
+          const branch = branchesRes.branches?.find((b: Branch) => Number(b.id) === Number(staff?.branch_id));
           return {
             ...record,
-            staff_name: staff?.full_name || 'Unknown',
+            staff_name: staff?.full_name || staff?.name || 'Unknown',
             staff_email: staff?.email || staff?.work_email,
             employee_id: staff?.employee_id,
             department: staff?.department,
@@ -349,11 +366,11 @@ const AttendanceView = () => {
           if (response.success && response.records) {
             // Enrich with staff info
             const enriched = response.records.map((record: AttendanceRecord) => {
-              const staff = staffMembers.find((s: any) => s.id === record.user_id);
-              const branch = branches.find((b: Branch) => b.id === staff?.branch_id);
+              const staff = staffMembers.find((s: StaffMember) => s.userId === record.user_id);
+              const branch = branches.find((b: Branch) => Number(b.id) === Number(staff?.branch_id));
               return {
                 ...record,
-                staff_name: staff?.full_name || 'Unknown',
+                staff_name: staff?.full_name || staff?.name || 'Unknown',
                 staff_email: staff?.email || staff?.work_email,
                 employee_id: staff?.employee_id,
                 department: staff?.department,
@@ -362,7 +379,8 @@ const AttendanceView = () => {
             });
             dataToExport.push(...enriched);
             
-            if (page >= response.pagination?.total_pages || 0) {
+            const apiPagination = response.pagination as any;
+            if (page >= (apiPagination?.total_pages || apiPagination?.totalPages || 0)) {
               hasMore = false;
             } else {
               page++;
@@ -471,7 +489,7 @@ const AttendanceView = () => {
       record.staff_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.department?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesBranch = !selectedBranch || record.branch_name === branches.find(b => b.id === selectedBranch)?.name;
+    const matchesBranch = !selectedBranch || record.branch_name === (branches.find(b => Number(b.id) === Number(selectedBranch))?.name);
 
     const matchesStatus = selectedStatus === 'all' || record.status === selectedStatus;
 
@@ -544,7 +562,7 @@ const AttendanceView = () => {
           <button
             className="btn btn-outline"
             onClick={() => {
-              const branchId = selectedBranch || (branches[0]?.id ?? 0);
+              const branchId = selectedBranch ? Number(selectedBranch) : (branches[0]?.id ? Number(branches[0].id) : 0);
               console.log('Opening Auto-Mark Modal for branch:', branchId, branches[0]);
               if (branchId === 0) {
                 alert('Please select a branch first or ensure branches are loaded');
@@ -656,7 +674,7 @@ const AttendanceView = () => {
               <select
                 className="input w-full"
                 value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value ? Number(e.target.value) : '')}
+                onChange={(e) => setSelectedBranch(e.target.value ? Number(e.target.value) : ('' as ''))}
               >
                 <option value="">All Branches</option>
                 {branches.map(branch => (
@@ -699,7 +717,7 @@ const AttendanceView = () => {
                 className="btn btn-sm btn-outline flex-1"
                 onClick={() => {
                   setSearchTerm('');
-                  setSelectedBranch('');
+                  setSelectedBranch('' as '');
                   setSelectedStatus('all');
                   setSelectedDepartment('');
                 }}
@@ -1021,7 +1039,7 @@ const AttendanceView = () => {
   );
 
   const renderCalendarView = () => {
-    return <AttendanceCalendarWrapper onBackToList={() => setActiveView('list')} />;
+    return <div className="p-8 text-center text-gray-500">Calendar view is temporarily disabled.</div>;
   };
 
   return (

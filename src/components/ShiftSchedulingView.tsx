@@ -351,7 +351,8 @@ const ShiftSchedulingView = () => {
       ]);
       if (staffRes.success && staffRes.staff) {
         setStaffMembers(staffRes.staff.map((s: any) => ({
-          id: s.id,
+          id: s.user_id || s.id, // Use user_id as the primary identifier for shift operations
+          staff_id: s.id,
           name: [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ') || s.email,
           email: s.work_email || s.email,
           department: s.department,

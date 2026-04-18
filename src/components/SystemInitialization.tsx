@@ -828,7 +828,7 @@ const styles = {
   },
   migrationIdle: {
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'column' as const,
     gap: '1rem',
   },
   alertBox: {
@@ -868,7 +868,7 @@ const styles = {
   },
   loadingContainer: {
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'column' as const,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
@@ -940,12 +940,12 @@ const styles = {
   },
   form: {
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'column' as const,
     gap: '1rem',
   },
   formGroup: {
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'column' as const,
     gap: '0.5rem',
   },
   formLabel: {
@@ -955,7 +955,9 @@ const styles = {
   },
   formInput: {
     padding: '0.75rem',
-    border: '1px solid #e2e8f0',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: '#e2e8f0',
     borderRadius: '0.375rem',
     fontSize: '0.875rem',
     backgroundColor: '#ffffff',

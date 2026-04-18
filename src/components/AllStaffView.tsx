@@ -56,7 +56,10 @@ const getDeptAccent = (dept: string) => {
 };
 
 const avatarPalette = ['#1e40af','#0369a1','#059669','#7c3aed','#d97706','#be185d','#0891b2','#0d9488'];
-const getAvatarColor = (name: string) => avatarPalette[(name?.charCodeAt(0) || 0) % avatarPalette.length];
+const getAvatarColor = (name?: string) => {
+  const charCode = name && name.length > 0 ? name.charCodeAt(0) : 0;
+  return avatarPalette[charCode % avatarPalette.length];
+};
 
 // ─── Shared style objects ─────────────────────────────────────────────────────
 const card: React.CSSProperties = {
@@ -391,7 +394,7 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
                     {staff.avatar?.includes('http') ? (
                       <img src={staff.avatar} alt={staff.firstName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      staff.avatar || `${staff.firstName[0]}${staff.lastName[0]}`
+                      staff.avatar || `${(staff.firstName || '?')[0]}${(staff.lastName || '?')[0]}`.toUpperCase()
                     )}
                   </div>
 
