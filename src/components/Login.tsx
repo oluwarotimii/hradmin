@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { login } from "../services/authService";
+import { useAuth } from "../AuthContext"; // Import useAuth
 
 interface LoginProps {
   onLogin: () => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
+  const auth = useAuth(); // Get auth object from context
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -49,7 +50,7 @@ export function Login({ onLogin }: LoginProps) {
     setLoading(true);
 
     try {
-      const result = await login({ email, password });
+      const result = await auth.login({ email, password }); // Use auth.login from context
 
       if (result.success) {
         // Enforce dashboard permissions
@@ -79,17 +80,20 @@ export function Login({ onLogin }: LoginProps) {
         }
         
         if (!hasAccess) {
-           import('../services/authService').then(m => m.logout());
+           // Ensure authService is imported or accessible if logout is needed here
+           import('../services/authService').then(m => m.logout()); // Assuming authService exports logout
            setError("Unable to login: You lack the necessary permissions to access the HR Admin Dashboard.");
            setLoading(false);
            return;
         }
 
-        onLogin();
+        onLogin(); // Call the onLogin prop passed from App.tsx on success
       } else {
+        // This case handles results where success is false but no error was thrown
         setError(result.message || "Login failed. Please try again.");
       }
     } catch (err: any) {
+      // This catch block handles errors thrown by auth.login
       setError(err.message || "An unexpected error occurred during login.");
     } finally {
       setLoading(false);
@@ -224,7 +228,11 @@ export function Login({ onLogin }: LoginProps) {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                // Clear password error when user starts typing
+                if (error) setError("");
+              }}
               placeholder="Enter your password"
               style={{
                 width: '100%',
