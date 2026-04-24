@@ -162,7 +162,7 @@ const StaffLocationAssignmentView: React.FC = () => {
   // Edit state
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({
-    assigned_location_id: 0,
+    assigned_location_id: null as number | null,
     secondary_locations: [] as number[],
     location_notes: ''
   });
@@ -317,13 +317,21 @@ const StaffLocationAssignmentView: React.FC = () => {
     setError(null);
 
     try {
+      const primaryLocationId = editForm.assigned_location_id && editForm.assigned_location_id > 0
+        ? editForm.assigned_location_id
+        : (editForm.secondary_locations[0] || null);
+
+      const secondaryLocations = primaryLocationId
+        ? editForm.secondary_locations.filter((locationId) => locationId !== primaryLocationId)
+        : editForm.secondary_locations;
+
       // Prepare payload with location_assignments in JSON format
       const payload = {
-        assigned_location_id: editForm.assigned_location_id,
+        assigned_location_id: primaryLocationId,
         location_notes: editForm.location_notes,
         location_assignments: {
-          primary_location: editForm.assigned_location_id,
-          secondary_locations: editForm.secondary_locations
+          primary_location: primaryLocationId,
+          secondary_locations: secondaryLocations
         }
       };
 
@@ -1214,7 +1222,7 @@ const StaffLocationAssignmentView: React.FC = () => {
                             }
                             
                             setEditForm({
-                              assigned_location_id: staff.assigned_location_id || 0,
+                              assigned_location_id: staff.assigned_location_id || null,
                               secondary_locations: secondaryLocs,
                               location_notes: staff.location_notes || ''
                             });

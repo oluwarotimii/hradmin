@@ -40,6 +40,141 @@ const relationshipOptions = [
   'Spouse', 'Parent', 'Sibling', 'Child', 'Relative', 'Friend', 'Colleague', 'Other'
 ];
 
+const T = {
+  primary: 'var(--primary-600)',
+  primaryLight: 'var(--primary-500)',
+  primaryPale: 'var(--primary-50)',
+  primaryBorder: 'var(--primary-200)',
+  success: 'var(--success-600)',
+  successPale: 'var(--success-50)',
+  successBorder: 'var(--success-100)',
+  warning: 'var(--warning-600)',
+  warningPale: 'var(--warning-50)',
+  warningBorder: 'var(--warning-100)',
+  danger: 'var(--error-600)',
+  dangerPale: 'var(--error-50)',
+  dangerBorder: 'var(--error-100)',
+  purple: 'var(--purple-600)',
+  purplePale: 'var(--purple-50)',
+  purpleBorder: 'var(--purple-100)',
+  surface: 'var(--bg-elevated)',
+  surfaceAlt: 'var(--bg-secondary)',
+  surfaceMuted: 'var(--bg-tertiary)',
+  border: 'var(--border-light)',
+  borderStrong: 'var(--border-medium)',
+  text: 'var(--text-primary)',
+  textSub: 'var(--text-secondary)',
+  textMuted: 'var(--text-muted)',
+  shadow: 'var(--shadow-sm)',
+  shadowMd: 'var(--shadow-md)',
+  shadowLg: 'var(--shadow-lg)',
+  radius: 'var(--radius-lg)',
+  radiusXl: 'var(--radius-xl)',
+};
+
+const cardStyle: React.CSSProperties = {
+  background: T.surface,
+  border: `1px solid ${T.border}`,
+  borderRadius: T.radiusXl,
+  boxShadow: T.shadow,
+};
+
+const panelStyle: React.CSSProperties = {
+  ...cardStyle,
+  overflow: 'hidden',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '0.875rem 1rem',
+  border: `1.5px solid ${T.border}`,
+  borderRadius: T.radius,
+  background: T.surface,
+  color: T.text,
+  fontSize: '0.95rem',
+  outline: 'none',
+  transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
+  boxShadow: 'none',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.8rem',
+  fontWeight: 700,
+  color: T.text,
+  marginBottom: '0.45rem',
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+};
+
+const primaryButton: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  padding: '0.8rem 1.2rem',
+  borderRadius: T.radius,
+  border: 'none',
+  background: `linear-gradient(135deg, ${T.primaryLight}, ${T.primary})`,
+  color: '#fff',
+  fontSize: '0.9rem',
+  fontWeight: 700,
+  boxShadow: T.shadowMd,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+
+const secondaryButton: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.5rem',
+  padding: '0.8rem 1.2rem',
+  borderRadius: T.radius,
+  border: `1.5px solid ${T.border}`,
+  background: T.surface,
+  color: T.textSub,
+  fontSize: '0.9rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  boxShadow: T.shadow,
+};
+
+const sectionStyle: React.CSSProperties = {
+  ...cardStyle,
+  padding: '1.35rem',
+};
+
+const metricStyle = (accent: string, pale: string): React.CSSProperties => ({
+  ...cardStyle,
+  padding: '1rem 1.15rem',
+  borderTop: `3px solid ${accent}`,
+  background: pale,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '1rem',
+});
+
+const getGuarantorFileUrl = (filePath?: string | null): string | null => {
+  if (!filePath) {
+    return null;
+  }
+
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    return filePath;
+  }
+
+  if (filePath.startsWith('/api/')) {
+    return `${API_ENDPOINT.replace(/\/$/, '')}${filePath}`;
+  }
+
+  return `${API_ENDPOINT.replace(/\/$/, '')}/${filePath.replace(/^\//, '')}`;
+};
+
 export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -209,6 +344,12 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const stats = {
+    total: guarantors.length,
+    verified: guarantors.filter((g) => g.is_verified).length,
+    pending: guarantors.filter((g) => !g.is_verified).length,
+  };
+
   const InputField = ({ 
     label, 
     field, 
@@ -222,11 +363,11 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
     required?: boolean;
     icon?: any;
   }) => (
-    <div className="p-4" style={{ backgroundColor: 'var(--slate-50)', borderRadius: 'var(--radius-md)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div className="flex items-center gap-2 mb-2">
-        {Icon && <Icon className="w-4 h-4 text-slate-400" />}
-        <span className="text-sm text-slate-500 font-medium">
-          {label} {required && <span className="text-red-500">*</span>}
+        {Icon && <Icon className="w-4 h-4" style={{ color: T.textMuted }} />}
+        <span style={{ ...labelStyle, marginBottom: 0 }}>
+          {label} {required && <span style={{ color: T.danger }}>*</span>}
         </span>
       </div>
       {type === 'textarea' ? (
@@ -236,16 +377,16 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
           onChange={(e) => handleInputChange(field, e.target.value)}
           rows={3}
           required={required}
-          style={{ backgroundColor: 'white' }}
+          style={inputStyle}
         />
       ) : type === 'select' ? (
         <div className="relative">
           <select
-            className="input w-full pr-10"
+            className="input w-full"
             value={(formData[field] as string) || ''}
             onChange={(e) => handleInputChange(field, e.target.value)}
             required={required}
-            style={{ backgroundColor: 'white', appearance: 'none' }}
+            style={{ ...inputStyle, appearance: 'none', paddingRight: '2.5rem' }}
           >
             <option value="">Select {label}</option>
             {field === 'gender' && genderOptions.map(opt => (
@@ -264,7 +405,7 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
               <option key={rel} value={rel}>{rel}</option>
             ))}
           </select>
-          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: T.textMuted }} />
         </div>
       ) : (
         <input
@@ -273,7 +414,7 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
           value={(formData[field] as string) || ''}
           onChange={(e) => handleInputChange(field, e.target.value)}
           required={required}
-          style={{ backgroundColor: 'white' }}
+          style={inputStyle}
         />
       )}
     </div>
@@ -281,24 +422,35 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
 
   if (!showList) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h4 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {selectedGuarantor ? 'Edit Guarantor' : 'Add New Guarantor'}
-          </h4>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', color: T.text }}>
+        <div style={{ ...cardStyle, padding: '1.15rem 1.3rem', background: `linear-gradient(135deg, ${T.primaryPale}, #ffffff)` }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.7rem', borderRadius: '999px', background: T.surface, border: `1px solid ${T.primaryBorder}`, color: T.primary, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <Shield className="w-3.5 h-3.5" />
+                Guarantor Records
+              </div>
+              <h4 style={{ margin: '0.75rem 0 0', fontSize: '1.5rem', fontWeight: 800, color: T.text }}>
+                {selectedGuarantor ? 'Edit Guarantor' : 'Add New Guarantor'}
+              </h4>
+              <p style={{ margin: '0.4rem 0 0', fontSize: '0.92rem', color: T.textSub, maxWidth: '60ch' }}>
+                Capture verified guarantor details in a consistent format for onboarding and compliance.
+              </p>
+            </div>
           <button
             onClick={resetForm}
-            className="btn btn-secondary"
+              style={secondaryButton}
           >
             <X className="w-4 h-4 mr-2" />
             Cancel
           </button>
         </div>
+        </div>
 
-        <form onSubmit={handleSubmit} className="card p-6 space-y-8">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {successMessage && (
-            <div className="bg-success-50 border-l-4 border-success-500 p-4">
-              <p className="text-sm text-success-700 flex items-center gap-2">
+            <div style={{ ...sectionStyle, borderColor: T.successBorder, background: T.successPale }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: T.success, display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
                 <CheckCircle className="w-4 h-4" />
                 {successMessage}
               </p>
@@ -306,8 +458,8 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
           )}
 
           {error && (
-            <div className="bg-error-50 border-l-4 border-error-500 p-4">
-              <p className="text-sm text-error-700 flex items-center gap-2">
+            <div style={{ ...sectionStyle, borderColor: T.dangerBorder, background: T.dangerPale }}>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: T.danger, display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
                 <AlertCircle className="w-4 h-4" />
                 {error}
               </p>
@@ -315,10 +467,15 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
           )}
 
           {/* Personal Information */}
-          <section>
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-              <User className="w-5 h-5 text-primary-600" />
-              <h5 className="font-bold text-slate-800">Personal Information</h5>
+          <section style={sectionStyle}>
+            <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.primaryPale, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.primary }}>
+                <User className="w-4 h-4" />
+              </div>
+              <div>
+                <h5 style={{ margin: 0, fontWeight: 800, color: T.text }}>Personal Information</h5>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.84rem', color: T.textMuted }}>Primary identity and contact details.</p>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <InputField label="First Name" field="first_name" required icon={User} />
@@ -334,10 +491,15 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
           </section>
 
           {/* Address */}
-          <section>
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-              <MapPin className="w-5 h-5 text-primary-600" />
-              <h5 className="font-bold text-slate-800">Address Information</h5>
+          <section style={sectionStyle}>
+            <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.primaryPale, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.primary }}>
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div>
+                <h5 style={{ margin: 0, fontWeight: 800, color: T.text }}>Address Information</h5>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.84rem', color: T.textMuted }}>Residence and mailing information for the guarantor.</p>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <InputField label="Address Line 1" field="address_line_1" required icon={MapPin} />
@@ -350,10 +512,15 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
           </section>
 
           {/* Identification */}
-          <section>
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-              <Shield className="w-5 h-5 text-primary-600" />
-              <h5 className="font-bold text-slate-800">Identification Details</h5>
+          <section style={sectionStyle}>
+            <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.purplePale, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.purple }}>
+                <Shield className="w-4 h-4" />
+              </div>
+              <div>
+                <h5 style={{ margin: 0, fontWeight: 800, color: T.text }}>Identification Details</h5>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.84rem', color: T.textMuted }}>Government-issued ID used for verification.</p>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <InputField label="ID Type" field="id_type" type="select" icon={Shield} />
@@ -365,10 +532,15 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
           </section>
 
           {/* Employment */}
-          <section>
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-              <Briefcase className="w-5 h-5 text-primary-600" />
-              <h5 className="font-bold text-slate-800">Employment Information</h5>
+          <section style={sectionStyle}>
+            <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.successPale, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.success }}>
+                <Briefcase className="w-4 h-4" />
+              </div>
+              <div>
+                <h5 style={{ margin: 0, fontWeight: 800, color: T.text }}>Employment Information</h5>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.84rem', color: T.textMuted }}>Occupation and employer context.</p>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <InputField label="Occupation" field="occupation" icon={Briefcase} />
@@ -378,10 +550,15 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
           </section>
 
           {/* Guarantee Details */}
-          <section>
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-              <FileText className="w-5 h-5 text-primary-600" />
-              <h5 className="font-bold text-slate-800">Guarantee Details (Optional)</h5>
+          <section style={sectionStyle}>
+            <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.warningPale, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.warning }}>
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <h5 style={{ margin: 0, fontWeight: 800, color: T.text }}>Guarantee Details</h5>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.84rem', color: T.textMuted }}>Optional terms if the guarantor is backing a financial obligation.</p>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <InputField label="Guarantee Type" field="guarantee_type" type="select" icon={FileText} />
@@ -396,14 +573,18 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
             <button
               type="button"
               onClick={resetForm}
-              className="btn btn-secondary px-8"
+              style={secondaryButton}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary px-10"
+              style={{
+                ...primaryButton,
+                opacity: loading ? 0.75 : 1,
+                cursor: loading ? 'not-allowed' : 'pointer'
+              }}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -424,29 +605,64 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem', color: T.text }}>
+      <div style={{ ...cardStyle, padding: '1.15rem 1.25rem', background: `linear-gradient(135deg, ${T.primaryPale}, #ffffff)` }}>
+        <div className="flex items-center justify-between" style={{ gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h4 className="text-xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <UserCheck className="w-6 h-6 text-primary-600" />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.7rem', borderRadius: '999px', background: T.surface, border: `1px solid ${T.primaryBorder}`, color: T.primary, fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <UserCheck className="w-3.5 h-3.5" />
+              Guarantor Registry
+            </div>
+          <h4 style={{ margin: '0.75rem 0 0', fontSize: '1.5rem', fontWeight: 800, color: T.text }}>
             Guarantors Information
           </h4>
-          <p className="text-sm text-slate-500 mt-1">
+          <p style={{ margin: '0.4rem 0 0', fontSize: '0.92rem', color: T.textSub }}>
             {guarantors.length} guarantor{guarantors.length !== 1 ? 's' : ''} on record
           </p>
         </div>
         <button
           onClick={() => setShowList(false)}
-          className="btn btn-primary"
+            style={primaryButton}
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Guarantor
         </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.875rem' }}>
+        <div style={metricStyle(T.primary, T.primaryPale)}>
+          <div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.textMuted }}>Total</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: T.text, lineHeight: 1.1 }}>{stats.total}</div>
+          </div>
+          <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '12px', background: `${T.primary}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.primary }}>
+            <UserCheck className="w-5 h-5" />
+          </div>
+        </div>
+        <div style={metricStyle(T.success, T.successPale)}>
+          <div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.textMuted }}>Verified</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: T.text, lineHeight: 1.1 }}>{stats.verified}</div>
+          </div>
+          <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '12px', background: `${T.success}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.success }}>
+            <CheckCircle className="w-5 h-5" />
+          </div>
+        </div>
+        <div style={metricStyle(T.warning, T.warningPale)}>
+          <div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.textMuted }}>Pending</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: T.text, lineHeight: 1.1 }}>{stats.pending}</div>
+          </div>
+          <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '12px', background: `${T.warning}14`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.warning }}>
+            <AlertCircle className="w-5 h-5" />
+          </div>
+        </div>
       </div>
 
       {successMessage && (
-        <div className="bg-success-50 border-l-4 border-success-500 p-4">
-          <p className="text-sm text-success-700 flex items-center gap-2">
+        <div style={{ ...sectionStyle, borderColor: T.successBorder, background: T.successPale }}>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: T.success, display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
             <CheckCircle className="w-4 h-4" />
             {successMessage}
           </p>
@@ -454,15 +670,17 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
       )}
 
       {guarantors.length === 0 ? (
-        <div className="card p-12 text-center border-dashed border-2">
-          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <UserCheck className="w-10 h-10 text-slate-300" />
+        <div style={{ ...cardStyle, padding: '3rem 1.5rem', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px' }}>
+          <div style={{ width: '4.25rem', height: '4.25rem', background: T.primaryPale, borderRadius: '999px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: T.primary }}>
+            <UserCheck className="w-10 h-10" />
           </div>
-          <h5 className="text-lg font-bold text-slate-800 mb-2">No guarantors added yet</h5>
-          <p className="text-slate-500 mb-6 max-w-sm mx-auto">Every staff member requires verified guarantors for security and institutional compliance.</p>
+          <h5 style={{ margin: '0 0 0.4rem', fontSize: '1.1rem', fontWeight: 800, color: T.text }}>No guarantors added yet</h5>
+          <p style={{ margin: '0 auto 1.25rem', maxWidth: '34rem', color: T.textSub, fontSize: '0.92rem' }}>
+            Every staff member requires verified guarantors for security and institutional compliance.
+          </p>
           <button
             onClick={() => setShowList(false)}
-            className="btn btn-primary px-8"
+            style={primaryButton}
           >
             Add First Guarantor
           </button>
@@ -470,80 +688,80 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {guarantors.map(guarantor => (
-            <div key={guarantor.id} className="card overflow-hidden hover-lift flex flex-col">
-              <div className="p-5 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
+            <div key={guarantor.id} style={{ ...panelStyle, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '1.15rem', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', background: `linear-gradient(180deg, ${T.surfaceAlt}, ${T.surface})` }}>
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center text-primary-700 font-bold text-lg shadow-sm">
+                  <div style={{ width: '3rem', height: '3rem', borderRadius: '14px', background: T.primaryPale, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.primary, fontWeight: 900, fontSize: '1rem' }}>
                     {guarantor.first_name[0]}{guarantor.last_name[0]}
                   </div>
                   <div>
-                    <h5 className="font-bold text-slate-900 leading-tight">
+                    <h5 style={{ margin: 0, fontWeight: 800, color: T.text, lineHeight: 1.2 }}>
                       {guarantor.first_name} {guarantor.middle_name} {guarantor.last_name}
                     </h5>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-wider">
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: T.textSub, background: T.surfaceMuted, padding: '0.25rem 0.5rem', borderRadius: '999px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                         {guarantor.relationship}
                       </span>
-                      <span className="text-xs text-slate-400">•</span>
-                      <span className="text-xs text-slate-500 font-medium">{guarantor.occupation}</span>
+                      <span style={{ fontSize: '0.8rem', color: T.textMuted }}>•</span>
+                      <span style={{ fontSize: '0.82rem', color: T.textSub, fontWeight: 700 }}>{guarantor.occupation}</span>
                     </div>
                   </div>
                 </div>
                 <div>
                   {guarantor.is_verified ? (
-                    <span className="badge badge-success">
-                      <CheckCircle className="w-3 h-3 mr-1" /> Verified
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.65rem', borderRadius: '999px', background: T.successPale, color: T.success, fontSize: '0.72rem', fontWeight: 800 }}>
+                      <CheckCircle className="w-3 h-3" /> Verified
                     </span>
                   ) : (
-                    <span className="badge badge-warning">
-                      <AlertCircle className="w-3 h-3 mr-1" /> Pending
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.65rem', borderRadius: '999px', background: T.warningPale, color: T.warning, fontSize: '0.72rem', fontWeight: 800 }}>
+                      <AlertCircle className="w-3 h-3" /> Pending
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              <div style={{ padding: '1.15rem', display: 'grid', gridTemplateColumns: 'repeat(1, minmax(0, 1fr))', gap: '1rem' }} className="sm:grid-cols-2">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                    <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.surfaceAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textMuted }}>
                       <Phone className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">{guarantor.phone_number}</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: T.textSub }}>{guarantor.phone_number}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                    <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.surfaceAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textMuted }}>
                       <Mail className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700 truncate" title={guarantor.email}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: T.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={guarantor.email}>
                       {guarantor.email || 'N/A'}
                     </span>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                    <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.surfaceAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textMuted }}>
                       <MapPin className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700 truncate">
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: T.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {guarantor.city}, {guarantor.state}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                    <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.surfaceAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textMuted }}>
                       <Shield className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: T.textSub }}>
                       {guarantor.id_type?.replace(/_/g, ' ') || 'ID'}: {guarantor.id_number || 'N/A'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+              <div style={{ padding: '0.9rem 1.15rem', background: T.surfaceAlt, borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => handleEdit(guarantor)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-primary-600 hover:text-primary-800 transition-colors"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: 'none', background: 'transparent', color: T.primary, fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
                   >
                     <Edit2Icon className="w-3.5 h-3.5" /> Edit
                   </button>
@@ -551,24 +769,24 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
                   {!guarantor.is_verified && (
                     <button
                       onClick={() => handleVerify(guarantor.id)}
-                      className="flex items-center gap-1.5 text-xs font-bold text-success-600 hover:text-success-800 transition-colors"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: 'none', background: 'transparent', color: T.success, fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
                     >
                       <CheckCircle className="w-3.5 h-3.5" /> Verify
                     </button>
                   )}
 
                   <div className="relative group">
-                    <button className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors">
+                    <button style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: 'none', background: 'transparent', color: T.textSub, fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}>
                       <Upload className="w-3.5 h-3.5" /> Upload
                     </button>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-white shadow-xl border border-slate-200 rounded-xl p-2 min-w-[160px] z-20 animate-scale-in">
-                      <label className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                        <FileText className="w-3.5 h-3.5 text-primary-500" /> 
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block rounded-xl p-2 min-w-[160px] z-20 animate-scale-in" style={{ background: T.surface, border: `1px solid ${T.border}`, boxShadow: T.shadowLg }}>
+                      <label className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ color: T.textSub }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                        <FileText className="w-3.5 h-3.5" style={{ color: T.primary }} /> 
                         {uploadingForm ? 'Uploading...' : 'Guarantor Form'}
                         <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => e.target.files?.[0] && handleUploadDocument(guarantor.id, 'form', e.target.files[0])} disabled={uploadingForm} />
                       </label>
-                      <label className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                        <Shield className="w-3.5 h-3.5 text-primary-500" /> 
+                      <label className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-xs font-medium" style={{ color: T.textSub }} onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                        <Shield className="w-3.5 h-3.5" style={{ color: T.primary }} /> 
                         {uploadingId ? 'Uploading...' : 'ID Document'}
                         <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => e.target.files?.[0] && handleUploadDocument(guarantor.id, 'id', e.target.files[0])} disabled={uploadingId} />
                       </label>
@@ -577,10 +795,10 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
 
                   {guarantor.guarantor_form_path && (
                     <a
-                      href={`${API_ENDPOINT}${guarantor.guarantor_form_path}`}
+                      href={getGuarantorFileUrl(guarantor.guarantor_form_path) || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: T.textSub, fontSize: '0.78rem', fontWeight: 800, textDecoration: 'none' }}
                     >
                       <Eye className="w-3.5 h-3.5" /> View
                     </a>
@@ -589,7 +807,7 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
 
                 <button
                   onClick={() => handleDelete(guarantor.id, `${guarantor.first_name} ${guarantor.last_name}`)}
-                  className="flex items-center gap-1.5 text-xs font-bold text-error-500 hover:text-error-700 transition-colors"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: 'none', background: 'transparent', color: T.danger, fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
