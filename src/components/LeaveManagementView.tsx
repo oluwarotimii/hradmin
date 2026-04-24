@@ -18,6 +18,7 @@ import {
   LeaveBalance,
   LeaveType
 } from '../services/leaveManagementService';
+import { getLeavePolicy } from '../services/leavePolicyService';
 import { triggerLeaveCleanup, getLeaveCleanupStatus } from '../services/leaveCleanupService';
 import {
   Pagination,
@@ -249,6 +250,7 @@ const LeaveManagementView = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [excludeSundaysFromLeave, setExcludeSundaysFromLeave] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [totalItems, setTotalItems] = useState(0);
@@ -267,6 +269,15 @@ const LeaveManagementView = () => {
     const fetchData = async () => {
       try {
         setLoading(true); setError(null);
+        const policyResponse = await getLeavePolicy();
+        if (policyResponse.success && policyResponse.settings) {
+          setExcludeSundaysFromLeave(!!policyResponse.settings.exclude_sundays_from_leave);
+        }
+      } catch (policyError) {
+        console.log('Leave policy unavailable, defaulting to counting all days');
+      }
+
+      try {
         const typesResponse = await getAllLeaveTypes();
         if (typesResponse.success && typesResponse.leaveTypes) {
           setRawLeaveTypes(typesResponse.leaveTypes);
@@ -275,8 +286,16 @@ const LeaveManagementView = () => {
             color: type.is_paid ? T.primary : T.textMuted,
             description: type.description || `${type.days_per_year} days per year`
           })));
-        } else { setLeaveTypes([]); setRawLeaveTypes([]); }
+        } else {
+          setLeaveTypes([]);
+          setRawLeaveTypes([]);
+          if (typesResponse.message) setError(typesResponse.message);
+        }
+      } catch (typesError: any) {
+        setError(typesError?.message || 'Failed to load leave types');
+      }
 
+      try {
         const filters: { status?: string; leaveType?: string; search?: string } = {};
         if (filterStatus !== 'all') {
           const backendStatus = filterStatus==='pending'?'submitted':filterStatus==='declined'?'rejected':filterStatus==='active'?'approved':filterStatus;
@@ -296,7 +315,7 @@ const LeaveManagementView = () => {
               staffName: req.user_name||`User ${req.user_id}`, department:'General', branch:'Main Office',
               leaveType: req.leave_type_name||req.leaveTypeName||'Unknown',
               startDate: req.start_date||req.startDate, endDate: req.end_date||req.endDate,
-              duration: req.days_requested||calculateDuration(req.start_date||req.startDate, req.end_date||req.endDate),
+              duration: calculateDuration(req.start_date||req.startDate, req.end_date||req.endDate),
               reason: req.reason, status: transformedStatus, requestDate: req.created_at||req.createdAt,
               approvedBy: req.reviewed_by?'Admin':undefined, approvalDate: req.reviewed_at||req.updatedAt,
               declineReason: req.rejection_reason||req.rejectionReason, coveringStaff: undefined
@@ -315,8 +334,17 @@ const LeaveManagementView = () => {
             if (pr.pagination) setPendingTotal(pr.pagination.totalItems||0);
             else setPendingTotal(transformedRequests.filter(r=>r.status==='Pending').length);
           }
-        } else { setLeaveRequests([]); setTotalItems(0); setTotalPages(0); }
+        } else {
+          setLeaveRequests([]);
+          setTotalItems(0);
+          setTotalPages(0);
+          if (requestsResponse.message) setError(requestsResponse.message);
+        }
+      } catch (requestsError: any) {
+        setError((prev) => prev || requestsError?.message || 'Failed to load leave requests');
+      }
 
+      try {
         const balancesResponse = await getUserLeaveBalance();
         if (balancesResponse.success && balancesResponse.leaveBalances) {
           setLeaveBalances(balancesResponse.leaveBalances.map(b => ({
@@ -326,10 +354,10 @@ const LeaveManagementView = () => {
           })));
         } else {
           setLeaveBalances([{staffId:'1',sick:{used:2,total:5},annual:{used:8,total:14,firstHalf:5,secondHalf:3,rollover:0},paternity:{used:0,total:3},bereaved:{used:1,total:3},maternity:{used:0,total:90}}]);
+          if (balancesResponse.message) setError((prev) => prev || balancesResponse.message);
         }
-      } catch (err) {
-        setLeaveTypes([]); setLeaveRequests([]);
-        setLeaveBalances([{staffId:'1',sick:{used:2,total:5},annual:{used:8,total:14,firstHalf:5,secondHalf:3,rollover:0},paternity:{used:0,total:3},bereaved:{used:1,total:3},maternity:{used:0,total:90}}]);
+      } catch (balanceError: any) {
+        setError((prev) => prev || balanceError?.message || 'Failed to load leave balances');
       } finally { setLoading(false); }
     };
     fetchData();
@@ -345,8 +373,20 @@ const LeaveManagementView = () => {
   };
 
   const calculateDuration = (startDate: string, endDate: string): number => {
-    const start = new Date(startDate), end = new Date(endDate);
-    return Math.ceil(Math.abs(end.getTime()-start.getTime())/(1000*60*60*24))+1;
+    if (!startDate || !endDate) return 0;
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+
+    let total = 0;
+    const current = new Date(start);
+    while (current <= end) {
+      if (!excludeSundaysFromLeave || current.getDay() !== 0) {
+        total += 1;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return total;
   };
 
   const formatDate = (dateString: string|null|undefined, showTime=false): string => {
@@ -760,13 +800,13 @@ const LeaveManagementView = () => {
   const renderReportTab = () => {
     const leaveByType = leaveTypes.map(type=>({
       type:type.type, count:leaveRequests.filter(r=>r.leaveType===type.type&&r.status==='Approved').length,
-      days:leaveRequests.filter(r=>r.leaveType===type.type&&r.status==='Approved').reduce((s,r)=>s+r.duration,0),
+      days:leaveRequests.filter(r=>r.leaveType===type.type&&r.status==='Approved').reduce((s,r)=>s+calculateDuration(r.startDate, r.endDate),0),
       icon:type.icon, color:type.color
     }));
     const uniqueDepts = [...new Set(leaveRequests.map(r=>r.department))];
     const deptStats = uniqueDepts.map(dept=>({
       dept, count:leaveRequests.filter(r=>r.department===dept&&r.status==='Approved').length,
-      days:leaveRequests.filter(r=>r.department===dept&&r.status==='Approved').reduce((s,r)=>s+r.duration,0)
+      days:leaveRequests.filter(r=>r.department===dept&&r.status==='Approved').reduce((s,r)=>s+calculateDuration(r.startDate, r.endDate),0)
     }));
 
     return (
@@ -774,7 +814,7 @@ const LeaveManagementView = () => {
         {/* Summary stat cards */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))', gap:'0.875rem' }}>
           {[
-            { label:'Total Leave Days', value:leaveRequests.filter(r=>r.status==='Approved').reduce((s,r)=>s+r.duration,0), icon:Calendar,      accent:T.primary,  pale:T.primaryPale  },
+            { label:'Total Leave Days', value:leaveRequests.filter(r=>r.status==='Approved').reduce((s,r)=>s+calculateDuration(r.startDate, r.endDate),0), icon:Calendar,      accent:T.primary,  pale:T.primaryPale  },
             { label:'On Leave Now',     value:activeCount, icon:User,         accent:T.success,  pale:T.successPale  },
             { label:'Approval Rate',    value:`${approvedCount+declinedCount>0?((approvedCount/(approvedCount+declinedCount))*100).toFixed(0):0}%`, icon:TrendingUp, accent:T.warning, pale:T.warningPale },
             { label:'Pending Review',   value:pendingCount, icon:AlertCircle,  accent:T.danger,   pale:T.dangerPale   },
@@ -893,7 +933,7 @@ const LeaveManagementView = () => {
         </div>
       )}
 
-      {!loading && !error && (
+      {!loading && (
         <>
           {/* Tab bar */}
           <div style={{ ...card, padding:'0.35rem', display:'flex', gap:'0.25rem', background:T.surfaceAlt }}>
@@ -1086,7 +1126,7 @@ const LeaveManagementView = () => {
 
                       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
                         <InfoRow label="Leave Type" value={selectedRequestDetails.leave_type_name||selectedRequest.leaveType} accent={T.primary}/>
-                        <InfoRow label="Days Requested" value={`${selectedRequestDetails.days_requested||selectedRequest.duration} days`} accent={T.warning}/>
+                        <InfoRow label="Days Requested" value={`${calculateDuration(selectedRequestDetails.start_date||selectedRequest.startDate, selectedRequestDetails.end_date||selectedRequest.endDate)} days`} accent={T.warning}/>
                         <InfoRow label="Submitted" value={formatDateShort(selectedRequestDetails.created_at)}/>
                         <InfoRow label="Status" value={<span style={{ textTransform:'capitalize' }}>{selectedRequestDetails.status}</span>}/>
                       </div>
