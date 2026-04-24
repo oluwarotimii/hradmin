@@ -79,11 +79,13 @@ interface SidebarProps {
 }
 
 function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
+  const displayName = user?.displayName || user?.fullName || user?.full_name || user?.name || 'Guest User';
+
   // Generate avatar initials from user name if available
   const getAvatarInitials = () => {
     if (user?.avatarInitials) return user.avatarInitials;
-    if (user?.name) {
-      const nameParts = user.name.trim().split(/\s+/);
+    if (displayName) {
+      const nameParts = displayName.trim().split(/\s+/);
       if (nameParts.length >= 2) {
         return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
       } else if (nameParts.length === 1) {
@@ -270,7 +272,7 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-primary truncate">
-              {user?.name || user?.fullName || 'Guest User'}
+              {displayName}
             </p>
             <p className="text-xs text-secondary truncate">
               {user?.email || 'No email'}
