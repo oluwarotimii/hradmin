@@ -18,6 +18,25 @@ interface LoginResponse {
   };
 }
 
+interface StoredUserInfo {
+  id?: number;
+  email?: string;
+  name?: string;
+  fullName?: string;
+  full_name?: string;
+  role?: string | number;
+  roleId?: number;
+  role_id?: number;
+  branchId?: number | null;
+  branch_id?: number | null;
+  status?: string;
+  profile_picture?: string;
+  needs_password_change?: boolean;
+  needs_profile_completion?: boolean;
+  avatarInitials?: string;
+  displayName?: string;
+}
+
 // Token refresh state
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
@@ -59,6 +78,47 @@ export const secureRemoveItem = (key: string): void => {
   }
 };
 
+const normalizeUserInfo = (user: any): StoredUserInfo | null => {
+  if (!user || typeof user !== 'object') return null;
+
+  const fullName =
+    user.fullName ||
+    user.full_name ||
+    [user.firstName, user.middleName, user.lastName].filter(Boolean).join(' ').trim() ||
+    user.name ||
+    '';
+
+  const roleId = user.roleId ?? user.role_id ?? (typeof user.role === 'number' ? user.role : undefined);
+  const branchId = user.branchId ?? user.branch_id ?? null;
+  const displayName = fullName || user.name || user.email || 'User';
+
+  return {
+    ...user,
+    id: user.id ? Number(user.id) : undefined,
+    email: user.email,
+    name: displayName,
+    fullName: displayName,
+    full_name: displayName,
+    role: user.role,
+    roleId: roleId !== undefined ? Number(roleId) : undefined,
+    role_id: roleId !== undefined ? Number(roleId) : undefined,
+    branchId: branchId !== null && branchId !== undefined ? Number(branchId) : null,
+    branch_id: branchId !== null && branchId !== undefined ? Number(branchId) : null,
+    status: user.status,
+    profile_picture: user.profile_picture,
+    needs_password_change: user.needs_password_change,
+    needs_profile_completion: user.needs_profile_completion,
+    avatarInitials: displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((part: string) => part[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase(),
+    displayName
+  };
+};
+
 // Login function that communicates with the backend API
 export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
@@ -76,7 +136,10 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
 
       // Store user info if available
       if (data.user) {
-        secureSetItem('userInfo', JSON.stringify(data.user));
+        const normalizedUser = normalizeUserInfo(data.user);
+        if (normalizedUser) {
+          secureSetItem('userInfo', JSON.stringify(normalizedUser));
+        }
       }
 
       // Store permissions if available
@@ -154,7 +217,7 @@ export const getUserInfo = () => {
   const userInfoStr = secureGetItem('userInfo');
   if (userInfoStr) {
     try {
-      return JSON.parse(userInfoStr);
+      return normalizeUserInfo(JSON.parse(userInfoStr));
     } catch (error) {
       console.error('Error parsing user info:', error);
       return null;
