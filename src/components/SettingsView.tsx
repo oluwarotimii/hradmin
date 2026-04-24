@@ -6,6 +6,10 @@ import {
   getBranchAttendanceSettings,
   updateBranchAttendanceSettings,
 } from '../services/attendanceSettingsService';
+import {
+  getLeavePolicy,
+  updateLeavePolicy,
+} from '../services/leavePolicyService';
 import { getAllBranches, Branch } from '../services/branchManagementService';
 import {
   Settings, Clock, Save, AlertCircle, MapPin, Timer, CheckCircle, X,
@@ -276,7 +280,7 @@ const BranchSelect = ({
 
 // ─── Main component ───────────────────────────────────────────────────────
 const SettingsView = () => {
-  const [activeTab, setActiveTab] = useState<'attendance' | 'working-days' | 'auto-mark'>('attendance');
+  const [activeTab, setActiveTab] = useState<'attendance' | 'working-days' | 'auto-mark' | 'leave-policy'>('attendance');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -298,6 +302,11 @@ const SettingsView = () => {
   });
 
   const [workingDaysLoading, setWorkingDaysLoading] = useState(false);
+  const [leavePolicyLoading, setLeavePolicyLoading] = useState(false);
+  const [leavePolicySaving, setLeavePolicySaving] = useState(false);
+  const [leavePolicy, setLeavePolicy] = useState({
+    exclude_sundays_from_leave: false,
+  });
   const [workingDays, setWorkingDays] = useState<any[]>([
     { day_of_week: 'monday',    is_working_day: true,  start_time: '08:00', end_time: '17:00', break_duration_minutes: 30 },
     { day_of_week: 'tuesday',   is_working_day: true,  start_time: '08:00', end_time: '17:00', break_duration_minutes: 30 },
@@ -308,7 +317,10 @@ const SettingsView = () => {
     { day_of_week: 'sunday',    is_working_day: false, start_time: '',       end_time: '',       break_duration_minutes: 0 },
   ]);
 
-  useEffect(() => { loadBranches(); }, []);
+  useEffect(() => {
+    loadBranches();
+    loadLeavePolicy();
+  }, []);
   useEffect(() => { if (selectedBranchId) loadBranchSettings(Number(selectedBranchId)); }, [selectedBranchId]);
 
   const loadBranches = async () => {
@@ -377,10 +389,45 @@ const SettingsView = () => {
     finally { setLoading(false); }
   };
 
+  const loadLeavePolicy = async () => {
+    setLeavePolicyLoading(true);
+    try {
+      const response = await getLeavePolicy();
+      if (response.success && response.settings) {
+        setLeavePolicy({
+          exclude_sundays_from_leave: !!response.settings.exclude_sundays_from_leave,
+        });
+      }
+    } catch (err) {
+      console.error('Error loading leave policy:', err);
+    } finally {
+      setLeavePolicyLoading(false);
+    }
+  };
+
+  const handleSaveLeavePolicy = async () => {
+    setLeavePolicySaving(true);
+    setError(null);
+    try {
+      const response = await updateLeavePolicy(leavePolicy.exclude_sundays_from_leave);
+      if (response.success) {
+        setSuccessMessage('Leave policy saved successfully');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setError(response.message || 'Failed to save leave policy');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setLeavePolicySaving(false);
+    }
+  };
+
   const tabs = [
     { key: 'attendance',   label: 'Attendance',    icon: Settings },
     { key: 'working-days', label: 'Working Days',  icon: Clock    },
     { key: 'auto-mark',    label: 'Auto-Mark',     icon: Timer    },
+    { key: 'leave-policy',  label: 'Leave Policy',  icon: Calendar },
   ];
 
   return (
@@ -506,6 +553,48 @@ const SettingsView = () => {
             </Section>
 
             <SaveBar onSave={handleSaveBranchSettings} loading={loading} disabled={branchSettingsLoading}/>
+          </div>
+        </div>
+      )}
+
+      {/* ── Leave Policy Tab ──────────────────────────────────── */}
+      {activeTab === 'leave-policy' && (
+        <div style={card}>
+          <div style={{ padding: '1rem 1.25rem', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div style={{ width: '2rem', height: '2rem', borderRadius: '7px', background: T.warningPale, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Calendar size={14} color={T.warning}/>
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Leave Policy</h3>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: T.textMuted }}>Configure how leave days are counted across the system</p>
+            </div>
+          </div>
+
+          <div style={{ padding: '1.25rem' }}>
+            <Section title="Counting Rules" desc="These rules affect leave applications, validations, and reporting.">
+              <ToggleRow
+                id="exclude-sundays-from-leave"
+                label="Exclude Sundays from leave days"
+                desc="When enabled, Sundays are not counted when staff apply for leave or when the system calculates leave durations."
+                checked={leavePolicy.exclude_sundays_from_leave}
+                onChange={(v) => setLeavePolicy({ exclude_sundays_from_leave: v })}
+              />
+              <p style={{ margin: '0.75rem 0 0', fontSize: '0.78rem', color: T.textMuted, lineHeight: 1.5 }}>
+                {leavePolicyLoading ? 'Loading leave policy...' : 'This is a global setting and applies to all leave requests.'}
+              </p>
+            </Section>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={handleSaveLeavePolicy}
+                style={btnPrimary}
+                disabled={leavePolicySaving || leavePolicyLoading}
+              >
+                {leavePolicySaving
+                  ? <><Timer size={15} style={{ animation: 'sv-spin 0.7s linear infinite' }}/> Saving…</>
+                  : <><Save size={15}/> Save Leave Policy</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
