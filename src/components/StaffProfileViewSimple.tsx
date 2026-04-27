@@ -76,8 +76,11 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
     const fetchFullStaffData = async () => {
       setLoading(true);
       try {
-        const response = await getStaffById(String(staff.user_id));
-        if (response.success && response.staff) {
+        // getStaffById expects `staff.id` (staff primary key), not `user_id`.
+        // Using user_id here can fetch a different staff row when ids overlap.
+        const requestedStaffId = String(staff.id);
+        const response = await getStaffById(requestedStaffId);
+        if (requestedStaffId === String(staff.id) && response.success && response.staff) {
           setEditedStaff(response.staff);
         }
       } catch (err) {
@@ -87,7 +90,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       }
     };
 
-    if (staff && staff.user_id) {
+    if (staff && staff.id) {
       fetchFullStaffData();
     }
 

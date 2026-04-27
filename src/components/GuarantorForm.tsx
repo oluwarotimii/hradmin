@@ -184,6 +184,10 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
   const [selectedGuarantor, setSelectedGuarantor] = useState<Guarantor | null>(null);
   const [guarantors, setGuarantors] = useState<Guarantor[]>([]);
   const [showList, setShowList] = useState(true);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [verifyingGuarantorId, setVerifyingGuarantorId] = useState<number | null>(null);
+  const [verificationNotes, setVerificationNotes] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const emptyGuarantor: GuarantorInput = {
     staff_id: staffId,
@@ -302,16 +306,38 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
   };
 
   const handleVerify = async (guarantorId: number) => {
-    const notes = prompt('Enter verification notes (optional):');
+    setError(null);
+    setSuccessMessage(null);
+    setVerifyingGuarantorId(guarantorId);
+    setVerificationNotes('');
+    setIsVerifyModalOpen(true);
+  };
+
+  const closeVerifyModal = () => {
+    if (verifying) return;
+    setIsVerifyModalOpen(false);
+    setVerifyingGuarantorId(null);
+    setVerificationNotes('');
+  };
+
+  const confirmVerify = async () => {
+    if (!verifyingGuarantorId) return;
+    setVerifying(true);
     try {
-      const response = await guarantorService.verifyGuarantor(guarantorId, notes || undefined);
+      const response = await guarantorService.verifyGuarantor(
+        verifyingGuarantorId,
+        verificationNotes.trim() ? verificationNotes.trim() : undefined
+      );
       if (response.success) {
         setSuccessMessage('Guarantor verified successfully');
         loadGuarantors();
         setTimeout(() => setSuccessMessage(null), 3000);
+        closeVerifyModal();
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to verify guarantor');
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -814,6 +840,103 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {isVerifyModalOpen && (
+        <div
+          onClick={closeVerifyModal}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 60,
+            padding: '1.25rem',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(560px, 100%)',
+              ...cardStyle,
+              boxShadow: T.shadowLg,
+              border: `1px solid ${T.border}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                padding: '1rem 1.1rem',
+                background: `linear-gradient(135deg, ${T.successPale}, ${T.surface})`,
+                borderBottom: `1px solid ${T.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div style={{ width: '2rem', height: '2rem', borderRadius: '10px', background: T.successPale, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.success }}>
+                  <CheckCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 900, color: T.text }}>Verify guarantor</p>
+                  <p style={{ margin: '0.15rem 0 0', fontSize: '0.82rem', color: T.textMuted }}>Optional: add internal verification notes</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeVerifyModal}
+                disabled={verifying}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: verifying ? 'not-allowed' : 'pointer',
+                  color: T.textMuted,
+                  display: 'inline-flex',
+                  padding: '0.25rem',
+                }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div style={{ padding: '1rem 1.1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <span style={{ ...labelStyle, marginBottom: 0 }}>Verification Notes</span>
+                <textarea
+                  value={verificationNotes}
+                  onChange={(e) => setVerificationNotes(e.target.value)}
+                  rows={4}
+                  placeholder="e.g., Confirmed ID matches records and documents are complete (optional)"
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                  disabled={verifying}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '0.95rem 1.1rem',
+                borderTop: `1px solid ${T.border}`,
+                background: T.surfaceAlt,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '0.75rem',
+              }}
+            >
+              <button type="button" onClick={closeVerifyModal} disabled={verifying} style={secondaryButton}>
+                Cancel
+              </button>
+              <button type="button" onClick={confirmVerify} disabled={verifying} style={{ ...primaryButton, background: `linear-gradient(135deg, ${T.success}, ${T.primary})` }}>
+                {verifying ? 'Verifying…' : 'Verify'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
