@@ -310,12 +310,16 @@ const LeaveManagementView = () => {
           transformedRequests = requestsResponse.leaveRequests.map(req => {
             const rawStatus = req.status;
             const transformedStatus = req.status==='approved'?'Approved':req.status==='rejected'?'Declined':req.status==='submitted'?'Pending':req.status==='cancelled'?'Declined':'Active';
+            const requestId = req?.id ?? req?.leave_request_id ?? req?.leaveRequestId;
+            const staffUserId = req?.user_id ?? req?.userId ?? req?.staff_id ?? req?.staffId;
             return {
-              id: req.id.toString(), staffId: req.user_id?.toString()||req.userId?.toString(),
+              id: requestId != null ? String(requestId) : '',
+              staffId: staffUserId != null ? String(staffUserId) : '',
               staffName: req.user_name||`User ${req.user_id}`, department:'General', branch:'Main Office',
               leaveType: req.leave_type_name||req.leaveTypeName||'Unknown',
               startDate: req.start_date||req.startDate, endDate: req.end_date||req.endDate,
-              duration: calculateDuration(req.start_date||req.startDate, req.end_date||req.endDate),
+              // Prefer backend-calculated days_requested (it already applies leave policy rules).
+              duration: Number(req.days_requested ?? req.daysRequested) || calculateDuration(req.start_date||req.startDate, req.end_date||req.endDate),
               reason: req.reason, status: transformedStatus, requestDate: req.created_at||req.createdAt,
               approvedBy: req.reviewed_by?'Admin':undefined, approvalDate: req.reviewed_at||req.updatedAt,
               declineReason: req.rejection_reason||req.rejectionReason, coveringStaff: undefined
@@ -347,11 +351,18 @@ const LeaveManagementView = () => {
       try {
         const balancesResponse = await getUserLeaveBalance();
         if (balancesResponse.success && balancesResponse.leaveBalances) {
-          setLeaveBalances(balancesResponse.leaveBalances.map(b => ({
-            staffId: b.userId.toString(),
+          setLeaveBalances(
+            balancesResponse.leaveBalances
+              .map(b => {
+                const staffIdRaw = b?.userId ?? b?.user_id ?? b?.staffId ?? b?.staff_id ?? b?.id;
+                return {
+                  staffId: staffIdRaw != null ? String(staffIdRaw) : '',
             sick:{used:b.usedDays,total:b.totalDays}, annual:{used:b.usedDays,total:b.totalDays,firstHalf:0,secondHalf:0,rollover:0},
             paternity:{used:b.usedDays,total:b.totalDays}, bereaved:{used:b.usedDays,total:b.totalDays}, maternity:{used:b.usedDays,total:b.totalDays}
-          })));
+                };
+              })
+              .filter(b => !!b.staffId)
+          );
         } else {
           setLeaveBalances([{staffId:'1',sick:{used:2,total:5},annual:{used:8,total:14,firstHalf:5,secondHalf:3,rollover:0},paternity:{used:0,total:3},bereaved:{used:1,total:3},maternity:{used:0,total:90}}]);
           if (balancesResponse.message) setError((prev) => prev || balancesResponse.message);
@@ -372,10 +383,31 @@ const LeaveManagementView = () => {
     setShowEditLeaveTypeModal(true);
   };
 
-  const calculateDuration = (startDate: string, endDate: string): number => {
+  const toDateOnly = (value: any): Date | null => {
+    if (!value) return null;
+    // If backend returns YYYY-MM-DD
+    if (typeof value === 'string') {
+      const s = value.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const d = new Date(`${s}T00:00:00`);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+      const d = new Date(s);
+      if (Number.isNaN(d.getTime())) return null;
+      // Normalize to local date boundary
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    // Date object or timestamp
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
+
+  const calculateDuration = (startDate: any, endDate: any): number => {
     if (!startDate || !endDate) return 0;
-    const start = new Date(`${startDate}T00:00:00`);
-    const end = new Date(`${endDate}T00:00:00`);
+    const start = toDateOnly(startDate);
+    const end = toDateOnly(endDate);
+    if (!start || !end) return 0;
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
 
     let total = 0;
@@ -1126,7 +1158,11 @@ const LeaveManagementView = () => {
 
                       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
                         <InfoRow label="Leave Type" value={selectedRequestDetails.leave_type_name||selectedRequest.leaveType} accent={T.primary}/>
-                        <InfoRow label="Days Requested" value={`${calculateDuration(selectedRequestDetails.start_date||selectedRequest.startDate, selectedRequestDetails.end_date||selectedRequest.endDate)} days`} accent={T.warning}/>
+                        <InfoRow
+                          label="Days Requested"
+                          value={`${Number(selectedRequestDetails?.days_requested ?? selectedRequestDetails?.daysRequested) || calculateDuration(selectedRequestDetails.start_date||selectedRequest.startDate, selectedRequestDetails.end_date||selectedRequest.endDate)} days`}
+                          accent={T.warning}
+                        />
                         <InfoRow label="Submitted" value={formatDateShort(selectedRequestDetails.created_at)}/>
                         <InfoRow label="Status" value={<span style={{ textTransform:'capitalize' }}>{selectedRequestDetails.status}</span>}/>
                       </div>
