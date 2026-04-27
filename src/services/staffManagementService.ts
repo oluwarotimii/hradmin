@@ -401,6 +401,7 @@ function mapStaffResponse(backendData: any): any {
     alternatePhone: backendData.alternate_phone_number || backendData.alternate_phone || backendData.alternatePhone,
     dateOfBirth: backendData.date_of_birth || backendData.dateOfBirth,
     bloodGroup: backendData.blood_group || backendData.bloodGroup,
+    religion: backendData.religion || backendData.religion,
     stateOfOrigin: backendData.state_of_origin || backendData.stateOfOrigin,
     lga: backendData.lga,
     maritalStatus: backendData.marital_status || backendData.maritalStatus,
@@ -929,4 +930,3 @@ export const deleteStaff = async (staffId: string): Promise<{ success: boolean; 
     };
   }
 };
-

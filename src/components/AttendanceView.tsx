@@ -9,8 +9,10 @@ import {
   createManualAttendance,
   updateAttendanceRecord,
   deleteAttendanceRecord,
+  getStaffAttendanceData,
   AttendanceRecord,
-  AttendanceRecordsResponse
+  AttendanceRecordsResponse,
+  StaffAttendanceSummaryRow
 } from '../services/attendanceService';
 import { getAllStaff } from '../services/staffManagementService';
 import { getAllBranches, Branch } from '../services/branchManagementService';
@@ -447,6 +449,115 @@ const AttendanceView = () => {
     }
   };
 
+  const escapeCsv = (value: unknown) => {
+    const text = value === null || value === undefined ? '' : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const exportAttendanceSummaryCSV = async (customDateRange?: { start: string; end: string }) => {
+    setLoading(true);
+    try {
+      const startDate = customDateRange?.start || dateRange.start;
+      const endDate = customDateRange?.end || dateRange.end;
+      const response = await getStaffAttendanceData(startDate, endDate);
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Failed to fetch staff attendance summary');
+      }
+
+      const summaryRows: StaffAttendanceSummaryRow[] = response.data.map((row: any) => {
+        const totalDays = Number(row.total_days ?? row.totalDays ?? 0);
+        const presentDays = Number(row.present_count ?? row.present ?? 0);
+        const lateDays = Number(row.late_count ?? row.late ?? 0);
+        const earlyDepartures = Number(row.early_count ?? row.early ?? 0);
+        const absentDays = Number(row.absent_count ?? row.absent ?? 0);
+        const leaveDays = Number(row.leave_count ?? row.leaveDays ?? 0);
+        const holidayDays = Number(row.holiday_count ?? row.offDays ?? 0);
+        const attendancePercentage = Number(row.attendance_percentage ?? row.attendancePercentage ?? 0);
+        const latePercentage = Number(row.late_percentage ?? row.latePercentage ?? 0);
+        const earlyPercentage = Number(row.early_percentage ?? row.earlyPercentage ?? 0);
+
+        return {
+          employee: row.full_name || row.fullName || 'Unknown',
+          email: row.email || row.staff_email || '',
+          employeeId: row.employee_id || row.employeeId || '',
+          department: row.department || '',
+          branch: row.branch || '',
+          totalDays,
+          presentDays,
+          lateDays,
+          earlyDepartures,
+          absentDays,
+          leaveDays,
+          holidayDays,
+          attendancePercentage,
+          latePercentage,
+          earlyPercentage,
+        };
+      });
+
+      const headers = [
+        'Employee',
+        'Email',
+        'Employee ID',
+        'Department',
+        'Branch',
+        'Total Days',
+        'Present Days',
+        'Late Days',
+        'Early Departures',
+        'Absent Days',
+        'Leave Days',
+        'Holiday Days',
+        'Attendance %',
+        'Late %',
+        'Early %',
+      ];
+
+      const rows = summaryRows.map((row) => [
+        row.employee,
+        row.email,
+        row.employeeId,
+        row.department,
+        row.branch,
+        row.totalDays,
+        row.presentDays,
+        row.lateDays,
+        row.earlyDepartures,
+        row.absentDays,
+        row.leaveDays,
+        row.holidayDays,
+        row.attendancePercentage.toFixed(2),
+        row.latePercentage.toFixed(2),
+        row.earlyPercentage.toFixed(2),
+      ]);
+
+      const csvContent = [
+        headers.map(escapeCsv).join(','),
+        ...rows.map((row) => row.map(escapeCsv).join(',')),
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = customDateRange
+        ? `${customDateRange.start}_to_${customDateRange.end}`
+        : `${dateRange.start}_to_${dateRange.end}`;
+      a.download = `attendance_summary_${dateStr}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      setSuccessMessage(`Exported summary for ${summaryRows.length} staff member(s)`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Summary export error:', err);
+      setError(err.message || 'Failed to export attendance summary');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Export with custom date range
   const handleExportWithRange = () => {
     setShowExportModal(true);
@@ -650,6 +761,14 @@ const AttendanceView = () => {
             >
               <Download className="w-4 h-4" />
               Export Report
+            </button>
+            <button
+              className="btn btn-sm btn-outline"
+              onClick={() => exportAttendanceSummaryCSV()}
+              disabled={loading}
+            >
+              <Download className="w-4 h-4" />
+              Export Summary
             </button>
           </div>
         </div>

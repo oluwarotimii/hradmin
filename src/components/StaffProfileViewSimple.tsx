@@ -225,6 +225,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       if (isValidValue(editedStaff.gender)) apiData.gender = editedStaff.gender;
       if (isValidValue(editedStaff.dateOfBirth)) apiData.date_of_birth = editedStaff.dateOfBirth;
       if (isValidValue(editedStaff.bloodGroup)) apiData.blood_group = editedStaff.bloodGroup;
+      if (isValidValue(editedStaff.religion)) apiData.religion = editedStaff.religion;
       if (isValidValue(editedStaff.stateOfOrigin)) apiData.state_of_origin = editedStaff.stateOfOrigin;
       if (isValidValue(editedStaff.lga)) apiData.lga = editedStaff.lga;
       if (isValidValue(editedStaff.maritalStatus)) apiData.marital_status = editedStaff.maritalStatus;
@@ -737,6 +738,12 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                   'bloodGroup',
                   'select',
                   bloodGroupOptions
+                )}
+                {renderField(
+                  <Shield className="w-4 h-4 text-muted" />,
+                  'Religion',
+                  editedStaff.religion,
+                  'religion'
                 )}
                 {renderField(
                   <MapPin className="w-4 h-4 text-muted" />,
