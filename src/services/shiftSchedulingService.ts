@@ -165,6 +165,19 @@ class ShiftSchedulingService {
     }
   }
 
+  async deleteEmployeeShiftAssignment(id: number) {
+    try {
+      console.log('[ShiftService] Deleting employee shift assignment', id);
+      const response = await apiServices.deleteEmployeeShiftAssignment(id);
+      console.log('[ShiftService] Deleted assignment:', id);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error deleting employee shift assignment', id + ':', error.message);
+      console.error('[ShiftService] Response:', error.response?.data);
+      throw error;
+    }
+  }
+
   async bulkAssignShifts(assignments: AssignShiftToEmployeeRequest[]) {
     try {
       console.log('[ShiftService] Bulk assigning', assignments.length, 'shifts...');

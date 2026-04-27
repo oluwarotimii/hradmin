@@ -76,7 +76,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
     const fetchFullStaffData = async () => {
       setLoading(true);
       try {
-        const response = await getStaffById(staff.id);
+        const response = await getStaffById(String(staff.user_id));
         if (response.success && response.staff) {
           setEditedStaff(response.staff);
         }
@@ -87,7 +87,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       }
     };
 
-    if (staff && staff.id) {
+    if (staff && staff.user_id) {
       fetchFullStaffData();
     }
 
@@ -286,11 +286,11 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       if (isValidValue(editedStaff.referenceCheckStatus)) apiData.reference_check_status = editedStaff.referenceCheckStatus;
       if (isValidValue(editedStaff.backgroundVerificationStatus)) apiData.background_verification_status = editedStaff.backgroundVerificationStatus;
 
-      console.log('[StaffProfile] Staff ID:', staff.id);
+      console.log('[StaffProfile] Staff user_id:', staff.user_id);
       console.log('[StaffProfile] API Payload:', JSON.stringify(apiData, null, 2));
       console.log('[StaffProfile] Number of fields to update:', Object.keys(apiData).length);
       
-      const response = await updateStaff(staff.id, apiData);
+      const response = await updateStaff(staff.user_id, apiData);
 
       console.log('[StaffProfile] API Response:', response);
 

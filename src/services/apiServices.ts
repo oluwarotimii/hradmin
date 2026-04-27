@@ -773,6 +773,33 @@ export const apiServices = {
     }
   },
 
+  async deleteEmployeeShiftAssignment(id: number) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      const response = await axios.delete(`${API_ENDPOINT}/shift-scheduling/employee-shift-assignments/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      return {
+        success: true,
+        message: "Employee shift assignment deleted successfully",
+        data: response.data
+      };
+    } catch (error: any) {
+      console.error('Error deleting employee shift assignment:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Failed to delete employee shift assignment'
+      };
+    }
+  },
+
   async bulkAssignShifts(assignments: any[]) {
     try {
       const token = localStorage.getItem('authToken');

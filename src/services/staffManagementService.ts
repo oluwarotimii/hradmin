@@ -648,7 +648,8 @@ export const getStaffByDepartment = async (department: string): Promise<{ succes
 };
 
 // Update existing staff member
-export const updateStaff = async (staffId: string, staffData: Partial<UpdateStaffRequest>): Promise<{ success: boolean; staff?: StaffMember; message?: string }> => {
+// NOTE: Backend expects `:userId` here (users.id), not `staff.id`.
+export const updateStaff = async (userId: string | number, staffData: Partial<UpdateStaffRequest>): Promise<{ success: boolean; staff?: StaffMember; message?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -658,7 +659,7 @@ export const updateStaff = async (staffId: string, staffData: Partial<UpdateStaf
       };
     }
 
-    const response = await axios.put(`${API_ENDPOINT}/staff/${staffId}`, staffData, {
+    const response = await axios.put(`${API_ENDPOINT}/staff/${userId}`, staffData, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
