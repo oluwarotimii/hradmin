@@ -36,6 +36,60 @@ export interface UpdateUserRequest {
   isActive?: boolean;
 }
 
+export const resetUserPassword = async (userId: number): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, message: 'Authentication token not found. Please log in again.' };
+    }
+
+    const response = await axios.post(`${API_ENDPOINT}/users/${userId}/reset-password`, null, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return {
+      success: !!response.data?.success,
+      message: response.data?.message || 'Temporary password sent'
+    };
+  } catch (error: any) {
+    console.error('Error resetting user password:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to reset password'
+    };
+  }
+};
+
+export const updateUserRole = async (userId: number, roleId: number): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, message: 'Authentication token not found. Please log in again.' };
+    }
+
+    const response = await axios.put(`${API_ENDPOINT}/users/${userId}/role`, { role_id: roleId }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return {
+      success: !!response.data?.success,
+      message: response.data?.message || 'Role updated'
+    };
+  } catch (error: any) {
+    console.error('Error updating user role:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to update role'
+    };
+  }
+};
+
 // Get all users
 // GET {{baseUrl}}/users
 export const getAllUsers = async (page?: number, limit?: number): Promise<{ success: boolean; users?: User[]; total?: number; page?: number; limit?: number; totalPages?: number; message?: string }> => {

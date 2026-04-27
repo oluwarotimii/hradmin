@@ -11,6 +11,8 @@ import { StaffMember, getStaffById, updateStaff } from '../services/staffManagem
 import { getAllBranches } from '../services/branchManagementService';
 import { getAllDepartments } from '../services/departmentManagementService';
 import { uploadStaffDocument, getStaffDocuments, deleteStaffDocument, getDocumentUrl, downloadStaffDocument, StaffDocument } from '../services/staffDocumentService';
+import { getAllRoles, Role } from '../services/roleManagementService';
+import { getUserById as getUserByIdForAdmin, resetUserPassword as adminResetUserPassword, updateUserRole as adminUpdateUserRole } from '../services/userManagementService';
 import statesAndLgas from 'nigeria-state-lga-data';
 import { useAuth } from '../AuthContext';
 import { GuarantorForm } from './GuarantorForm';
@@ -22,6 +24,9 @@ interface StaffProfileViewProps {
 }
 
 export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewProps) {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.roleId === 1 || user?.role === 'admin';
+
   const [activeTab, setActiveTab] = useState<'overview' | 'personal' | 'employment' | 'contact' | 'education' | 'emergency' | 'banking' | 'medical' | 'resignation' | 'documents' | 'guarantors'>('overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +48,12 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
   const [departments, setDepartments] = useState<any[]>([]);
   const [nigerianStates, setNigerianStates] = useState<string[]>([]);
   const [selectedStateLgas, setSelectedStateLgas] = useState<string[]>([]);
+
+  // Admin-only tools
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [targetUserRoleId, setTargetUserRoleId] = useState<number | null>(null);
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
 
   // Hardcoded dropdown options (must match backend ENUM values)
   const maritalStatusOptions = ['Single', 'Married', 'Divorced', 'Widowed', 'Separated'];
@@ -96,6 +107,10 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
 
     // Load branches and departments
     loadDropdownData();
+    if (isSuperAdmin) {
+      loadRoles();
+      loadTargetUserRole();
+    }
     // Load Nigerian states
     const states = statesAndLgas.getStates();
     setNigerianStates(states);
@@ -125,6 +140,70 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       }
     } catch (err) {
       console.error('Error loading dropdown data:', err);
+    }
+  };
+
+  const loadRoles = async () => {
+    try {
+      const res = await getAllRoles();
+      if (res.success && res.roles) setRoles(res.roles);
+    } catch (err) {
+      console.error('Error loading roles:', err);
+    }
+  };
+
+  const loadTargetUserRole = async () => {
+    try {
+      if (!staff?.user_id) return;
+      const res = await getUserByIdForAdmin(Number(staff.user_id));
+      if (res.success && res.user) setTargetUserRoleId(res.user.roleId);
+    } catch (err) {
+      console.error('Error loading target user role:', err);
+    }
+  };
+
+  const handleAdminResetPassword = async () => {
+    if (!staff?.user_id) return;
+    setShowResetPasswordModal(true);
+  };
+
+  const confirmAdminResetPassword = async () => {
+    if (!staff?.user_id) return;
+    setAdminActionLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const res = await adminResetUserPassword(Number(staff.user_id));
+      if (res.success) {
+        setSuccessMessage(res.message || 'Temporary password sent successfully');
+      } else {
+        setError(res.message || 'Failed to reset password');
+      }
+    } finally {
+      setAdminActionLoading(false);
+      setShowResetPasswordModal(false);
+    }
+  };
+
+  const handleAdminUpdateRole = async () => {
+    if (!staff?.user_id) return;
+    if (!targetUserRoleId) {
+      setError('Please select a role');
+      return;
+    }
+    setAdminActionLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const res = await adminUpdateUserRole(Number(staff.user_id), Number(targetUserRoleId));
+      if (res.success) {
+        setSuccessMessage(res.message || 'Role updated successfully');
+        loadTargetUserRole();
+      } else {
+        setError(res.message || 'Failed to update role');
+      }
+    } finally {
+      setAdminActionLoading(false);
     }
   };
 
@@ -405,9 +484,6 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
   }, [editedStaff]);
 
   const renderField = (icon: any, label: string, value: any, field?: string, type: string = 'text', options?: any[], disabled: boolean = false) => {
-    const { user } = useAuth();
-    const isSuperAdmin = user?.roleId === 1 || user?.role === 'admin';
-    
     // Explicitly disable email fields for non-super admins
     const shouldDisable = disabled || (!isSuperAdmin && (field === 'email'));
     
@@ -692,6 +768,133 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 ></div>
               </div>
             </div>
+
+            {isSuperAdmin && (
+              <div className="p-6 rounded-lg border" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
+                <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-primary" />
+                    <h4 className="text-lg font-semibold">Admin Actions</h4>
+                  </div>
+                  <p className="text-sm text-muted" style={{ margin: 0 }}>Manage access for this staff user.</p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-lg border bg-white" style={{ borderColor: '#e2e8f0' }}>
+                    <p className="font-semibold mb-1" style={{ color: '#0f172a' }}>Reset Password</p>
+                    <p className="text-sm text-muted mb-3">Generates a temporary password and emails it to the user.</p>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={handleAdminResetPassword}
+                      disabled={adminActionLoading}
+                      style={{ backgroundColor: '#0f766e', color: 'white', border: 'none', fontWeight: 700 }}
+                    >
+                      {adminActionLoading ? 'Sending…' : 'Send Temporary Password'}
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-lg border bg-white" style={{ borderColor: '#e2e8f0' }}>
+                    <p className="font-semibold mb-1" style={{ color: '#0f172a' }}>Change Role</p>
+                    <p className="text-sm text-muted mb-3">Updates the user’s role and permissions.</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="relative" style={{ minWidth: '14rem', flex: 1 }}>
+                        <select
+                          className="input w-full pr-10"
+                          value={targetUserRoleId ?? ''}
+                          onChange={(e) => setTargetUserRoleId(Number(e.target.value))}
+                          style={{ backgroundColor: 'white', appearance: 'none' }}
+                          disabled={adminActionLoading}
+                        >
+                          <option value="">Select role</option>
+                          {roles.map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={handleAdminUpdateRole}
+                        disabled={adminActionLoading}
+                        style={{ backgroundColor: '#2563eb', color: 'white', border: 'none', fontWeight: 700 }}
+                      >
+                        {adminActionLoading ? 'Updating…' : 'Update Role'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showResetPasswordModal && (
+              <div
+                onClick={() => !adminActionLoading && setShowResetPasswordModal(false)}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(15, 23, 42, 0.55)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 70,
+                  padding: '1.25rem',
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="card"
+                  style={{
+                    width: 'min(540px, 100%)',
+                    padding: '1.25rem',
+                    borderRadius: '0.9rem',
+                    background: '#fff',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 20px 55px rgba(15, 23, 42, 0.25)',
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 className="text-lg font-semibold" style={{ margin: 0, color: '#0f172a' }}>Send temporary password?</h4>
+                      <p className="text-sm text-muted" style={{ margin: '0.35rem 0 0' }}>
+                        This will generate a new temporary password and email it to <strong>{editedStaff?.email || 'the user'}</strong>.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setShowResetPasswordModal(false)}
+                      disabled={adminActionLoading}
+                      style={{ padding: '0.4rem 0.6rem' }}
+                      aria-label="Close"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 mt-6">
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setShowResetPasswordModal(false)}
+                      disabled={adminActionLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={confirmAdminResetPassword}
+                      disabled={adminActionLoading}
+                      style={{ backgroundColor: '#0f766e', color: 'white', border: 'none', fontWeight: 700 }}
+                    >
+                      {adminActionLoading ? 'Sending…' : 'Send Password'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
