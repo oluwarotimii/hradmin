@@ -665,11 +665,13 @@ const ShiftSchedulingView = () => {
     // Get the selected template to extract its recurrence days
     const selectedTemplate = templates.find(t => t.id === assignmentForm.shift_template_id);
     
-    // Build recurrence_days from assignmentForm OR from the selected template
+    // Build recurrence_days from multiShiftDays OR from assignmentForm OR from the selected template
     let recurrenceDays: string | undefined;
     if (assignmentForm.recurrence_pattern === 'weekly') {
-      // Use assignmentForm's recurrence_days if set, otherwise use template's
-      if (assignmentForm.recurrence_days) {
+      if (isMultiShift && multiShiftDays.length > 0) {
+        recurrenceDays = JSON.stringify(multiShiftDays);
+      } else if (assignmentForm.recurrence_days) {
+        // Use assignmentForm's recurrence_days if set, otherwise use template's
         recurrenceDays = typeof assignmentForm.recurrence_days === 'string' 
           ? assignmentForm.recurrence_days 
           : JSON.stringify(assignmentForm.recurrence_days);
@@ -712,10 +714,13 @@ const ShiftSchedulingView = () => {
       if (assignmentForm.assignment_type) {
         updateData.assignment_type = assignmentForm.assignment_type;
       }
-      if (assignmentForm.recurrence_pattern && assignmentForm.recurrence_pattern !== 'none') {
+      if (assignmentForm.recurrence_pattern !== undefined) {
         updateData.recurrence_pattern = assignmentForm.recurrence_pattern;
-        if (recurrenceDays) {
-          updateData.recurrence_days = JSON.parse(recurrenceDays);
+        if (assignmentForm.recurrence_pattern === 'weekly') {
+          if (recurrenceDays) updateData.recurrence_days = JSON.parse(recurrenceDays);
+        } else {
+          updateData.recurrence_days = null;
+          updateData.recurrence_day_of_week = null;
         }
       }
 
@@ -733,6 +738,38 @@ const ShiftSchedulingView = () => {
     } catch (err: any) {
       console.error('[ShiftSchedulingView] Update error:', err);
       setError(err.response?.data?.message || err.message || 'Failed to update assignment');
+    } finally { setLoading(false); }
+  };
+
+  const handleDeleteAssignment = async (id: number) => {
+    if (!window.confirm('Delete this shift assignment?')) return;
+    setLoading(true);
+    try {
+      const res = await shiftSchedulingService.deleteEmployeeShiftAssignment(id);
+      if (res.success) {
+        setSuccessMessage('Assignment deleted');
+        loadData();
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+      else setError(res.message || 'Failed to delete');
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete assignment');
+    } finally { setLoading(false); }
+  };
+
+  const handleDeleteShiftTiming = async (id: number) => {
+    if (!window.confirm('Delete this secondary shift?')) return;
+    setLoading(true);
+    try {
+      const res = await shiftSchedulingService.deleteShiftTiming(id);
+      if (res.success) {
+        setSuccessMessage('Secondary shift deleted');
+        loadData();
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+      else setError(res.message || 'Failed to delete');
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete secondary shift');
     } finally { setLoading(false); }
   };
 
@@ -1472,7 +1509,7 @@ const ShiftSchedulingView = () => {
                         <button style={{ ...btnGhost, color: colors.success, padding: '0.4rem 0.6rem', border: `1px solid ${colors.successBorder}`, borderRadius: '6px', background: colors.successPale }} onClick={() => openEditAssignment(a)}>
                           <Edit3 size={13} />
                         </button>
-                        <button style={{ ...btnGhost, color: colors.danger, padding: '0.4rem 0.6rem', border: `1px solid ${colors.dangerBorder}`, borderRadius: '6px', background: colors.dangerPale }}>
+                        <button style={{ ...btnGhost, color: colors.danger, padding: '0.4rem 0.6rem', border: `1px solid ${colors.dangerBorder}`, borderRadius: '6px', background: colors.dangerPale }} onClick={() => handleDeleteAssignment(a.id)}>
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -1530,7 +1567,7 @@ const ShiftSchedulingView = () => {
                         <button style={{ ...btnGhost, color: colors.primary, padding: '0.4rem 0.6rem', border: `1px solid ${colors.primaryBorder}`, borderRadius: '6px', background: colors.primaryPale }} onClick={() => openViewShiftTiming(t)} title="View Details">
                           <Clock size={13} />
                         </button>
-                        <button style={{ ...btnGhost, color: colors.danger, padding: '0.4rem 0.6rem', border: `1px solid ${colors.dangerBorder}`, borderRadius: '6px', background: colors.dangerPale }}>
+                        <button style={{ ...btnGhost, color: colors.danger, padding: '0.4rem 0.6rem', border: `1px solid ${colors.dangerBorder}`, borderRadius: '6px', background: colors.dangerPale }} onClick={() => handleDeleteShiftTiming(t.id)}>
                           <Trash2 size={13} />
                         </button>
                       </div>
