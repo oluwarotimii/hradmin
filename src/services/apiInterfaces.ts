@@ -336,6 +336,7 @@ export interface StaffMember {
   dateOfBirth: string;
   placeOfBirth: string;
   gender: 'Male' | 'Female' | 'Other';
+  religion?: string;
   stateOfOrigin: string;
   lga: string;
   address: string;

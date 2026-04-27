@@ -19,6 +19,7 @@ export interface StaffAttendanceRecord {
   fullName: string;
   department: string;
   branch?: string;
+  totalDays?: number;
   present: number;
   early: number;
   late: number;
@@ -27,6 +28,9 @@ export interface StaffAttendanceRecord {
   offDays: number;
   leaveDays: number;
   averageTime: string;
+  attendancePercentage?: number;
+  latePercentage?: number;
+  earlyPercentage?: number;
 }
 
 // Define the structure for monthly statistics
@@ -762,7 +766,10 @@ export const getGlobalAttendanceModeStatus = async (): Promise<{ success: boolea
 };
 
 // Get staff attendance data
-export const getStaffAttendanceData = async (): Promise<{ success: boolean; data?: StaffAttendanceRecord[]; message?: string }> => {
+export const getStaffAttendanceData = async (
+  startDate?: string,
+  endDate?: string
+): Promise<{ success: boolean; data?: StaffAttendanceRecord[]; message?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -772,7 +779,11 @@ export const getStaffAttendanceData = async (): Promise<{ success: boolean; data
       };
     }
 
-    const response = await axios.get(`${API_ENDPOINT}/attendance/staff-data`, {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+
+    const response = await axios.get(`${API_ENDPOINT}/attendance/staff-data${params.toString() ? `?${params.toString()}` : ''}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -834,6 +845,24 @@ export const getMonthlyStats = async (): Promise<{ success: boolean; stats?: Mon
     };
   }
 };
+
+export interface StaffAttendanceSummaryRow {
+  employee: string;
+  email: string;
+  employeeId: string;
+  department: string;
+  branch: string;
+  totalDays: number;
+  presentDays: number;
+  lateDays: number;
+  earlyDepartures: number;
+  absentDays: number;
+  leaveDays: number;
+  holidayDays: number;
+  attendancePercentage: number;
+  latePercentage: number;
+  earlyPercentage: number;
+}
 
 // Get attendance data for calendar view (aggregated by date)
 export interface CalendarDayAttendance {
