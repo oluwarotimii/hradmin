@@ -295,6 +295,7 @@ const SettingsView = () => {
     auto_checkout_enabled: false,
     auto_checkout_minutes_after_close: 30,
     enable_location_verification: false,
+    strict_location_mode: false,
     allow_manual_attendance_entry: true,
     auto_mark_absent_enabled: true,
     auto_mark_absent_time: '12:00',
@@ -342,11 +343,12 @@ const SettingsView = () => {
         const s = response.settings;
         setBranchForm({
           attendance_mode: s.attendance_mode || 'branch_based',
-          grace_period_minutes: s.grace_period_minutes || 0,
-          auto_checkout_enabled: s.auto_checkout_enabled || false,
-          auto_checkout_minutes_after_close: s.auto_checkout_minutes_after_close || 30,
-          enable_location_verification: s.enable_location_verification || false,
-          allow_manual_attendance_entry: s.allow_manual_attendance_entry || true,
+          grace_period_minutes: s.grace_period_minutes ?? 0,
+          auto_checkout_enabled: s.auto_checkout_enabled ?? false,
+          auto_checkout_minutes_after_close: s.auto_checkout_minutes_after_close ?? 30,
+          enable_location_verification: s.enable_location_verification ?? false,
+          strict_location_mode: s.strict_location_mode ?? false,
+          allow_manual_attendance_entry: s.allow_manual_attendance_entry ?? true,
           auto_mark_absent_enabled: s.auto_mark_absent_enabled ?? true,
           auto_mark_absent_time: s.auto_mark_absent_time || '12:00',
           auto_mark_absent_timezone: s.auto_mark_absent_timezone || 'Africa/Nairobi',
@@ -542,6 +544,13 @@ const SettingsView = () => {
                 desc="Employees must share their location when clocking in. Useful for verifying on-site presence."
                 checked={branchForm.enable_location_verification}
                 onChange={v => setBranchForm({ ...branchForm, enable_location_verification: v })}
+              />
+              <ToggleRow
+                id="strict-location-mode"
+                label="Strict Mode (Assigned Locations Only)"
+                desc="When enabled, staff can only check in/out within their assigned attendance location(s). If a staff member has no assigned location, check-in is blocked."
+                checked={branchForm.strict_location_mode}
+                onChange={v => setBranchForm({ ...branchForm, strict_location_mode: v })}
               />
               <ToggleRow
                 id="manual-entry"
