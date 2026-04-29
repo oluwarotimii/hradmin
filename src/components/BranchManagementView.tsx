@@ -30,7 +30,8 @@ const BranchManagementView = () => {
   const [branchCountry, setBranchCountry] = useState('');
   const [branchPhone, setBranchPhone] = useState('');
   const [branchEmail, setBranchEmail] = useState('');
-  const [branchLocationCoordinates, setBranchLocationCoordinates] = useState('');
+  const [branchLat, setBranchLat] = useState('');
+  const [branchLng, setBranchLng] = useState('');
   const [branchLocationRadius, setBranchLocationRadius] = useState<number>(100);
   const [branchAttendanceMode, setBranchAttendanceMode] = useState('branch_based');
   const [branchStatus, setBranchStatus] = useState('active');
@@ -72,8 +73,8 @@ const BranchManagementView = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        const coordinateString = `${longitude},${latitude}`;
-        setBranchLocationCoordinates(coordinateString);
+        setBranchLat(latitude.toString());
+        setBranchLng(longitude.toString());
         setLoadingLocation(false);
       },
       (error) => {
@@ -111,7 +112,7 @@ const BranchManagementView = () => {
       country: branchCountry,
       phone: branchPhone,
       email: branchEmail,
-      location_coordinates: branchLocationCoordinates,
+      location_coordinates: branchLat && branchLng ? `POINT(${branchLng} ${branchLat})` : '',
       location_radius_meters: branchLocationRadius,
       attendance_mode: branchAttendanceMode
     };
@@ -147,7 +148,7 @@ const BranchManagementView = () => {
       country: branchCountry,
       phone: branchPhone,
       email: branchEmail,
-      location_coordinates: branchLocationCoordinates,
+      location_coordinates: branchLat && branchLng ? `POINT(${branchLng} ${branchLat})` : '',
       location_radius_meters: branchLocationRadius,
       attendance_mode: branchAttendanceMode,
       status: branchStatus
@@ -198,7 +199,8 @@ const BranchManagementView = () => {
     setBranchCountry('');
     setBranchPhone('');
     setBranchEmail('');
-    setBranchLocationCoordinates('');
+    setBranchLat('');
+    setBranchLng('');
     setBranchLocationRadius(100);
     setBranchAttendanceMode('branch_based');
     setBranchStatus('active');
@@ -219,7 +221,23 @@ const BranchManagementView = () => {
     setBranchCountry(branch.country);
     setBranchPhone(branch.phone);
     setBranchEmail(branch.email);
-    setBranchLocationCoordinates(branch.location_coordinates);
+    
+    // Parse coordinates if they exist
+    if (branch.location_coordinates) {
+      const match = branch.location_coordinates.match(/POINT\(([-\d.]+)\s+([-\d.]+)\)/i);
+      if (match) {
+        setBranchLng(match[1]);
+        setBranchLat(match[2]);
+      } else if (branch.location_coordinates.includes(',')) {
+        const [lng, lat] = branch.location_coordinates.split(',');
+        setBranchLng(lng.trim());
+        setBranchLat(lat.trim());
+      }
+    } else {
+      setBranchLat('');
+      setBranchLng('');
+    }
+    
     setBranchLocationRadius(branch.location_radius_meters);
     setBranchAttendanceMode(branch.attendance_mode);
     setBranchStatus(branch.status);
@@ -460,15 +478,29 @@ const BranchManagementView = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="branchLocationCoordinates" className="block text-sm font-medium mb-1">Location Coordinates</label>
+                    <label htmlFor="branchLat" className="block text-sm font-medium mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      id="branchLat"
+                      value={branchLat}
+                      onChange={(e) => setBranchLat(e.target.value)}
+                      className="input w-full"
+                      placeholder="e.g., 6.4458"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="branchLng" className="block text-sm font-medium mb-1">Longitude</label>
                     <div className="flex gap-2">
                       <input
-                        type="text"
-                        id="branchLocationCoordinates"
-                        value={branchLocationCoordinates}
-                        onChange={(e) => setBranchLocationCoordinates(e.target.value)}
+                        type="number"
+                        step="any"
+                        id="branchLng"
+                        value={branchLng}
+                        onChange={(e) => setBranchLng(e.target.value)}
                         className="input w-full"
-                        placeholder="e.g., POINT(3.3869 6.4458)"
+                        placeholder="e.g., 3.3869"
                       />
                       <button
                         type="button"
@@ -480,7 +512,9 @@ const BranchManagementView = () => {
                       </button>
                     </div>
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="branchLocationRadius" className="block text-sm font-medium mb-1">Location Radius (meters)</label>
                     <input
@@ -492,9 +526,7 @@ const BranchManagementView = () => {
                       placeholder="Enter radius in meters"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="branchAttendanceMode" className="block text-sm font-medium mb-1">Attendance Mode</label>
                     <select
@@ -506,20 +538,6 @@ const BranchManagementView = () => {
                       <option value="branch_based">Branch Based</option>
                       <option value="remote">Remote</option>
                       <option value="hybrid">Hybrid</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor="branchStatus" className="block text-sm font-medium mb-1">Status</label>
-                    <select
-                      id="branchStatus"
-                      value={branchStatus}
-                      onChange={(e) => setBranchStatus(e.target.value)}
-                      className="input w-full"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="closed">Closed</option>
                     </select>
                   </div>
                 </div>
@@ -542,7 +560,7 @@ const BranchManagementView = () => {
           <div className="modal-overlay" onClick={() => resetForm()}></div>
           <div className="modal">
             <div className="modal-header">
-              <h3>Edit Branch: {editingBranch.name}</h3>
+              <h3>Edit Branch</h3>
               <button className="btn btn-ghost btn-icon" style={{ width: '2rem', height: '2rem' }} onClick={() => resetForm()}>
                 <X className="w-4 h-4" />
               </button>
@@ -659,15 +677,29 @@ const BranchManagementView = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="editBranchLocationCoordinates" className="block text-sm font-medium mb-1">Location Coordinates</label>
+                    <label htmlFor="editBranchLat" className="block text-sm font-medium mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      id="editBranchLat"
+                      value={branchLat}
+                      onChange={(e) => setBranchLat(e.target.value)}
+                      className="input w-full"
+                      placeholder="e.g., 6.4458"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="editBranchLng" className="block text-sm font-medium mb-1">Longitude</label>
                     <div className="flex gap-2">
                       <input
-                        type="text"
-                        id="editBranchLocationCoordinates"
-                        value={branchLocationCoordinates}
-                        onChange={(e) => setBranchLocationCoordinates(e.target.value)}
+                        type="number"
+                        step="any"
+                        id="editBranchLng"
+                        value={branchLng}
+                        onChange={(e) => setBranchLng(e.target.value)}
                         className="input w-full"
-                        placeholder="e.g., POINT(3.3869 6.4458)"
+                        placeholder="e.g., 3.3869"
                       />
                       <button
                         type="button"
@@ -679,7 +711,9 @@ const BranchManagementView = () => {
                       </button>
                     </div>
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="editBranchLocationRadius" className="block text-sm font-medium mb-1">Location Radius (meters)</label>
                     <input
@@ -691,9 +725,7 @@ const BranchManagementView = () => {
                       placeholder="Enter radius in meters"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="editBranchAttendanceMode" className="block text-sm font-medium mb-1">Attendance Mode</label>
                     <select
@@ -707,7 +739,9 @@ const BranchManagementView = () => {
                       <option value="hybrid">Hybrid</option>
                     </select>
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="editBranchStatus" className="block text-sm font-medium mb-1">Status</label>
                     <select
