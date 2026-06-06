@@ -92,7 +92,7 @@ export const updateUserRole = async (userId: number, roleId: number): Promise<{ 
 
 // Get all users
 // GET {{baseUrl}}/users
-export const getAllUsers = async (page?: number, limit?: number): Promise<{ success: boolean; users?: User[]; total?: number; page?: number; limit?: number; totalPages?: number; message?: string }> => {
+export const getAllUsers = async (page?: number, limit?: number, search?: string): Promise<{ success: boolean; users?: User[]; total?: number; page?: number; limit?: number; totalPages?: number; message?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -106,6 +106,7 @@ export const getAllUsers = async (page?: number, limit?: number): Promise<{ succ
     const params = new URLSearchParams();
     if (page !== undefined) params.append('page', page.toString());
     if (limit !== undefined) params.append('limit', limit.toString());
+    if (search !== undefined && search.trim()) params.append('search', search.trim());
 
     const queryString = params.toString();
     const url = `${API_ENDPOINT}/users${queryString ? '?' + queryString : ''}`;
@@ -149,18 +150,28 @@ export const getAllUsers = async (page?: number, limit?: number): Promise<{ succ
     }
 
     // Map API response to User interface (handle snake_case to camelCase)
-    const users = usersData.map((u: any) => ({
-      id: u.id,
-      firstName: u.first_name || u.firstName || '',
-      lastName: u.last_name || u.lastName || '',
-      email: u.email || '',
-      roleId: u.role_id || u.roleId || 0,
-      branchId: u.branch_id || u.branchId || 0,
-      departmentId: u.department_id || u.departmentId || 0,
-      isActive: u.status === 'active', // Use status field
-      createdAt: u.created_at || u.createdAt || '',
-      updatedAt: u.updated_at || u.updatedAt || ''
-    }));
+    const users = usersData.map((u: any) => {
+      // Handle full_name from backend by splitting into first/last
+      let firstName = u.first_name || u.firstName || '';
+      let lastName = u.last_name || u.lastName || '';
+      if (!firstName && !lastName && u.full_name) {
+        const nameParts = u.full_name.trim().split(/\s+/);
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      }
+      return {
+        id: u.id,
+        firstName,
+        lastName,
+        email: u.email || '',
+        roleId: u.role_id || u.roleId || 0,
+        branchId: u.branch_id || u.branchId || 0,
+        departmentId: u.department_id || u.departmentId || 0,
+        isActive: u.status === 'active',
+        createdAt: u.created_at || u.createdAt || '',
+        updatedAt: u.updated_at || u.updatedAt || ''
+      };
+    });
 
     return {
       success: true,
@@ -217,10 +228,17 @@ export const getUserById = async (userId: number): Promise<{ success: boolean; u
     }
 
     // Normalize user object - convert snake_case to camelCase
+    let firstName = user.first_name || user.firstName || '';
+    let lastName = user.last_name || user.lastName || '';
+    if (!firstName && !lastName && user.full_name) {
+      const nameParts = user.full_name.trim().split(/\s+/);
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
     const normalizedUser: User = {
       id: user.id,
-      firstName: user.first_name || user.firstName || '',
-      lastName: user.last_name || user.lastName || '',
+      firstName,
+      lastName,
       email: user.email || '',
       roleId: user.role_id || user.roleId || 0,
       branchId: user.branch_id || user.branchId || 0,
@@ -265,8 +283,7 @@ export const createUser = async (userData: CreateUserRequest): Promise<{ success
     
     // Convert camelCase to snake_case for API
     const apiPayload = {
-      first_name: userData.firstName,
-      last_name: userData.lastName,
+      full_name: `${userData.firstName} ${userData.lastName}`.trim(),
       email: userData.email,
       password: userData.password,
       role_id: userData.roleId,
@@ -331,13 +348,14 @@ export const updateUser = async (userId: number, userData: UpdateUserRequest): P
     
     // Convert camelCase to snake_case for API
     const apiPayload: any = {};
-    if (userData.firstName !== undefined) apiPayload.first_name = userData.firstName;
-    if (userData.lastName !== undefined) apiPayload.last_name = userData.lastName;
+    if (userData.firstName !== undefined || userData.lastName !== undefined) {
+      apiPayload.full_name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+    }
     if (userData.email !== undefined) apiPayload.email = userData.email;
     if (userData.roleId !== undefined) apiPayload.role_id = userData.roleId;
     if (userData.branchId !== undefined) apiPayload.branch_id = userData.branchId;
     if (userData.departmentId !== undefined) apiPayload.department_id = userData.departmentId;
-    if (userData.isActive !== undefined) apiPayload.is_active = userData.isActive;
+    if (userData.isActive !== undefined) apiPayload.status = userData.isActive ? 'active' : 'inactive';
     
     const response = await axios.put(`${API_ENDPOINT}/users/${userId}`, apiPayload, {
       headers: {
@@ -589,7 +607,7 @@ export const resetPassword = async (resetToken: string, newPassword: string): Pr
 };
 
 // Toggle user status (activate/deactivate)
-// PUT {{baseUrl}}/users/:id/status
+// PUT {{baseUrl}}/users/:id
 export const toggleUserStatus = async (userId: number, isActive: boolean): Promise<{ success: boolean; user?: User; message?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
@@ -601,8 +619,8 @@ export const toggleUserStatus = async (userId: number, isActive: boolean): Promi
     }
 
     console.log(`Toggling user ${userId} to ${isActive ? 'active' : 'inactive'}...`);
-    const response = await axios.put(`${API_ENDPOINT}/users/${userId}/status`, {
-      isActive: isActive  // Send as camelCase
+    const response = await axios.put(`${API_ENDPOINT}/users/${userId}`, {
+      status: isActive ? 'active' : 'inactive'
     }, {
       headers: {
         'Authorization': `Bearer ${token}`,

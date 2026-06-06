@@ -265,113 +265,105 @@ const LeaveManagementView = () => {
     isPaid: true, allowCarryover: false, carryoverLimit: null, expiryRuleId: null
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true); setError(null);
-        const policyResponse = await getLeavePolicy();
-        if (policyResponse.success && policyResponse.settings) {
-          setExcludeSundaysFromLeave(!!policyResponse.settings.exclude_sundays_from_leave);
-        }
-      } catch (policyError) {
-        console.log('Leave policy unavailable, defaulting to counting all days');
+  const refreshAllData = async () => {
+    setLoading(true); setError(null);
+    const filters: { status?: string; leaveType?: string; search?: string } = {};
+    if (filterStatus !== 'all') {
+      const backendStatus = filterStatus==='pending'?'submitted':filterStatus==='declined'?'rejected':filterStatus==='active'?'approved':filterStatus;
+      filters.status = backendStatus;
+    }
+    if (filterLeaveType !== 'all') filters.leaveType = filterLeaveType;
+    if (searchTerm) filters.search = searchTerm;
+
+    const [policyPromise, typesPromise, requestsPromise, balancesPromise] = await Promise.all([
+      getLeavePolicy().catch(() => null),
+      getAllLeaveTypes().catch(() => null),
+      getAllLeaveRequests(currentPage, itemsPerPage, filters).catch(() => null),
+      getUserLeaveBalance().catch(() => null)
+    ]);
+
+    // Policy
+    if (policyPromise?.success && policyPromise?.settings) {
+      setExcludeSundaysFromLeave(!!policyPromise.settings.exclude_sundays_from_leave);
+    }
+
+    // Leave types
+    if (typesPromise?.success && typesPromise?.leaveTypes) {
+      setRawLeaveTypes(typesPromise.leaveTypes);
+      setLeaveTypes(typesPromise.leaveTypes.map((type: any) => ({
+        id: type.id, type: type.name, limit: type.days_per_year,
+        color: type.is_paid ? T.primary : T.textMuted,
+        description: type.description || type.days_per_year + ' days per year'
+      })));
+    } else {
+      setLeaveTypes([]);
+      setRawLeaveTypes([]);
+      if (typesPromise?.message) setError(typesPromise.message);
+    }
+
+    // Leave requests
+    if (requestsPromise?.success && requestsPromise?.leaveRequests) {
+      const pendingPromise = await getAllLeaveRequests(1, 1, { status: 'submitted' }).catch(() => null);
+
+      const transformedRequests = requestsPromise.leaveRequests.map((req: any) => {
+        const transformedStatus = req.status==='approved'?'Approved':req.status==='rejected'?'Declined':req.status==='submitted'?'Pending':req.status==='cancelled'?'Declined':'Active';
+        const requestId = req?.id ?? req?.leave_request_id ?? req?.leaveRequestId;
+        const staffUserId = req?.user_id ?? req?.userId ?? req?.staff_id ?? req?.staffId;
+        return {
+          id: requestId != null ? String(requestId) : '',
+          staffId: staffUserId != null ? String(staffUserId) : '',
+          staffName: req.user_name || 'User ' + req.user_id, department:'General', branch:'Main Office',
+          leaveType: req.leave_type_name||req.leaveTypeName||'Unknown',
+          startDate: req.start_date||req.startDate, endDate: req.end_date||req.endDate,
+          duration: Number(req.days_requested ?? req.daysRequested) || calculateDuration(req.start_date||req.startDate, req.end_date||req.endDate),
+          reason: req.reason, status: transformedStatus, requestDate: req.created_at||req.createdAt,
+          approvedBy: req.reviewed_by?'Admin':undefined, approvalDate: req.reviewed_at||req.updatedAt,
+          declineReason: req.rejection_reason||req.rejectionReason, coveringStaff: undefined
+        };
+      });
+      setLeaveRequests(transformedRequests);
+      if (requestsPromise.pagination) {
+        setTotalItems(requestsPromise.pagination.totalItems);
+        setTotalPages(requestsPromise.pagination.totalPages);
+      } else {
+        setTotalItems(transformedRequests.length);
+        setTotalPages(Math.ceil(transformedRequests.length/itemsPerPage));
       }
-
-      try {
-        const typesResponse = await getAllLeaveTypes();
-        if (typesResponse.success && typesResponse.leaveTypes) {
-          setRawLeaveTypes(typesResponse.leaveTypes);
-          setLeaveTypes(typesResponse.leaveTypes.map((type: any) => ({
-            id: type.id, type: type.name, limit: type.days_per_year,
-            color: type.is_paid ? T.primary : T.textMuted,
-            description: type.description || `${type.days_per_year} days per year`
-          })));
-        } else {
-          setLeaveTypes([]);
-          setRawLeaveTypes([]);
-          if (typesResponse.message) setError(typesResponse.message);
-        }
-      } catch (typesError: any) {
-        setError(typesError?.message || 'Failed to load leave types');
+      if (pendingPromise?.pagination) {
+        setPendingTotal(pendingPromise.pagination.totalItems || 0);
+      } else {
+        setPendingTotal(transformedRequests.filter((r: any)=>r.status==='Pending').length);
       }
+    } else {
+      setLeaveRequests([]);
+      setTotalItems(0);
+      setTotalPages(0);
+      if (requestsPromise?.message) setError(requestsPromise.message);
+    }
 
-      try {
-        const filters: { status?: string; leaveType?: string; search?: string } = {};
-        if (filterStatus !== 'all') {
-          const backendStatus = filterStatus==='pending'?'submitted':filterStatus==='declined'?'rejected':filterStatus==='active'?'approved':filterStatus;
-          filters.status = backendStatus;
-        }
-        if (filterLeaveType !== 'all') filters.leaveType = filterLeaveType;
-        if (searchTerm) filters.search = searchTerm;
-
-        const requestsResponse = await getAllLeaveRequests(currentPage, itemsPerPage, filters);
-        let transformedRequests = [];
-        if (requestsResponse.success && requestsResponse.leaveRequests) {
-          transformedRequests = requestsResponse.leaveRequests.map(req => {
-            const rawStatus = req.status;
-            const transformedStatus = req.status==='approved'?'Approved':req.status==='rejected'?'Declined':req.status==='submitted'?'Pending':req.status==='cancelled'?'Declined':'Active';
-            const requestId = req?.id ?? req?.leave_request_id ?? req?.leaveRequestId;
-            const staffUserId = req?.user_id ?? req?.userId ?? req?.staff_id ?? req?.staffId;
+    // Leave balances
+    if (balancesPromise?.success && balancesPromise?.leaveBalances) {
+      setLeaveBalances(
+        balancesPromise.leaveBalances
+          .map((b: any) => {
+            const staffIdRaw = b?.userId ?? b?.user_id ?? b?.staffId ?? b?.staff_id ?? b?.id;
             return {
-              id: requestId != null ? String(requestId) : '',
-              staffId: staffUserId != null ? String(staffUserId) : '',
-              staffName: req.user_name||`User ${req.user_id}`, department:'General', branch:'Main Office',
-              leaveType: req.leave_type_name||req.leaveTypeName||'Unknown',
-              startDate: req.start_date||req.startDate, endDate: req.end_date||req.endDate,
-              // Prefer backend-calculated days_requested (it already applies leave policy rules).
-              duration: Number(req.days_requested ?? req.daysRequested) || calculateDuration(req.start_date||req.startDate, req.end_date||req.endDate),
-              reason: req.reason, status: transformedStatus, requestDate: req.created_at||req.createdAt,
-              approvedBy: req.reviewed_by?'Admin':undefined, approvalDate: req.reviewed_at||req.updatedAt,
-              declineReason: req.rejection_reason||req.rejectionReason, coveringStaff: undefined
-            };
-          });
-          setLeaveRequests(transformedRequests);
-          if (requestsResponse.pagination) {
-            setTotalItems(requestsResponse.pagination.totalItems);
-            setTotalPages(requestsResponse.pagination.totalPages);
-            const pr = await getAllLeaveRequests(1,1,{status:'submitted'});
-            if (pr.pagination) setPendingTotal(pr.pagination.totalItems||0);
-          } else {
-            setTotalItems(transformedRequests.length);
-            setTotalPages(Math.ceil(transformedRequests.length/itemsPerPage));
-            const pr = await getAllLeaveRequests(1,1,{status:'submitted'});
-            if (pr.pagination) setPendingTotal(pr.pagination.totalItems||0);
-            else setPendingTotal(transformedRequests.filter(r=>r.status==='Pending').length);
-          }
-        } else {
-          setLeaveRequests([]);
-          setTotalItems(0);
-          setTotalPages(0);
-          if (requestsResponse.message) setError(requestsResponse.message);
-        }
-      } catch (requestsError: any) {
-        setError((prev) => prev || requestsError?.message || 'Failed to load leave requests');
-      }
-
-      try {
-        const balancesResponse = await getUserLeaveBalance();
-        if (balancesResponse.success && balancesResponse.leaveBalances) {
-          setLeaveBalances(
-            balancesResponse.leaveBalances
-              .map(b => {
-                const staffIdRaw = b?.userId ?? b?.user_id ?? b?.staffId ?? b?.staff_id ?? b?.id;
-                return {
-                  staffId: staffIdRaw != null ? String(staffIdRaw) : '',
+              staffId: staffIdRaw != null ? String(staffIdRaw) : '',
             sick:{used:b.usedDays,total:b.totalDays}, annual:{used:b.usedDays,total:b.totalDays,firstHalf:0,secondHalf:0,rollover:0},
             paternity:{used:b.usedDays,total:b.totalDays}, bereaved:{used:b.usedDays,total:b.totalDays}, maternity:{used:b.usedDays,total:b.totalDays}
-                };
-              })
-              .filter(b => !!b.staffId)
-          );
-        } else {
-          setLeaveBalances([{staffId:'1',sick:{used:2,total:5},annual:{used:8,total:14,firstHalf:5,secondHalf:3,rollover:0},paternity:{used:0,total:3},bereaved:{used:1,total:3},maternity:{used:0,total:90}}]);
-          if (balancesResponse.message) setError((prev) => prev || balancesResponse.message);
-        }
-      } catch (balanceError: any) {
-        setError((prev) => prev || balanceError?.message || 'Failed to load leave balances');
-      } finally { setLoading(false); }
-    };
-    fetchData();
+            };
+          })
+          .filter((b: any) => !!b.staffId)
+      );
+    } else {
+      setLeaveBalances([{staffId:'1',sick:{used:2,total:5},annual:{used:8,total:14,firstHalf:5,secondHalf:3,rollover:0},paternity:{used:0,total:3},bereaved:{used:1,total:3},maternity:{used:0,total:90}}]);
+      if (balancesPromise?.message) setError((prev: any) => prev || balancesPromise.message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    refreshAllData();
   }, [currentPage, filterStatus, filterLeaveType, searchTerm]);
 
   const getLeaveTypeIcon = () => Calendar;
@@ -457,8 +449,8 @@ const LeaveManagementView = () => {
   const handleApprovalAction = async (request: LeaveRequest, action: 'approve'|'decline') => {
     setApprovalAction(action);
     try {
-      const fr = await getLeaveRequestFiles(parseInt(request.id));
-      if (fr.success && fr.files && fr.files.length>0) setSelectedRequest({...request, attachments:fr.files});
+      const fr = await getLeaveRequestFiles(parseInt(request.id)).catch(() => null);
+      if (fr?.success && fr.files && fr.files.length>0) setSelectedRequest({...request, attachments:fr.files});
       else setSelectedRequest(request);
     } catch { setSelectedRequest(request); }
     setShowApprovalModal(true);
@@ -467,10 +459,12 @@ const LeaveManagementView = () => {
   const handleViewDetails = async (request: LeaveRequest) => {
     setSelectedRequest(request); setShowDetailsModal(true); setDetailsLoading(true);
     try {
-      const response = await getLeaveRequestById(parseInt(request.id));
+      const [response, fr] = await Promise.all([
+        getLeaveRequestById(parseInt(request.id)),
+        getLeaveRequestFiles(parseInt(request.id)).catch(() => ({ success: false, files: [] }))
+      ]);
       if (response.success && response.leaveRequest) {
-        let attachments = [];
-        try { const fr = await getLeaveRequestFiles(parseInt(request.id)); if (fr.success) attachments = fr.files||[]; } catch {}
+        const attachments = fr?.success ? (fr.files || []) : [];
         setSelectedRequestDetails({...response.leaveRequest, attachments});
       }
     } catch {} finally { setDetailsLoading(false); }
@@ -485,6 +479,10 @@ const LeaveManagementView = () => {
         setLeaveRequests(prev=>prev.map(req=>req.id===selectedRequest.id?{...req,status:approvalAction==='approve'?'Approved':'Declined',approvedBy:approvalAction==='approve'?'Admin':undefined,approvalDate:approvalAction==='approve'?new Date().toISOString():undefined,declineReason:approvalAction==='decline'?declineReason:undefined}:req));
         setSuccessMessage(response.message||`Leave request ${approvalAction==='approve'?'approved':'rejected'} successfully`);
         setTimeout(()=>setSuccessMessage(null),3000);
+        // Refresh pending count in background
+        getAllLeaveRequests(1, 1, { status: 'submitted' }).then(pr => {
+          if (pr?.pagination) setPendingTotal(pr.pagination.totalItems || 0);
+        }).catch(() => {});
       } else throw new Error(response.message||'Failed to process leave request');
       setShowApprovalModal(false); setSelectedRequest(null); setApprovalAction(null); setDeclineReason('');
     } catch (err: any) { setError(err.message||'An error occurred'); setTimeout(()=>setError(null),5000); }
@@ -500,6 +498,10 @@ const LeaveManagementView = () => {
         setLeaveRequests(prev=>prev.map(req=>req.id===selectedRequest.id?{...req,status:'Declined',declineReason:'Cancelled by HR'}:req));
         setSuccessMessage(response.message||'Leave request cancelled successfully');
         setTimeout(()=>setSuccessMessage(null),3000);
+        // Refresh pending count in background
+        getAllLeaveRequests(1, 1, { status: 'submitted' }).then(pr => {
+          if (pr?.pagination) setPendingTotal(pr.pagination.totalItems || 0);
+        }).catch(() => {});
       } else throw new Error(response.message||'Failed to cancel leave request');
       setShowCancelModal(false); setSelectedRequest(null);
     } catch (err: any) { setError(err.message||'An error occurred'); setTimeout(()=>setError(null),5000); }
@@ -530,9 +532,9 @@ const LeaveManagementView = () => {
     try {
       setLoading(true); setError(null);
       const response = await createLeaveType({ name:createLeaveTypeForm.name, description:createLeaveTypeForm.description, daysPerYear:createLeaveTypeForm.daysPerYear, isPaid:createLeaveTypeForm.isPaid, allowCarryover:createLeaveTypeForm.allowCarryover, carryoverLimit:createLeaveTypeForm.allowCarryover?createLeaveTypeForm.carryoverLimit:undefined, accrualMethod:undefined, accrualRate:undefined });
-      if (response.success) { setShowCreateLeaveTypeModal(false); setCreateLeaveTypeForm({name:'',description:'',daysPerYear:null,isPaid:true,allowCarryover:false,carryoverLimit:null,expiryRuleId:null}); alert('Leave type created successfully!'); }
+      if (response.success) { setShowCreateLeaveTypeModal(false); setCreateLeaveTypeForm({name:'',description:'',daysPerYear:null,isPaid:true,allowCarryover:false,carryoverLimit:null,expiryRuleId:null}); setSuccessMessage('Leave type created successfully!'); setTimeout(()=>setSuccessMessage(null),3000); await refreshAllData(); }
       else throw new Error(response.message||'Failed to create leave type');
-    } catch (err) { setError(err instanceof Error?err.message:'An error occurred'); }
+    } catch (err) { setError(err instanceof Error?err.message:'An error occurred'); setTimeout(()=>setError(null),5000); }
     finally { setLoading(false); }
   };
 
@@ -543,11 +545,10 @@ const LeaveManagementView = () => {
       const response = await updateLeaveType(editLeaveTypeForm.id!, { name:editLeaveTypeForm.name, description:editLeaveTypeForm.description, daysPerYear:editLeaveTypeForm.daysPerYear, isPaid:editLeaveTypeForm.isPaid, allowCarryover:editLeaveTypeForm.allowCarryover, carryoverLimit:editLeaveTypeForm.allowCarryover?editLeaveTypeForm.carryoverLimit:undefined, accrualMethod:undefined, accrualRate:undefined });
       if (response.success) {
         setShowEditLeaveTypeModal(false); setEditLeaveTypeForm({id:null,name:'',description:'',daysPerYear:null,isPaid:true,allowCarryover:false,carryoverLimit:null,expiryRuleId:null});
-        const tr = await getAllLeaveTypes();
-        if (tr.success && tr.leaveTypes) setLeaveTypes(tr.leaveTypes.map((t:any)=>({type:t.name,limit:t.days_per_year,color:t.is_paid?T.primary:T.textMuted,description:t.description||`${t.days_per_year} days per year`})));
-        alert('Leave type updated successfully!');
+        setSuccessMessage('Leave type updated successfully!'); setTimeout(()=>setSuccessMessage(null),3000);
+        await refreshAllData();
       } else throw new Error(response.message||'Failed to update leave type');
-    } catch (err) { setError(err instanceof Error?err.message:'An error occurred'); }
+    } catch (err) { setError(err instanceof Error?err.message:'An error occurred'); setTimeout(()=>setError(null),5000); }
     finally { setLoading(false); }
   };
 
