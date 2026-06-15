@@ -556,10 +556,10 @@ export const changePassword = async (currentPassword: string, newPassword: strin
 };
 
 // Forgot password
-// POST {{baseUrl}}/users/forgot-password
+// POST {{baseUrl}}/auth/forgot-password
 export const forgotPassword = async (email: string): Promise<{ success: boolean; message?: string }> => {
   try {
-    const response = await axios.post(`${API_ENDPOINT}/users/forgot-password`, {
+    const response = await axios.post(`${API_ENDPOINT}/auth/forgot-password`, {
       email
     }, {
       headers: {
@@ -581,10 +581,10 @@ export const forgotPassword = async (email: string): Promise<{ success: boolean;
 };
 
 // Reset password
-// POST {{baseUrl}}/users/reset-password
+// POST {{baseUrl}}/auth/reset-password
 export const resetPassword = async (resetToken: string, newPassword: string): Promise<{ success: boolean; message?: string }> => {
   try {
-    const response = await axios.post(`${API_ENDPOINT}/users/reset-password`, {
+    const response = await axios.post(`${API_ENDPOINT}/auth/reset-password`, {
       token: resetToken,
       newPassword
     }, {

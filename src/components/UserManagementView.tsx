@@ -14,7 +14,7 @@ import { getAllRoles } from '../services/roleManagementService';
 import { getAllBranches } from '../services/branchManagementService';
 import {
   User as UserIcon, Plus, Edit3, Trash2, X, Check, AlertCircle,
-  Mail, Shield, Building, Search
+  Mail, Shield, Building, Search, Eye, EyeOff
 } from 'lucide-react';
 import {
   Pagination,
@@ -51,6 +51,7 @@ const UserManagementView = () => {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [roleId, setRoleId] = useState<number>(0);
   const [branchId, setBranchId] = useState<number>(0);
 
@@ -112,6 +113,7 @@ const UserManagementView = () => {
     setLastName('');
     setEmail('');
     setPassword('');
+    setShowPassword(false);
     setRoleId(0);
     setBranchId(0);
   };
@@ -287,7 +289,12 @@ const UserManagementView = () => {
             {!editingUser && (
               <div>
                 <label className="block text-sm font-medium mb-1">Password *</label>
-                <input type="password" className="input w-full" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password (min. 8 characters)" minLength={8} required />
+                <div className="relative">
+                  <input type={showPassword ? 'text' : 'password'} className="input w-full pr-10" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password (min. 8 characters)" minLength={8} required autoComplete="new-password" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             )}
             <div className="grid grid-cols-1 md-grid-cols-2 gap-4">

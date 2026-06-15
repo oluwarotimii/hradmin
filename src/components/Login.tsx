@@ -1,17 +1,20 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../AuthContext"; // Import useAuth
 
 interface LoginProps {
   onLogin: () => void;
+  onForgotPassword?: () => void;
 }
 
-export function Login({ onLogin }: LoginProps) {
+export function Login({ onLogin, onForgotPassword }: LoginProps) {
   const auth = useAuth(); // Get auth object from context
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const validateForm = (): boolean => {
     let isValid = true;
@@ -225,40 +228,62 @@ export function Login({ onLogin }: LoginProps) {
             }}>
               Password
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                // Clear password error when user starts typing
-                if (error) setError("");
-              }}
-              placeholder="Enter your password"
-              style={{
-                width: '100%',
-                padding: '0.688rem 0.875rem',
-                border: '1.5px solid #e2e8f0',
-                borderRadius: '0.5rem',
-                fontSize: '0.875rem',
-                backgroundColor: '#ffffff',
-                color: '#0f172a',
-                transition: 'border-color 0.15s, box-shadow 0.15s',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.style.borderColor = '#3b82f6';
-                target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
-              }}
-              onBlur={(e) => {
-                const target = e.target as HTMLInputElement;
-                target.style.borderColor = '#e2e8f0';
-                target.style.boxShadow = 'none';
-              }}
-              required
-              disabled={loading}
-              autoComplete="current-password"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  // Clear password error when user starts typing
+                  if (error) setError("");
+                }}
+                placeholder="Enter your password"
+                style={{
+                  width: '100%',
+                  padding: '0.688rem 2.5rem 0.688rem 0.875rem',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                  backgroundColor: '#ffffff',
+                  color: '#0f172a',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => {
+                  const target = e.target as HTMLInputElement;
+                  target.style.borderColor = '#3b82f6';
+                  target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                }}
+                onBlur={(e) => {
+                  const target = e.target as HTMLInputElement;
+                  target.style.borderColor = '#e2e8f0';
+                  target.style.boxShadow = 'none';
+                }}
+                required
+                disabled={loading}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0
+                }}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -315,6 +340,26 @@ export function Login({ onLogin }: LoginProps) {
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
+
+          <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+            {onForgotPassword && (
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3b82f6',
+                  cursor: 'pointer',
+                  fontSize: '0.813rem',
+                  padding: 0,
+                  textDecoration: 'underline'
+                }}
+              >
+                Forgot Password?
+              </button>
+            )}
+          </div>
         </form>
       </div>
     </div>

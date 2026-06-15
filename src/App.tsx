@@ -57,6 +57,8 @@ import {
   HelpCircle
 } from "lucide-react";
 import { Login } from "./components/Login";
+import { ForgotPasswordView } from "./components/ForgotPasswordView";
+import { ResetPasswordView } from "./components/ResetPasswordView";
 import RoleManagementView from "./components/RoleManagementView";
 import SystemInitialization from "./components/SystemInitialization";
 import UserManagementView from "./components/UserManagementView";
@@ -295,6 +297,7 @@ export default function App() {
   const [isSystemInitialized, setIsSystemInitialized] = useState<boolean|null>(null); // null = checking, true/false = result
   const [forceUpdate, setForceUpdate] = useState(0); // Force re-render on login
   const [activeView, setActiveView] = useState("dashboard");
+  const [preAuthView, setPreAuthView] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -364,6 +367,14 @@ export default function App() {
   useEffect(() => {
     console.log('Checking system initialization...');
     checkSystemInitialization();
+  }, []);
+
+  // Check for reset password token in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('token')) {
+      setPreAuthView('reset-password');
+    }
   }, []);
 
   // Fetch dashboard stats function (defined outside useEffect to be reusable)
@@ -940,7 +951,13 @@ export default function App() {
 
   // Only check for login after system is confirmed initialized
   if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
+    if (preAuthView === 'forgot-password') {
+      return <ForgotPasswordView onBack={() => setPreAuthView(null)} />;
+    }
+    if (preAuthView === 'reset-password') {
+      return <ResetPasswordView onBack={() => setPreAuthView(null)} />;
+    }
+    return <Login onLogin={handleLogin} onForgotPassword={() => setPreAuthView('forgot-password')} />;
   }
 
   return (
