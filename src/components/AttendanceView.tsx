@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   getAllAttendanceRecords,
+  getAttendanceSummary,
   markAttendanceCheckIn,
   markAttendanceCheckOut,
   createManualAttendance,
@@ -136,6 +137,11 @@ const AttendanceView = () => {
     notes: '',
   });
 
+  // Summary state (for date range, not paginated page)
+  const [summaryPresent, setSummaryPresent] = useState(0);
+  const [summaryLate, setSummaryLate] = useState(0);
+  const [summaryAbsent, setSummaryAbsent] = useState(0);
+
   // Calendar state
   const [calendarDate, setCalendarDate] = useState(new Date());
 
@@ -166,12 +172,19 @@ const AttendanceView = () => {
       const startDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1).toISOString().split('T')[0];
       const endDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).toISOString().split('T')[0];
 
-      const [attendanceRes, staffRes, branchesRes, holidaysRes] = await Promise.all([
+      const [attendanceRes, staffRes, branchesRes, holidaysRes, summaryRes] = await Promise.all([
         getAllAttendanceRecords(currentPage, pageSize, undefined, dateRange.start, dateRange.end),
         getAllStaff(1, 1000),
         getAllBranches(),
-        holidayService.getHolidays({ startDate, endDate })
+        holidayService.getHolidays({ startDate, endDate }),
+        getAttendanceSummary(dateRange.start, dateRange.end)
       ]);
+
+      if (summaryRes.success && summaryRes.summary) {
+        setSummaryPresent(summaryRes.summary.total_present || 0);
+        setSummaryLate(summaryRes.summary.total_late || 0);
+        setSummaryAbsent(summaryRes.summary.total_absent || 0);
+      }
 
       let currentMappedStaff = staffMembers;
       if (staffRes.success && staffRes.staff) {
@@ -612,12 +625,9 @@ const AttendanceView = () => {
     return matchesSearch && matchesBranch && matchesStatus && matchesDateRange;
   });
 
-  // Calculate statistics (using filteredRecords for client-side filtering)
-  const displayedRecordsCount = filteredRecords.length;
-  const presentCount = filteredRecords.filter(r => r.status === 'present').length;
-  const lateCount = filteredRecords.filter(r => r.status === 'late').length;
-  const absentCount = filteredRecords.filter(r => r.status === 'absent').length;
-  const attendanceRate = displayedRecordsCount > 0 ? Math.round((presentCount / displayedRecordsCount) * 100) : 0;
+  // Calculate statistics from date-range summary (not paginated page)
+  const summaryTotal = summaryPresent + summaryLate + summaryAbsent;
+  const attendanceRate = summaryTotal > 0 ? Math.round((summaryPresent / summaryTotal) * 100) : 0;
 
   // Calendar helpers
   const getDaysInMonth = (date: Date) => {
@@ -869,7 +879,7 @@ const AttendanceView = () => {
             </div>
             <div>
               <p className="text-muted" style={{ fontSize: '0.75rem' }}>Present</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{presentCount}</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{summaryPresent}</p>
             </div>
           </div>
         </div>
@@ -880,7 +890,7 @@ const AttendanceView = () => {
             </div>
             <div>
               <p className="text-muted" style={{ fontSize: '0.75rem' }}>Late</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{lateCount}</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{summaryLate}</p>
             </div>
           </div>
         </div>
@@ -891,7 +901,7 @@ const AttendanceView = () => {
             </div>
             <div>
               <p className="text-muted" style={{ fontSize: '0.75rem' }}>Absent</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{absentCount}</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{summaryAbsent}</p>
             </div>
           </div>
         </div>
@@ -902,7 +912,7 @@ const AttendanceView = () => {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold mb-2">Attendance Rate</h3>
-            <p className="text-muted text-sm">Based on filtered records</p>
+            <p className="text-muted text-sm">Based on {dateRange.start} to {dateRange.end}</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">

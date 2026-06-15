@@ -255,6 +255,8 @@ const ShiftSchedulingView = () => {
   const [exceptionTypes, setExceptionTypes] = useState<ExceptionType[]>([]);
 
   const [exceptionFilter, setExceptionFilter] = useState<'all' | 'active' | 'pending'>('all');
+  const [exceptionPage, setExceptionPage] = useState(1);
+  const exceptionPageSize = 10;
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
@@ -1593,6 +1595,8 @@ const ShiftSchedulingView = () => {
       special_schedule:[colors.purplePale, colors.purple],
       holiday_work:    [colors.successPale, colors.success],
     };
+    const totalPages = Math.ceil(filtered.length / exceptionPageSize);
+    const paginated = filtered.slice((exceptionPage - 1) * exceptionPageSize, exceptionPage * exceptionPageSize);
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {/* Info Box */}
@@ -1624,7 +1628,7 @@ const ShiftSchedulingView = () => {
         {/* Filter pills */}
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           {(['all', 'active', 'pending'] as const).map(f => (
-            <button key={f} onClick={() => setExceptionFilter(f)}
+            <button key={f} onClick={() => { setExceptionFilter(f); setExceptionPage(1); }}
               style={{ padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.12s', background: exceptionFilter === f ? colors.primary : colors.surfaceMuted, color: exceptionFilter === f ? '#fff' : colors.textSecondary, boxShadow: exceptionFilter === f ? `0 1px 3px rgba(30,64,175,0.25)` : 'none' }}>
               {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
               <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', opacity: 0.75 }}>
@@ -1649,7 +1653,7 @@ const ShiftSchedulingView = () => {
           <tbody>
             {loading ? <LoadingRow /> : filtered.length === 0 ? (
               <EmptyState icon={Calendar} title={exceptionFilter === 'all' ? 'No exceptions found' : `No ${exceptionFilter} exceptions`} sub={exceptionFilter === 'all' ? 'Create the first exception to get started' : 'Try switching filter'} />
-            ) : filtered.map(ex => {
+            ) : paginated.map(ex => {
               const staff = staffMembers.find(s => s.id === ex.user_id);
               const [eBg, eC] = exTypeMap[ex.exception_type] || [colors.surfaceMuted, colors.textSecondary];
               return (
@@ -1696,6 +1700,21 @@ const ShiftSchedulingView = () => {
             })}
           </tbody>
         </TableWrap>
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.5rem 0' }}>
+            <button disabled={exceptionPage <= 1} onClick={() => setExceptionPage(p => p - 1)}
+              style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, border: `1px solid ${colors.border}`, cursor: exceptionPage <= 1 ? 'not-allowed' : 'pointer', background: exceptionPage <= 1 ? colors.surfaceMuted : colors.surface, color: exceptionPage <= 1 ? colors.textMuted : colors.textPrimary, opacity: exceptionPage <= 1 ? 0.5 : 1 }}>
+              Previous
+            </button>
+            <span style={{ fontSize: '0.8rem', color: colors.textSecondary }}>
+              Page {exceptionPage} of {totalPages}
+            </span>
+            <button disabled={exceptionPage >= totalPages} onClick={() => setExceptionPage(p => p + 1)}
+              style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, border: `1px solid ${colors.border}`, cursor: exceptionPage >= totalPages ? 'not-allowed' : 'pointer', background: exceptionPage >= totalPages ? colors.surfaceMuted : colors.surface, color: exceptionPage >= totalPages ? colors.textMuted : colors.textPrimary, opacity: exceptionPage >= totalPages ? 0.5 : 1 }}>
+              Next
+            </button>
+          </div>
+        )}
       </div>
     );
   };

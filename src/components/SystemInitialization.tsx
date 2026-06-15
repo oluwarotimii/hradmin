@@ -9,7 +9,9 @@ import {
   ArrowRight,
   Loader2,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { systemApi } from "../services/systemApi";
 
@@ -375,6 +377,8 @@ function AdminForm({ onSubmit, error }: { onSubmit: (data: AdminFormData) => voi
     formState: { errors, isSubmitting },
   } = useForm<AdminFormData>();
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const password = watch("password", "");
   const passwordStrength = password ? getPasswordStrength(password) : null;
 
@@ -436,27 +440,50 @@ function AdminForm({ onSubmit, error }: { onSubmit: (data: AdminFormData) => voi
 
       <div style={styles.formGroup}>
         <label style={styles.formLabel}>Password *</label>
-        <input
-          type="password"
-          style={errors.password ? {...styles.formInput, ...styles.formInputError} : styles.formInput}
-          {...register("password", {
-            required: "Password is required",
-            minLength: {
-              value: 8,
-              message: "Password must be at least 8 characters",
-            },
-            validate: (value) => {
-              const hasUpperCase = /[A-Z]/.test(value);
-              const hasLowerCase = /[a-z]/.test(value);
-              const hasNumber = /\d/.test(value);
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            style={errors.password ? {...styles.formInput, ...styles.formInputError, paddingRight: '2.5rem'} : {...styles.formInput, paddingRight: '2.5rem'}}
+            {...register("password", {
+              required: "Password is required",
+              minLength: {
+                value: 8,
+                message: "Password must be at least 8 characters",
+              },
+              validate: (value) => {
+                const hasUpperCase = /[A-Z]/.test(value);
+                const hasLowerCase = /[a-z]/.test(value);
+                const hasNumber = /\d/.test(value);
 
-              if (!hasUpperCase || !hasLowerCase || !hasNumber) {
-                return "Password must contain uppercase, lowercase, and number";
-              }
-              return true;
-            },
-          })}
-        />
+                if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+                  return "Password must contain uppercase, lowercase, and number";
+                }
+                return true;
+              },
+            })}
+            autoComplete="new-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{
+              position: 'absolute',
+              right: '0.75rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#6b7280',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0
+            }}
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
         {passwordStrength && (
           <div style={styles.passwordStrengthContainer}>
             <div style={styles.passwordStrengthBar}>
@@ -481,15 +508,38 @@ function AdminForm({ onSubmit, error }: { onSubmit: (data: AdminFormData) => voi
 
       <div style={styles.formGroup}>
         <label style={styles.formLabel}>Confirm Password *</label>
-        <input
-          type="password"
-          style={errors.confirmPassword ? {...styles.formInput, ...styles.formInputError} : styles.formInput}
-          {...register("confirmPassword", {
-            required: "Please confirm your password",
-            validate: (value) =>
-              value === password || "Passwords do not match",
-          })}
-        />
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showConfirmPassword ? 'text' : 'password'}
+            style={errors.confirmPassword ? {...styles.formInput, ...styles.formInputError, paddingRight: '2.5rem'} : {...styles.formInput, paddingRight: '2.5rem'}}
+            {...register("confirmPassword", {
+              required: "Please confirm your password",
+              validate: (value) =>
+                value === password || "Passwords do not match",
+            })}
+            autoComplete="new-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            style={{
+              position: 'absolute',
+              right: '0.75rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#6b7280',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0
+            }}
+          >
+            {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
         {errors.confirmPassword && (
           <p style={styles.errorMessage}>{errors.confirmPassword.message}</p>
         )}
