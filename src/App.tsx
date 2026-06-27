@@ -23,6 +23,7 @@ import AttendanceReportView from "./components/AttendanceReportView";
 import { EmployeeTable } from "./components/EmployeeTable";
 import KPIView from "./components/KPIView";
 import HolidayManagementView from "./components/HolidayManagementView";
+import TimeOffManagementView from "./components/TimeOffManagementView";
 import ShiftSchedulingView from "./components/ShiftSchedulingView";
 import MyShiftsView from "./components/MyShiftsView";
 import SettingsView from "./components/SettingsView";
@@ -54,7 +55,9 @@ import {
   MapPin,
   ChevronRight,
   UserCheck,
-  HelpCircle
+  HelpCircle,
+  Umbrella,
+  Gift
 } from "lucide-react";
 import { Login } from "./components/Login";
 import { ForgotPasswordView } from "./components/ForgotPasswordView";
@@ -149,6 +152,15 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
               >
                 <CalendarDays className="w-4 h-4" />
                 <span>Leave Allocations</span>
+              </button>
+            </li>
+            <li className="sidebar-menu-item">
+              <button
+                onClick={() => onNavigate("time-off")}
+                className={`sidebar-menu-button ${activeView === "time-off" ? "active" : ""}`}
+              >
+                <Umbrella className="w-4 h-4" />
+                <span>Time Off</span>
               </button>
             </li>
             <li className="sidebar-menu-item">
@@ -755,6 +767,11 @@ export default function App() {
       case "holidays":
         return <HolidayManagementView />;
 
+      case "time-off":
+      case "floating-days":
+      case "time-off-banks":
+        return <TimeOffManagementView />;
+
       case "shiftscheduling":
         return <ShiftSchedulingView />;
 
@@ -863,6 +880,13 @@ export default function App() {
         return {
           title: "Holiday Management",
           subtitle: "Manage company holidays and non-working days"
+        };
+      case "time-off":
+      case "floating-days":
+      case "time-off-banks":
+        return {
+          title: "Time Off",
+          subtitle: "Manage day-off programs and requests"
         };
       case "holiday-duty-roster":
         return {

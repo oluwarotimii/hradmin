@@ -1042,7 +1042,7 @@ export const apiServices = {
         throw new Error('Authentication token not found');
       }
 
-      const response = await axios.get(`${API_ENDPOINT}/shift-scheduling/time-off-banks`, {
+      const response = await axios.get(`${API_ENDPOINT}/time-off-banks`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -1053,14 +1053,14 @@ export const apiServices = {
       return {
         success: true,
         message: "Time off banks retrieved successfully",
-        data: { timeOffBanks: response.data.data?.timeOffBanks || response.data.timeOffBanks || [] }
+        data: response.data.data || { timeOffBanks: [], pagination: { currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 } }
       };
     } catch (error: any) {
       console.error('Error fetching time off banks:', error);
       return {
         success: false,
         message: error.response?.data?.message || error.message || 'Failed to fetch time off banks',
-        data: { timeOffBanks: [] }
+        data: { timeOffBanks: [], pagination: { currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 } }
       };
     }
   },
@@ -1072,7 +1072,7 @@ export const apiServices = {
         throw new Error('Authentication token not found');
       }
 
-      const response = await axios.get(`${API_ENDPOINT}/shift-scheduling/time-off-banks/my-balance`, {
+      const response = await axios.get(`${API_ENDPOINT}/time-off-banks/my-balance`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -1082,14 +1082,14 @@ export const apiServices = {
       return {
         success: true,
         message: "Time off balance retrieved successfully",
-        data: { balance: response.data.data?.balance || response.data.balance }
+        data: response.data.data || { timeOffBanks: [] }
       };
     } catch (error: any) {
       console.error('Error fetching time off balance:', error);
       return {
         success: false,
         message: error.response?.data?.message || error.message || 'Failed to fetch time off balance',
-        data: { balance: {} }
+        data: { timeOffBanks: [] }
       };
     }
   },
@@ -1101,7 +1101,7 @@ export const apiServices = {
         throw new Error('Authentication token not found');
       }
 
-      const response = await axios.post(`${API_ENDPOINT}/shift-scheduling/time-off-banks`, data, {
+      const response = await axios.post(`${API_ENDPOINT}/time-off-banks`, data, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -1111,7 +1111,7 @@ export const apiServices = {
       return {
         success: true,
         message: "Time off bank created successfully",
-        data: { timeOffBank: response.data.data?.timeOffBank || response.data.timeOffBank }
+        data: response.data.data || { timeOffBank: null }
       };
     } catch (error: any) {
       console.error('Error creating time off bank:', error);
@@ -1120,6 +1120,158 @@ export const apiServices = {
         message: error.response?.data?.message || error.message || 'Failed to create time off bank',
         data: { timeOffBank: null }
       };
+    }
+  },
+
+  async updateTimeOffBank(id: number, data: any) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.put(`${API_ENDPOINT}/time-off-banks/${id}`, data, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Time off bank updated successfully", data: response.data.data || {} };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to update time off bank', data: {} };
+    }
+  },
+
+  async deleteTimeOffBank(id: number) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.delete(`${API_ENDPOINT}/time-off-banks/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Time off bank deleted successfully", data: response.data || {} };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to delete time off bank', data: {} };
+    }
+  },
+
+  async bulkAssignTimeOffBanks(data: any) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.post(`${API_ENDPOINT}/time-off-banks/assign`, data, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Time off banks assigned successfully", data: response.data.data || {} };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to assign time off banks', data: {} };
+    }
+  },
+
+  // Time Off Program methods
+  async getTimeOffPrograms(params?: any) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.get(`${API_ENDPOINT}/time-off-programs`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        params
+      });
+
+      return { success: true, message: "Programs retrieved successfully", data: response.data.data || { programs: [], pagination: {} } };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to fetch programs', data: { programs: [], pagination: {} } };
+    }
+  },
+
+  async createTimeOffProgram(data: any) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.post(`${API_ENDPOINT}/time-off-programs`, data, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Program created successfully", data: response.data.data || {} };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to create program', data: {} };
+    }
+  },
+
+  async updateTimeOffProgram(id: number, data: any) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.put(`${API_ENDPOINT}/time-off-programs/${id}`, data, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Program updated successfully", data: response.data.data || {} };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to update program', data: {} };
+    }
+  },
+
+  async deleteTimeOffProgram(id: number) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.delete(`${API_ENDPOINT}/time-off-programs/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Program deleted successfully", data: response.data || {} };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to delete program', data: {} };
+    }
+  },
+
+  async getProgramAssignments(programId: number) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.get(`${API_ENDPOINT}/time-off-programs/${programId}/assignments`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Assignments retrieved successfully", data: response.data.data || { assignments: [] } };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to fetch assignments', data: { assignments: [] } };
+    }
+  },
+
+  async assignEmployeesToProgram(programId: number, data: any) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.post(`${API_ENDPOINT}/time-off-programs/${programId}/assign`, data, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Employees assigned successfully", data: response.data.data || {} };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to assign employees', data: {} };
+    }
+  },
+
+  async removeEmployeeFromProgram(programId: number, userId: number) {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Authentication token not found');
+
+      const response = await axios.delete(`${API_ENDPOINT}/time-off-programs/${programId}/assignments/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      return { success: true, message: "Employee removed from program successfully", data: response.data || {} };
+    } catch (error: any) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Failed to remove employee', data: {} };
     }
   },
 
