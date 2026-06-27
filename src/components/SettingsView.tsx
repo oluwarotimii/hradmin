@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 import {
   getBranchAttendanceSettings,
   updateBranchAttendanceSettings,
+  getGlobalAttendanceSettings,
+  updateGlobalAttendanceSettings,
 } from '../services/attendanceSettingsService';
 import {
   getLeavePolicy,
@@ -308,6 +310,11 @@ const SettingsView = () => {
   const [leavePolicy, setLeavePolicy] = useState({
     exclude_sundays_from_leave: false,
   });
+  const [globalSettings, setGlobalSettings] = useState({
+    last_saturday_resumption_time: '10:30',
+  });
+  const [globalSettingsLoading, setGlobalSettingsLoading] = useState(false);
+  const [globalSettingsSaving, setGlobalSettingsSaving] = useState(false);
   const [workingDays, setWorkingDays] = useState<any[]>([
     { day_of_week: 'monday',    is_working_day: true,  start_time: '08:00', end_time: '17:00', break_duration_minutes: 30 },
     { day_of_week: 'tuesday',   is_working_day: true,  start_time: '08:00', end_time: '17:00', break_duration_minutes: 30 },
@@ -321,6 +328,7 @@ const SettingsView = () => {
   useEffect(() => {
     loadBranches();
     loadLeavePolicy();
+    loadGlobalSettings();
   }, []);
   useEffect(() => { if (selectedBranchId) loadBranchSettings(Number(selectedBranchId)); }, [selectedBranchId]);
 
@@ -407,6 +415,39 @@ const SettingsView = () => {
     }
   };
 
+  const loadGlobalSettings = async () => {
+    setGlobalSettingsLoading(true);
+    try {
+      const response = await getGlobalAttendanceSettings();
+      if (response.success && response.settings) {
+        setGlobalSettings({
+          last_saturday_resumption_time: response.settings.last_saturday_resumption_time || '10:30',
+        });
+      }
+    } catch (err) {
+      console.error('Error loading global settings:', err);
+    } finally {
+      setGlobalSettingsLoading(false);
+    }
+  };
+
+  const handleSaveGlobalSettings = async () => {
+    setGlobalSettingsSaving(true); setError(null);
+    try {
+      const response = await updateGlobalAttendanceSettings({ settings: globalSettings });
+      if (response.success) {
+        setSuccessMessage('Global settings saved successfully');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setError(response.message || 'Failed to save global settings');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setGlobalSettingsSaving(false);
+    }
+  };
+
   const handleSaveLeavePolicy = async () => {
     setLeavePolicySaving(true);
     setError(null);
@@ -429,7 +470,8 @@ const SettingsView = () => {
     { key: 'attendance',   label: 'Attendance',    icon: Settings },
     { key: 'working-days', label: 'Working Days',  icon: Clock    },
     { key: 'auto-mark',    label: 'Auto-Mark',     icon: Timer    },
-    { key: 'leave-policy',  label: 'Leave Policy',  icon: Calendar },
+    { key: 'leave-policy', label: 'Leave Policy',  icon: Calendar },
+    { key: 'global',       label: 'Global',         icon: Settings },
   ];
 
   return (

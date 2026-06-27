@@ -19,6 +19,116 @@ const extractKey = (p: any): string => {
   return p.key ?? p.name ?? p.id ?? String(p);
 };
 
+// ─── Permission Picker (shared between create & edit) ────────────────────────
+const PermissionPicker = ({
+  list,
+  permSearch,
+  onSearchChange,
+  selectedPermissions,
+  onToggle,
+  onToggleAll,
+}: {
+  list: Permission[];
+  permSearch: string;
+  onSearchChange: (v: string) => void;
+  selectedPermissions: string[];
+  onToggle: (key: string) => void;
+  onToggleAll: (visible: Permission[]) => void;
+}) => {
+  const visible = list.filter(p => {
+    if (!permSearch.trim()) return true;
+    const key = extractKey(p).toLowerCase();
+    const desc = (p as any).description?.toLowerCase() ?? '';
+    const q = permSearch.toLowerCase();
+    return key.includes(q) || desc.includes(q);
+  });
+  const allVisibleSelected = visible.length > 0 && visible.every(p => selectedPermissions.includes(extractKey(p)));
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+        <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#374151' }}>
+          Permissions
+          <span style={{
+            marginLeft: '0.5rem', padding: '0.1rem 0.5rem',
+            background: '#dbeafe', color: '#1d4ed8',
+            borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 700
+          }}>
+            {selectedPermissions.length} selected
+          </span>
+        </label>
+        <button
+          type="button"
+          onClick={() => onToggleAll(visible)}
+          style={{
+            fontSize: '0.7rem', color: '#3b82f6', background: 'none',
+            border: 'none', cursor: 'pointer', fontWeight: 600
+          }}
+        >
+          {allVisibleSelected ? 'Deselect visible' : 'Select all visible'}
+        </button>
+      </div>
+
+      {/* Search */}
+      <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+        <input
+          type="text"
+          placeholder="Filter permissions…"
+          value={permSearch}
+          onChange={e => onSearchChange(e.target.value)}
+          style={{
+            width: '100%', padding: '0.4rem 0.75rem 0.4rem 2rem',
+            border: '1px solid #e2e8f0', borderRadius: '0.375rem',
+            fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box',
+            background: '#f8fafc'
+          }}
+        />
+        <span style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.75rem' }}>🔍</span>
+      </div>
+
+      <div style={{
+        border: '1px solid #e2e8f0', borderRadius: '0.5rem',
+        maxHeight: '14rem', overflowY: 'auto', background: '#f8fafc'
+      }}>
+        {visible.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0' }}>
+            {visible.map((permission, idx) => {
+              const key = extractKey(permission);
+              const isChecked = selectedPermissions.includes(key);
+              return (
+                <label
+                  key={key || idx}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
+                    padding: '0.5rem 0.75rem', cursor: 'pointer',
+                    background: isChecked ? '#eff6ff' : 'transparent',
+                    borderBottom: '1px solid #f1f5f9',
+                    transition: 'background 0.15s'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => onToggle(key)}
+                    style={{ marginTop: '0.125rem', accentColor: '#3b82f6', flexShrink: 0 }}
+                  />
+                  <span style={{ fontSize: '0.775rem', color: isChecked ? '#1d4ed8' : '#4b5563', lineHeight: '1.4' }}>
+                    {(permission as any).description || key}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <p style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.8125rem' }}>
+            {permSearch ? 'No permissions match your search' : 'No permissions available'}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const RoleManagementView = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -199,16 +309,6 @@ const RoleManagementView = () => {
     }
   };
 
-  const filteredPermissions = (list: Permission[]) =>
-    permSearch.trim()
-      ? list.filter(p => {
-          const key = extractKey(p).toLowerCase();
-          const desc = (p as any).description?.toLowerCase() ?? '';
-          const q = permSearch.toLowerCase();
-          return key.includes(q) || desc.includes(q);
-        })
-      : list;
-
   // Stats
   const totalRoles = roles.length;
   const adminRoles = roles.filter(r => r.name.toLowerCase().includes('admin')).length;
@@ -237,96 +337,6 @@ const RoleManagementView = () => {
       </div>
     );
   }
-
-  // ─── Permission Picker (shared between create & edit) ────────────────────────
-  const PermissionPicker = ({ list }: { list: Permission[] }) => {
-    const visible = filteredPermissions(list);
-    const allVisibleSelected = visible.length > 0 && visible.every(p => selectedPermissions.includes(extractKey(p)));
-
-    return (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-          <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#374151' }}>
-            Permissions
-            <span style={{
-              marginLeft: '0.5rem', padding: '0.1rem 0.5rem',
-              background: '#dbeafe', color: '#1d4ed8',
-              borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 700
-            }}>
-              {selectedPermissions.length} selected
-            </span>
-          </label>
-          <button
-            type="button"
-            onClick={() => toggleAllVisible(visible)}
-            style={{
-              fontSize: '0.7rem', color: '#3b82f6', background: 'none',
-              border: 'none', cursor: 'pointer', fontWeight: 600
-            }}
-          >
-            {allVisibleSelected ? 'Deselect visible' : 'Select all visible'}
-          </button>
-        </div>
-
-        {/* Search */}
-        <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
-          <input
-            type="text"
-            placeholder="Filter permissions…"
-            value={permSearch}
-            onChange={e => setPermSearch(e.target.value)}
-            style={{
-              width: '100%', padding: '0.4rem 0.75rem 0.4rem 2rem',
-              border: '1px solid #e2e8f0', borderRadius: '0.375rem',
-              fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box',
-              background: '#f8fafc'
-            }}
-          />
-          <span style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.75rem' }}>🔍</span>
-        </div>
-
-        <div style={{
-          border: '1px solid #e2e8f0', borderRadius: '0.5rem',
-          maxHeight: '14rem', overflowY: 'auto', background: '#f8fafc'
-        }}>
-          {visible.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0' }}>
-              {visible.map((permission, idx) => {
-                const key = extractKey(permission);
-                const isChecked = selectedPermissions.includes(key);
-                return (
-                  <label
-                    key={key || idx}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
-                      padding: '0.5rem 0.75rem', cursor: 'pointer',
-                      background: isChecked ? '#eff6ff' : 'transparent',
-                      borderBottom: '1px solid #f1f5f9',
-                      transition: 'background 0.15s'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => togglePermission(key)}
-                      style={{ marginTop: '0.125rem', accentColor: '#3b82f6', flexShrink: 0 }}
-                    />
-                    <span style={{ fontSize: '0.775rem', color: isChecked ? '#1d4ed8' : '#4b5563', lineHeight: '1.4' }}>
-                      {(permission as any).description || key}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          ) : (
-            <p style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.8125rem' }}>
-              {permSearch ? 'No permissions match your search' : 'No permissions available'}
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -430,7 +440,14 @@ const RoleManagementView = () => {
           <RoleForm
             roleName={roleName} setRoleName={setRoleName}
             roleDescription={roleDescription} setRoleDescription={setRoleDescription}
-            permissionPicker={<PermissionPicker list={availablePermissions} />}
+            permissionPicker={<PermissionPicker
+              list={availablePermissions}
+              permSearch={permSearch}
+              onSearchChange={setPermSearch}
+              selectedPermissions={selectedPermissions}
+              onToggle={togglePermission}
+              onToggleAll={toggleAllVisible}
+            />}
             onCancel={resetForm}
             onSubmit={handleCreateRole}
             submitLabel="Create Role"
@@ -444,7 +461,14 @@ const RoleManagementView = () => {
           <RoleForm
             roleName={roleName} setRoleName={setRoleName}
             roleDescription={roleDescription} setRoleDescription={setRoleDescription}
-            permissionPicker={<PermissionPicker list={availablePermissions} />}
+            permissionPicker={<PermissionPicker
+              list={availablePermissions}
+              permSearch={permSearch}
+              onSearchChange={setPermSearch}
+              selectedPermissions={selectedPermissions}
+              onToggle={togglePermission}
+              onToggleAll={toggleAllVisible}
+            />}
             onCancel={resetForm}
             onSubmit={handleUpdateRole}
             submitLabel="Save Changes"

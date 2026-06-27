@@ -333,6 +333,107 @@ class ShiftSchedulingService {
     }
   }
 
+  async updateTimeOffBank(id: number, data: Partial<CreateTimeOffBankRequest>) {
+    try {
+      const response = await apiServices.updateTimeOffBank(id, data);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error updating time off bank:', error.message);
+      throw error;
+    }
+  }
+
+  async deleteTimeOffBank(id: number) {
+    try {
+      const response = await apiServices.deleteTimeOffBank(id);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error deleting time off bank:', error.message);
+      throw error;
+    }
+  }
+
+  async bulkAssignTimeOffBanks(data: { user_ids: number[]; program_name: string; description?: string; total_entitled_days: number; valid_from: string; valid_to: string }) {
+    try {
+      const response = await apiServices.bulkAssignTimeOffBanks(data);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error bulk assigning time off banks:', error.message);
+      throw error;
+    }
+  }
+
+  // Time Off Program methods
+  async getTimeOffPrograms(params?: { search?: string; page?: number; limit?: number }) {
+    try {
+      const response = await apiServices.getTimeOffPrograms(params);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error fetching programs:', error.message);
+      throw error;
+    }
+  }
+
+  async createTimeOffProgram(data: { program_name: string; description?: string; total_entitled_days: number; valid_from: string; valid_to: string }) {
+    try {
+      const response = await apiServices.createTimeOffProgram(data);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error creating program:', error.message);
+      throw error;
+    }
+  }
+
+  async updateTimeOffProgram(id: number, data: Partial<{ program_name: string; description: string; total_entitled_days: number; valid_from: string; valid_to: string }>) {
+    try {
+      const response = await apiServices.updateTimeOffProgram(id, data);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error updating program:', error.message);
+      throw error;
+    }
+  }
+
+  async deleteTimeOffProgram(id: number) {
+    try {
+      const response = await apiServices.deleteTimeOffProgram(id);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error deleting program:', error.message);
+      throw error;
+    }
+  }
+
+  async getProgramAssignments(programId: number) {
+    try {
+      const response = await apiServices.getProgramAssignments(programId);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error fetching assignments:', error.message);
+      throw error;
+    }
+  }
+
+  async assignEmployeesToProgram(programId: number, data: { user_ids: number[] }) {
+    try {
+      const response = await apiServices.assignEmployeesToProgram(programId, data);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error assigning employees:', error.message);
+      throw error;
+    }
+  }
+
+  async removeEmployeeFromProgram(programId: number, userId: number) {
+    try {
+      const response = await apiServices.removeEmployeeFromProgram(programId, userId);
+      return response;
+    } catch (error: any) {
+      console.error('[ShiftService] Error removing employee:', error.message);
+      throw error;
+    }
+  }
+
   async getAllShiftExceptions(params?: { startDate?: string; endDate?: string; }) {
     try {
       console.log('[ShiftService] Fetching all shift exceptions...', params);
