@@ -315,6 +315,7 @@ const SettingsView = () => {
   });
   const [globalSettingsLoading, setGlobalSettingsLoading] = useState(false);
   const [globalSettingsSaving, setGlobalSettingsSaving] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
   const [workingDays, setWorkingDays] = useState<any[]>([
     { day_of_week: 'monday',    is_working_day: true,  start_time: '08:00', end_time: '17:00', break_duration_minutes: 30 },
     { day_of_week: 'tuesday',   is_working_day: true,  start_time: '08:00', end_time: '17:00', break_duration_minutes: 30 },
@@ -445,6 +446,29 @@ const SettingsView = () => {
       setError(err.message || 'An error occurred');
     } finally {
       setGlobalSettingsSaving(false);
+    }
+  };
+
+  const handleReprocessLastSaturday = async () => {
+    setReprocessing(true); setError(null);
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) { setError('Not authenticated'); return; }
+      const response = await fetch(`${API_ENDPOINT}/attendance/settings/reprocess-last-saturday`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSuccessMessage(data.message);
+        setTimeout(() => setSuccessMessage(null), 4000);
+      } else {
+        setError(data.message || 'Failed to reprocess');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setReprocessing(false);
     }
   };
 
@@ -725,6 +749,59 @@ const SettingsView = () => {
             </Section>
 
             <SaveBar onSave={handleSaveAutoMarkSettings} loading={loading} disabled={branchSettingsLoading}/>
+          </div>
+        </div>
+      )}
+
+      {/* ── Global Tab ─────────────────────────────────────────── */}
+      {activeTab === 'global' && (
+        <div style={card}>
+          <div style={{ padding: '1rem 1.25rem', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div style={{ width: '2rem', height: '2rem', borderRadius: '7px', background: T.primaryPale, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Settings size={14} color={T.primary}/>
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Global Attendance Settings</h3>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: T.textMuted }}>Configure global defaults and special rules</p>
+            </div>
+          </div>
+
+          <div style={{ padding: '1.25rem' }}>
+            {globalSettingsLoading ? (
+              <p style={{ textAlign: 'center', padding: '2rem', color: T.textMuted, fontSize: '0.875rem' }}>Loading global settings...</p>
+            ) : (
+              <>
+                <Section title="Last Saturday Resumption Time" desc="Set the resumption time for Saturdays. Changing this will automatically recalculate attendance for past Saturdays.">
+                  <Field label="Resumption time" hint="Time staff must check in on Saturdays">
+                    <input
+                      type="time"
+                      value={globalSettings.last_saturday_resumption_time}
+                      onChange={e => setGlobalSettings({ ...globalSettings, last_saturday_resumption_time: e.target.value })}
+                      style={{ ...inputS, maxWidth: '200px' }}
+                    />
+                  </Field>
+                </Section>
+
+                <div style={{ borderTop: `1px solid ${T.border}`, margin: '1.25rem 0' }} />
+
+                <Section title="Reprocess Last Saturday" desc="Recalculate attendance for the most recent Saturday using the current resumption time.">
+                  <button
+                    onClick={handleReprocessLastSaturday}
+                    disabled={reprocessing}
+                    style={{
+                      ...btnPrimary,
+                      opacity: reprocessing ? 0.6 : 1,
+                      display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                    }}
+                  >
+                    <Clock size={14} />
+                    {reprocessing ? 'Reprocessing...' : 'Reprocess Last Saturday'}
+                  </button>
+                </Section>
+
+                <SaveBar onSave={handleSaveGlobalSettings} loading={globalSettingsSaving} disabled={globalSettingsLoading}/>
+              </>
+            )}
           </div>
         </div>
       )}
