@@ -40,6 +40,7 @@ export interface GlobalAttendanceSettings {
   notify_absent_employees: boolean;
   notify_supervisors_daily_summary: boolean;
   enable_weekend_attendance: boolean;
+  last_saturday_resumption_time: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -75,6 +76,7 @@ export interface UpdateGlobalSettingsRequest {
     notify_absent_employees?: boolean;
     notify_supervisors_daily_summary?: boolean;
     enable_weekend_attendance?: boolean;
+    last_saturday_resumption_time?: string;
   };
 }
 
