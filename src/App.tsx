@@ -57,7 +57,8 @@ import {
   UserCheck,
   HelpCircle,
   Umbrella,
-  Gift
+  Gift,
+  History
 } from "lucide-react";
 import { Login } from "./components/Login";
 import { ForgotPasswordView } from "./components/ForgotPasswordView";
@@ -73,6 +74,8 @@ import { getAllStaff } from "./services/staffManagementService";
 import { createLeaveRequest, getAllLeaveTypes } from "./services/leaveManagementService";
 import HelpView from "./components/HelpView";
 import { ProfileReminderView } from "./components/ProfileReminderView";
+import { BranchTimeMappingView } from "./components/BranchTimeMappingView";
+import { AuditTrailView } from "./components/AuditTrailView";
 
 interface SidebarProps {
   activeView: string;
@@ -275,6 +278,24 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
               >
                 <Mail className="w-4 h-4" />
                 <span>Send Reminder</span>
+              </button>
+            </li>
+            <li className="sidebar-menu-item">
+              <button
+                onClick={() => onNavigate("branch-time-mapping")}
+                className={`sidebar-menu-button ${activeView === "branch-time-mapping" ? "active" : ""}`}
+              >
+                <Clock className="w-4 h-4" />
+                <span>Branch Time Mapping</span>
+              </button>
+            </li>
+            <li className="sidebar-menu-item">
+              <button
+                onClick={() => onNavigate("audit-trail")}
+                className={`sidebar-menu-button ${activeView === "audit-trail" ? "active" : ""}`}
+              >
+                <History className="w-4 h-4" />
+                <span>Audit Trail</span>
               </button>
             </li>
             <li className="sidebar-menu-item">
@@ -801,6 +822,10 @@ export default function App() {
 
       case "profile-reminder":
         return <ProfileReminderView />;
+      case "branch-time-mapping":
+        return <BranchTimeMappingView />;
+      case "audit-trail":
+        return <AuditTrailView />;
 
       default:
         return null;
@@ -945,6 +970,16 @@ export default function App() {
         return {
           title: "Profile Reminder",
           subtitle: "Send profile completion and password change reminders to staff"
+        };
+      case "branch-time-mapping":
+        return {
+          title: "Branch Time Mapping",
+          subtitle: "Assign staff or departments to use a specific branch's resumption time"
+        };
+      case "audit-trail":
+        return {
+          title: "Audit Trail",
+          subtitle: "View all changes made across the system"
         };
       default:
         return {

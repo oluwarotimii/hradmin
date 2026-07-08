@@ -21,6 +21,7 @@ import ProcessAttendanceModal from './ProcessAttendanceModal';
 import { holidayService } from '../services/holidayService';
 import { AutoMarkSettingsModal } from './AutoMarkSettingsModal';
 import { getLockStatus } from '../services/attendanceSettingsService';
+import { useAuth } from '../AuthContext';
 // Calendar view temporarily disabled - focusing on list view functionality
 // import AttendanceCalendarWrapper from './AttendanceCalendarWrapper';
 import {
@@ -49,6 +50,8 @@ interface AttendanceWithStaff extends AttendanceRecord {
 }
 
 const AttendanceView = () => {
+  const { hasPermission } = useAuth();
+  const colSpanCount = 7 + (hasPermission('attendance:manage') ? 2 : 0);
   // Calendar view temporarily disabled
   const [activeView, setActiveView] = useState<'list'>('list');
   // const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
@@ -697,21 +700,24 @@ const AttendanceView = () => {
             <Lock className="w-4 h-4 mr-2" />
             Auto-Mark Settings
           </button>
-          {/* Commented out - Admin only functions */}
-          {/* <button
-            className="btn btn-primary"
-            onClick={() => setShowProcessModal(true)}
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Process Attendance
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowManualAttendanceModal(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Manual Entry
-          </button> */}
+          {hasPermission('attendance:manage') && (
+            <>
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowProcessModal(true)}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Process Attendance
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowManualAttendanceModal(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Manual Entry
+              </button>
+            </>
+          )}
           <button
             className="btn btn-outline"
             onClick={loadData}
@@ -953,21 +959,22 @@ const AttendanceView = () => {
           <table className="table min-w-full">
             <thead className="table-header">
               <tr>
-                {/* Commented out checkbox column (Admin only) */}
-                {/* <th className="table-header-cell" style={{ width: '40px' }}>
-                  <input
-                    type="checkbox"
-                    className="checkbox"
-                    checked={selectedRecords.length === filteredRecords.length && filteredRecords.length > 0}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedRecords(filteredRecords.map(r => r.id));
-                      } else {
-                        setSelectedRecords([]);
-                      }
-                    }}
-                  />
-                </th> */}
+                {hasPermission('attendance:manage') && (
+                  <th className="table-header-cell" style={{ width: '40px' }}>
+                    <input
+                      type="checkbox"
+                      className="checkbox"
+                      checked={selectedRecords.length === filteredRecords.length && filteredRecords.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedRecords(filteredRecords.map(r => r.id));
+                        } else {
+                          setSelectedRecords([]);
+                        }
+                      }}
+                    />
+                  </th>
+                )}
                 <th className="table-header-cell whitespace-nowrap">Employee</th>
                 <th className="table-header-cell whitespace-nowrap">Date</th>
                 <th className="table-header-cell whitespace-nowrap">Check-in</th>
@@ -975,14 +982,15 @@ const AttendanceView = () => {
                 <th className="table-header-cell whitespace-nowrap">Hours Worked</th>
                 <th className="table-header-cell whitespace-nowrap">Status</th>
                 <th className="table-header-cell whitespace-nowrap">Branch</th>
-                {/* Commented out Actions column (Admin only) */}
-                {/* <th className="table-header-cell right whitespace-nowrap">Actions</th> */}
+                {hasPermission('attendance:manage') && (
+                  <th className="table-header-cell right whitespace-nowrap">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={colSpanCount} className="px-6 py-12 text-center">
                     <div className="flex justify-center items-center gap-2">
                       <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
                       <span className="text-gray-600">Loading attendance records...</span>
@@ -991,7 +999,7 @@ const AttendanceView = () => {
                 </tr>
               ) : filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={colSpanCount} className="px-6 py-12 text-center">
                     <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
                       <Calendar className="w-8 h-8 text-blue-500" />
                     </div>
@@ -1002,21 +1010,22 @@ const AttendanceView = () => {
               ) : (
                 filteredRecords.map((record) => (
                   <tr key={record.id} className="table-row">
-                    {/* Commented out checkbox (Admin only) */}
-                    {/* <td className="table-cell">
-                      <input
-                        type="checkbox"
-                        className="checkbox"
-                        checked={selectedRecords.includes(record.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedRecords([...selectedRecords, record.id]);
-                          } else {
-                            setSelectedRecords(selectedRecords.filter(id => id !== record.id));
-                          }
-                        }}
-                      />
-                    </td> */}
+                    {hasPermission('attendance:manage') && (
+                      <td className="table-cell">
+                        <input
+                          type="checkbox"
+                          className="checkbox"
+                          checked={selectedRecords.includes(record.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedRecords([...selectedRecords, record.id]);
+                            } else {
+                              setSelectedRecords(selectedRecords.filter(id => id !== record.id));
+                            }
+                          }}
+                        />
+                      </td>
+                    )}
                     <td className="table-cell">
                       <div>
                         <p style={{ fontWeight: 500 }}>{record.staff_name || `User ${record.user_id}`}</p>
@@ -1060,32 +1069,33 @@ const AttendanceView = () => {
                     <td className="table-cell">
                       <span className="text-sm">{record.branch_name || '-'}</span>
                     </td>
-                    {/* Commented out action buttons (Admin only) */}
-                    {/* <td className="table-cell right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openDetailsModal(record)}
-                          className="btn btn-sm btn-outline"
-                          title="View details"
-                        >
-                          <Search className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(record)}
-                          className="btn btn-sm btn-outline green"
-                          title="Edit record"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(record)}
-                          className="btn btn-sm btn-outline red"
-                          title="Delete record"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </td> */}
+                    {hasPermission('attendance:manage') && (
+                      <td className="table-cell right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openDetailsModal(record)}
+                            className="btn btn-sm btn-outline"
+                            title="View details"
+                          >
+                            <Search className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(record)}
+                            className="btn btn-sm btn-outline green"
+                            title="Edit record"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => openDeleteModal(record)}
+                            className="btn btn-sm btn-outline red"
+                            title="Delete record"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
