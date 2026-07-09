@@ -814,14 +814,14 @@ const SettingsView = () => {
 
       {/* ── Branch Mapping Tab ──────────────────────────────────── */}
       {activeTab === 'branch-mapping' && (
-        <div key={mappingKey}>
+        <div key={mappingKey} style={card}>
           <BranchTimeMappingView />
         </div>
       )}
 
       {/* ── Reminders Tab ──────────────────────────────────────── */}
       {activeTab === 'reminders' && (
-        <div key={reminderKey}>
+        <div key={reminderKey} style={card}>
           <ProfileReminderView />
         </div>
       )}
