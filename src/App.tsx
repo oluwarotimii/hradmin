@@ -73,8 +73,6 @@ import { useAuth } from "./AuthContext";
 import { getAllStaff } from "./services/staffManagementService";
 import { createLeaveRequest, getAllLeaveTypes } from "./services/leaveManagementService";
 import HelpView from "./components/HelpView";
-import { ProfileReminderView } from "./components/ProfileReminderView";
-import { BranchTimeMappingView } from "./components/BranchTimeMappingView";
 import { AuditTrailView } from "./components/AuditTrailView";
 
 interface SidebarProps {
@@ -269,24 +267,6 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
               >
                 <Settings className="w-4 h-4" />
                 <span>Settings</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("profile-reminder")}
-                className={`sidebar-menu-button ${activeView === "profile-reminder" ? "active" : ""}`}
-              >
-                <Mail className="w-4 h-4" />
-                <span>Send Reminder</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("branch-time-mapping")}
-                className={`sidebar-menu-button ${activeView === "branch-time-mapping" ? "active" : ""}`}
-              >
-                <Clock className="w-4 h-4" />
-                <span>Branch Time Mapping</span>
               </button>
             </li>
             <li className="sidebar-menu-item">
@@ -820,10 +800,6 @@ export default function App() {
       case "staff-location-assignments":
         return <StaffLocationAssignmentView />;
 
-      case "profile-reminder":
-        return <ProfileReminderView />;
-      case "branch-time-mapping":
-        return <BranchTimeMappingView />;
       case "audit-trail":
         return <AuditTrailView />;
 
@@ -965,16 +941,6 @@ export default function App() {
         return {
           title: "Staff Location Assignments",
           subtitle: "Assign specific attendance locations to staff members"
-        };
-      case "profile-reminder":
-        return {
-          title: "Profile Reminder",
-          subtitle: "Send profile completion and password change reminders to staff"
-        };
-      case "branch-time-mapping":
-        return {
-          title: "Branch Time Mapping",
-          subtitle: "Assign staff or departments to use a specific branch's resumption time"
         };
       case "audit-trail":
         return {
