@@ -13,9 +13,11 @@ import {
   updateLeavePolicy,
 } from '../services/leavePolicyService';
 import { getAllBranches, Branch } from '../services/branchManagementService';
+import { BranchTimeMappingView } from './BranchTimeMappingView';
+import { ProfileReminderView } from './ProfileReminderView';
 import {
   Settings, Clock, Save, AlertCircle, MapPin, Timer, CheckCircle, X,
-  Building, ChevronDown, Info, Calendar
+  Building, ChevronDown, Info, Calendar, Mail, Users
 } from 'lucide-react';
 import axios from 'axios';
 import { API_ENDPOINT } from '../config/config';
@@ -282,7 +284,7 @@ const BranchSelect = ({
 
 // ─── Main component ───────────────────────────────────────────────────────
 const SettingsView = () => {
-  const [activeTab, setActiveTab] = useState<'attendance' | 'working-days' | 'auto-mark' | 'leave-policy'>('attendance');
+  const [activeTab, setActiveTab] = useState<'attendance' | 'working-days' | 'auto-mark' | 'leave-policy' | 'global' | 'branch-mapping' | 'reminders'>('attendance');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -491,11 +493,13 @@ const SettingsView = () => {
   };
 
   const tabs = [
-    { key: 'attendance',   label: 'Attendance',    icon: Settings },
-    { key: 'working-days', label: 'Working Days',  icon: Clock    },
-    { key: 'auto-mark',    label: 'Auto-Mark',     icon: Timer    },
-    { key: 'leave-policy', label: 'Leave Policy',  icon: Calendar },
-    { key: 'global',       label: 'Global',         icon: Settings },
+    { key: 'attendance',    label: 'Attendance',       icon: Settings },
+    { key: 'working-days',  label: 'Working Days',     icon: Clock    },
+    { key: 'auto-mark',     label: 'Auto-Mark',        icon: Timer    },
+    { key: 'leave-policy',  label: 'Leave Policy',     icon: Calendar },
+    { key: 'global',        label: 'Global',            icon: Settings },
+    { key: 'branch-mapping', label: 'Branch Mapping',  icon: Building  },
+    { key: 'reminders',     label: 'Reminders',         icon: Mail     },
   ];
 
   return (
@@ -803,6 +807,20 @@ const SettingsView = () => {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Branch Mapping Tab ──────────────────────────────────── */}
+      {activeTab === 'branch-mapping' && (
+        <div key={mappingKey}>
+          <BranchTimeMappingView />
+        </div>
+      )}
+
+      {/* ── Reminders Tab ──────────────────────────────────────── */}
+      {activeTab === 'reminders' && (
+        <div key={reminderKey}>
+          <ProfileReminderView />
         </div>
       )}
     </div>
