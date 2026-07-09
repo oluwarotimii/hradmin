@@ -1,6 +1,103 @@
 import { useState, useEffect } from 'react';
 import { getEligibleStaff, sendReminder, EligibleStaff } from '../services/profileReminderService';
-import { Mail, Send, AlertCircle, CheckCircle, XCircle, RefreshCw, Users, KeyRound, Loader2 } from 'lucide-react';
+import { Mail, Send, AlertCircle, CheckCircle, XCircle, RefreshCw, Users, KeyRound } from 'lucide-react';
+
+const T = {
+  primary:       '#1e40af',
+  primaryLight:  '#3b82f6',
+  primaryPale:   '#eff6ff',
+  primaryBorder: '#bfdbfe',
+  success:       '#059669',
+  successPale:   '#ecfdf5',
+  successBorder: '#a7f3d0',
+  warning:       '#d97706',
+  warningPale:   '#fffbeb',
+  warningBorder: '#fde68a',
+  danger:        '#dc2626',
+  dangerPale:    '#fef2f2',
+  dangerBorder:  '#fecaca',
+  surface:       '#ffffff',
+  surfaceAlt:    '#f8fafc',
+  surfaceMuted:  '#f1f5f9',
+  border:        '#e2e8f0',
+  borderStrong:  '#cbd5e1',
+  text:          '#0f172a',
+  textSub:       '#475569',
+  textMuted:     '#94a3b8',
+};
+
+const card: React.CSSProperties = {
+  background: T.surface,
+  border: `1px solid ${T.border}`,
+  borderRadius: '14px',
+  boxShadow: '0 1px 4px rgba(15,23,42,0.06)',
+};
+
+const inputS: React.CSSProperties = {
+  width: '100%',
+  padding: '0.575rem 0.875rem',
+  border: `1.5px solid ${T.border}`,
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  color: T.text,
+  background: T.surface,
+  outline: 'none',
+  fontFamily: 'inherit',
+  transition: 'border-color 0.15s, box-shadow 0.15s',
+  boxSizing: 'border-box' as const,
+};
+
+const labelS: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.78rem',
+  fontWeight: 700,
+  color: T.textSub,
+  marginBottom: '0.4rem',
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase',
+};
+
+const btnPrimary: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.45rem',
+  padding: '0.575rem 1.1rem',
+  background: T.primary,
+  color: '#fff',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  fontWeight: 600,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  transition: 'background 0.13s',
+  boxShadow: `0 1px 3px rgba(30,64,175,0.28)`,
+  whiteSpace: 'nowrap' as const,
+  justifyContent: 'center',
+};
+
+const btnGhost: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.45rem',
+  padding: '0.5rem',
+  background: 'transparent',
+  color: T.textMuted,
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: '0.875rem',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  transition: 'background 0.13s',
+};
+
+const hintS: React.CSSProperties = {
+  margin: '0.3rem 0 0',
+  fontSize: '0.75rem',
+  color: T.textMuted,
+  lineHeight: 1.5,
+};
 
 export function ProfileReminderView() {
   const [eligibleStaff, setEligibleStaff] = useState<EligibleStaff[]>([]);
@@ -58,176 +155,177 @@ export function ProfileReminderView() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-50">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Eligible</p>
-              <p className="text-2xl font-bold">{loading ? '-' : totalStats.total}</p>
-            </div>
-          </div>
+    <div>
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <div style={{ padding: '1rem 1.25rem', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ width: '2rem', height: '2rem', borderRadius: '7px', background: T.primaryPale, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Mail size={14} color={T.primary}/>
         </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-50">
-              <KeyRound className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Must Change Password</p>
-              <p className="text-2xl font-bold">{loading ? '-' : totalStats.must_change_password_count}</p>
-            </div>
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-50">
-              <AlertCircle className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Incomplete Profile</p>
-              <p className="text-2xl font-bold">{loading ? '-' : totalStats.incomplete_profile_count}</p>
-            </div>
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-50">
-              <Mail className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Overlap</p>
-              <p className="text-2xl font-bold text-gray-400">—</p>
-            </div>
-          </div>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Profile Reminders</h3>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: T.textMuted }}>Send email reminders to staff with incomplete profiles or pending password changes</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Email Editor */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            Email Content
-          </h2>
-          <div className="space-y-4">
+      <div style={{ padding: '1.25rem' }}>
+        {/* ── Stats Cards ─────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <div style={{ ...card, padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', border: `1px solid ${T.border}` }}>
+            <div style={{ width: '2.2rem', height: '2.2rem', borderRadius: '8px', background: T.primaryPale, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Users size={14} color={T.primary} />
+            </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+              <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Eligible</p>
+              <p style={{ margin: '0.1rem 0 0', fontSize: '1.5rem', fontWeight: 800, color: T.text }}>{loading ? '-' : totalStats.total}</p>
+            </div>
+          </div>
+
+          <div style={{ ...card, padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', border: `1px solid ${T.border}` }}>
+            <div style={{ width: '2.2rem', height: '2.2rem', borderRadius: '8px', background: T.dangerPale, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <KeyRound size={14} color={T.danger} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Must Change Password</p>
+              <p style={{ margin: '0.1rem 0 0', fontSize: '1.5rem', fontWeight: 800, color: T.text }}>{loading ? '-' : totalStats.must_change_password_count}</p>
+            </div>
+          </div>
+
+          <div style={{ ...card, padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', border: `1px solid ${T.border}` }}>
+            <div style={{ width: '2.2rem', height: '2.2rem', borderRadius: '8px', background: T.warningPale, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <AlertCircle size={14} color={T.warning} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Incomplete Profile</p>
+              <p style={{ margin: '0.1rem 0 0', fontSize: '1.5rem', fontWeight: 800, color: T.text }}>{loading ? '-' : totalStats.incomplete_profile_count}</p>
+            </div>
+          </div>
+
+          <div style={{ ...card, padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', border: `1px solid ${T.border}` }}>
+            <div style={{ width: '2.2rem', height: '2.2rem', borderRadius: '8px', background: T.successPale, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Mail size={14} color={T.success} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Overlap</p>
+              <p style={{ margin: '0.1rem 0 0', fontSize: '1.5rem', fontWeight: 800, color: T.textMuted }}>—</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Main Content Grid ───────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+          {/* ── Left: Email Editor ────────────────────────────────── */}
+          <div style={{ ...card, border: `1px solid ${T.border}`, padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <Mail size={14} color={T.primary} />
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: T.text }}>Email Content</p>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={labelS}>Subject</label>
               <input
                 type="text"
-                className="input w-full"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
                 placeholder="Email subject"
+                style={inputS}
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Message Body <span className="text-gray-400 font-normal">(HTML supported)</span>
+              <label style={labelS}>
+                Message Body <span style={{ fontWeight: 400, color: T.textMuted }}>(HTML supported)</span>
               </label>
-              <p className="text-xs text-gray-400 mb-2">
+              <p style={{ ...hintS, marginBottom: '0.5rem' }}>
                 Available variables: {'{{name}}'}, {'{{email}}'}, {'{{reason}}'}
               </p>
               <textarea
-                className="input w-full font-mono text-sm"
-                rows={16}
                 value={message}
                 onChange={e => setMessage(e.target.value)}
                 placeholder="Email body (HTML)"
-                style={{ resize: 'vertical' }}
+                rows={18}
+                style={{ ...inputS, resize: 'vertical', fontFamily: "'DM Sans','Geist',system-ui,sans-serif", fontSize: '0.82rem', lineHeight: 1.6 }}
               />
             </div>
           </div>
-        </div>
 
-        {/* Preview & Send */}
-        <div className="space-y-6">
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Eligible Staff ({eligibleStaff.length})
-              </h2>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={fetchEligibleStaff}
-                disabled={loading}
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
+          {/* ── Right: Staff List + Send ──────────────────────────── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ ...card, border: `1px solid ${T.border}`, padding: '1.25rem', flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Users size={14} color={T.textSub} />
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: T.text }}>
+                    Eligible Staff
+                    {!loading && <span style={{ fontWeight: 500, color: T.textMuted, fontSize: '0.82rem' }}> ({eligibleStaff.length})</span>}
+                  </p>
+                </div>
+                <button onClick={fetchEligibleStaff} disabled={loading} style={btnGhost} title="Refresh">
+                  <RefreshCw size={14} style={loading ? { animation: 'sv-spin 0.7s linear infinite' } : undefined} />
+                </button>
+              </div>
 
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-              </div>
-            ) : eligibleStaff.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-400" />
-                <p>All staff have complete profiles and have changed their password.</p>
-              </div>
-            ) : (
-              <div className="max-h-96 overflow-y-auto space-y-1">
-                {eligibleStaff.map(staff => (
-                  <div
-                    key={staff.id}
-                    className="flex items-center justify-between p-2 rounded hover:bg-gray-50 text-sm"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        staff.must_change_password ? 'bg-red-400' : 'bg-amber-400'
-                      }`} />
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{staff.full_name}</p>
-                        <p className="text-xs text-gray-400 truncate">{staff.email}</p>
+              {loading ? (
+                <div style={{ padding: '2rem', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: T.textMuted, fontSize: '0.875rem' }}>
+                  <div style={{ width: 16, height: 16, border: `2px solid ${T.primaryBorder}`, borderTopColor: T.primary, borderRadius: '50%', animation: 'sv-spin 0.7s linear infinite' }}/>
+                  Loading staff...
+                </div>
+              ) : eligibleStaff.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center' }}>
+                  <CheckCircle size={40} color={T.successBorder} style={{ margin: '0 auto 0.75rem' }} />
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: T.textSub, fontWeight: 500 }}>All staff have complete profiles</p>
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.78rem', color: T.textMuted }}>No reminders need to be sent at this time.</p>
+                </div>
+              ) : (
+                <div style={{ maxHeight: 340, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {eligibleStaff.map(staff => (
+                    <div key={staff.id}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.65rem', borderRadius: '8px', background: T.surfaceAlt, fontSize: '0.82rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: staff.must_change_password ? T.danger : T.warning }} />
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{staff.full_name}</p>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: T.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{staff.email}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0, marginLeft: '0.5rem' }}>
+                        {staff.must_change_password && (
+                          <span style={{ fontSize: '0.68rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '4px', background: T.dangerPale, color: T.danger, border: `1px solid ${T.dangerBorder}` }}>Password</span>
+                        )}
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: staff.profile_completion < 50 ? T.warning : T.success }}>
+                          {staff.profile_completion}%
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                      {staff.must_change_password && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600">Password</span>
-                      )}
-                      <span className={`text-xs font-medium ${
-                        staff.profile_completion < 50 ? 'text-amber-600' : 'text-green-600'
-                      }`}>
-                        {staff.profile_completion}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Result toast */}
+            {result && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', padding: '0.75rem 1rem', borderRadius: '10px', background: result.type === 'success' ? T.successPale : T.dangerPale, border: `1px solid ${result.type === 'success' ? T.successBorder : T.dangerBorder}` }}>
+                {result.type === 'success'
+                  ? <CheckCircle size={15} color={T.success} style={{ flexShrink: 0, marginTop: 1 }} />
+                  : <XCircle size={15} color={T.danger} style={{ flexShrink: 0, marginTop: 1 }} />}
+                <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 500, color: result.type === 'success' ? '#065f46' : '#7f1d1d' }}>{result.message}</p>
               </div>
             )}
-          </div>
 
-          {result && (
-            <div className={`p-4 rounded-lg flex items-start gap-3 ${
-              result.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-            }`}>
-              {result.type === 'success' ? (
-                <CheckCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+            <button
+              onClick={handleSend}
+              disabled={sending || loading || eligibleStaff.length === 0}
+              style={{ ...btnPrimary, width: '100%', opacity: (sending || loading || eligibleStaff.length === 0) ? 0.65 : 1, cursor: (sending || loading || eligibleStaff.length === 0) ? 'not-allowed' : 'pointer' }}
+            >
+              {sending ? (
+                <><div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'sv-spin 0.7s linear infinite' }}/> Sending...</>
               ) : (
-                <XCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <><Send size={14}/> Send Reminder{eligibleStaff.length > 0 ? ` (${eligibleStaff.length})` : ''}</>
               )}
-              <p className="text-sm">{result.message}</p>
-            </div>
-          )}
-
-          <button
-            className="btn btn-primary w-full flex items-center justify-center gap-2"
-            onClick={handleSend}
-            disabled={sending || loading || eligibleStaff.length === 0}
-          >
-            {sending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            {sending ? 'Sending...' : `Send Reminder${eligibleStaff.length > 0 ? ` (${eligibleStaff.length})` : ''}`}
-          </button>
+            </button>
+          </div>
         </div>
+
+        <style>{`@keyframes sv-spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     </div>
   );
