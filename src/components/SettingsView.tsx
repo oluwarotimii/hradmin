@@ -318,6 +318,8 @@ const SettingsView = () => {
   const [globalSettingsLoading, setGlobalSettingsLoading] = useState(false);
   const [globalSettingsSaving, setGlobalSettingsSaving] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
+  const [mappingKey, setMappingKey] = useState(0);
+  const [reminderKey, setReminderKey] = useState(0);
   const [workingDays, setWorkingDays] = useState<any[]>([
     { day_of_week: 'monday',    is_working_day: true,  start_time: '08:00', end_time: '17:00', break_duration_minutes: 30 },
     { day_of_week: 'tuesday',   is_working_day: true,  start_time: '08:00', end_time: '17:00', break_duration_minutes: 30 },
