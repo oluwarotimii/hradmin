@@ -55,6 +55,8 @@ export interface PaginationParams {
   limit?: number;
   userId?: number;
   leaveTypeId?: number;
+  search?: string;
+  year?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -145,6 +147,8 @@ export const getAllAllocations = async (params?: PaginationParams): Promise<{
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.userId) queryParams.append('userId', params.userId.toString());
     if (params?.leaveTypeId) queryParams.append('leaveTypeId', params.leaveTypeId.toString());
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.year) queryParams.append('year', params.year.toString());
 
     const url = `${LEAVE_BASE}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     
