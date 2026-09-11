@@ -338,6 +338,13 @@ export default function App() {
   // Cached staff data for search
   const [cachedStaffData, setCachedStaffData] = useState<any[]>([]);
   
+  // Initialize axios interceptors — must run before any other mount effect
+  // below issues a request, otherwise those first calls go out without the
+  // Authorization header attached and can spuriously 401.
+  useEffect(() => {
+    setupAxiosInterceptors();
+  }, []);
+
   // Fetch staff data for search on mount
   useEffect(() => {
     const fetchStaffForSearch = async () => {
@@ -380,11 +387,6 @@ export default function App() {
       setIsSystemInitialized(false);
     }
   };
-
-  // Initialize axios interceptors
-  useEffect(() => {
-    setupAxiosInterceptors();
-  }, []);
 
   // Check system initialization status on mount
   useEffect(() => {

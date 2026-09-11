@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, Lock, AlertTriangle, Save, History, Calendar, CheckCircle2, X } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   updateAutoMarkSettings,
   getLockStatus,
@@ -94,11 +95,11 @@ export const AutoMarkSettingsModal: React.FC<AutoMarkSettingsModalProps> = ({
         onSuccess();
         onClose();
       } else {
-        alert(response.message || 'Failed to save settings');
+        toast.error(response.message || 'Failed to save settings');
       }
     } catch (error) {
       console.error('Failed to save auto-mark settings:', error);
-      alert('Failed to save settings');
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -106,7 +107,7 @@ export const AutoMarkSettingsModal: React.FC<AutoMarkSettingsModalProps> = ({
 
   const handleLockDate = async () => {
     if (!lockDate) {
-      alert('Please select a date to lock');
+      toast.error('Please select a date to lock');
       return;
     }
 
@@ -119,17 +120,17 @@ export const AutoMarkSettingsModal: React.FC<AutoMarkSettingsModalProps> = ({
       });
 
       if (response.success) {
-        alert(`Successfully locked ${response.data?.locked_count} attendance records for ${lockDate}`);
+        toast.success(`Successfully locked ${response.data?.locked_count} attendance records for ${lockDate}`);
         setLockDate('');
         setLockReason('');
         await fetchLockStatus();
         onSuccess();
       } else {
-        alert(response.message || 'Failed to lock attendance');
+        toast.error(response.message || 'Failed to lock attendance');
       }
     } catch (error) {
       console.error('Failed to lock attendance:', error);
-      alert('Failed to lock attendance');
+      toast.error('Failed to lock attendance');
     } finally {
       setLocking(false);
     }

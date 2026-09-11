@@ -1468,3 +1468,93 @@ export const deleteShiftTiming = async (timingId: number): Promise<{ success: bo
     };
   }
 };
+
+export interface AttendanceLeaderboardEntry {
+  user_id: number;
+  full_name: string;
+  employee_id: string | null;
+  branch_id: number | null;
+  branch_name: string | null;
+  total_days: number;
+  present_days: number;
+  absent_days: number;
+  late_days: number;
+  half_day_days: number;
+  leave_days: number;
+  early_departure_days: number;
+  points: number;
+  rank: number;
+}
+
+// Downloads the attendance report (summary + leaderboard) for a date range,
+// optionally scoped to a branch, as a CSV/PDF/Excel file. Requires the
+// attendance:export permission (HR/Manager/Admin, not a plain Employee).
+export const exportAttendanceReport = async (
+  startDate: string,
+  endDate: string,
+  format: 'csv' | 'pdf' | 'excel',
+  branchId?: number
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, message: 'Authentication token not found. Please log in again.' };
+    }
+
+    const params = new URLSearchParams({ startDate, endDate, format });
+    if (branchId) params.append('branchId', String(branchId));
+
+    const response = await axios.get(`${API_ENDPOINT}/reports/attendance/export?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: 'blob',
+    });
+
+    const extension = format === 'excel' ? 'xlsx' : format;
+    const blob = new Blob([response.data]);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-report-${startDate}-to-${endDate}.${extension}`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error exporting attendance report:', error);
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return { success: false, message: 'Access denied. You may not have permission to export reports.' };
+    }
+    return { success: false, message: error.message || 'Failed to export attendance report' };
+  }
+};
+
+// JSON-only leaderboard preview for a custom date range — lets HR preview
+// rankings on screen before committing to a download. Same permission tier
+// as export (not the staff-facing current-week/month/year endpoint).
+export const getAttendanceLeaderboardPreview = async (
+  startDate: string,
+  endDate: string,
+  branchId?: number
+): Promise<{ success: boolean; leaderboard?: AttendanceLeaderboardEntry[]; message?: string }> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, message: 'Authentication token not found. Please log in again.' };
+    }
+
+    const params = new URLSearchParams({ startDate, endDate });
+    if (branchId) params.append('branchId', String(branchId));
+
+    const response = await axios.get(`${API_ENDPOINT}/reports/attendance/leaderboard?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    return { success: true, leaderboard: response.data.data?.leaderboard || [] };
+  } catch (error: any) {
+    console.error('Error fetching attendance leaderboard preview:', error);
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return { success: false, message: 'Access denied. You may not have permission to view this.' };
+    }
+    return { success: false, message: error.response?.data?.message || error.message || 'Failed to fetch leaderboard' };
+  }
+};

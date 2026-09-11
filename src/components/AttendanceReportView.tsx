@@ -6,7 +6,10 @@ import {
   getStaffAttendanceData,
   getAttendanceSummary,
   getMonthlyReport,
-  AttendanceRecord
+  exportAttendanceReport,
+  getAttendanceLeaderboardPreview,
+  AttendanceRecord,
+  AttendanceLeaderboardEntry
 } from '../services/attendanceService';
 import { getAllStaff } from '../services/staffManagementService';
 import { getAllBranches } from '../services/branchManagementService';
@@ -57,6 +60,12 @@ const AttendanceReportView: React.FC = () => {
 
   // Employee report state
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | ''>('');
+
+  // Date-range export + leaderboard preview state
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf' | 'excel'>('csv');
+  const [exporting, setExporting] = useState(false);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<AttendanceLeaderboardEntry[] | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -141,6 +150,38 @@ const AttendanceReportView: React.FC = () => {
     a.download = `attendance_report_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  // Preview the points leaderboard for the selected date range (and branch,
+  // if one is picked) before committing to a download.
+  const previewLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    setError(null);
+    try {
+      const res = await getAttendanceLeaderboardPreview(startDate, endDate, selectedBranch || undefined);
+      if (res.success) {
+        setLeaderboard(res.leaderboard || []);
+      } else {
+        setError(res.message || 'Failed to load leaderboard');
+      }
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
+
+  // Downloads the full report (summary + leaderboard) for the selected date
+  // range/branch/format from the backend.
+  const downloadReport = async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      const res = await exportAttendanceReport(startDate, endDate, exportFormat, selectedBranch || undefined);
+      if (!res.success) {
+        setError(res.message || 'Failed to export report');
+      }
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Get unique departments
@@ -428,7 +469,7 @@ const AttendanceReportView: React.FC = () => {
       {activeReport === 'range' && (
         <div className="card p-6">
           <h3 className="text-lg font-semibold mb-4">Date Range Report Controls</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium mb-1">Start Date</label>
               <input
@@ -448,12 +489,69 @@ const AttendanceReportView: React.FC = () => {
               />
             </div>
             <div className="flex items-end">
-              <button className="btn btn-primary w-full">
+              <button className="btn btn-primary w-full" onClick={previewLeaderboard} disabled={leaderboardLoading}>
                 <FileText className="w-4 h-4 mr-2" />
-                Generate Report
+                {leaderboardLoading ? 'Loading…' : 'Generate Report'}
               </button>
             </div>
           </div>
+
+          <div className="flex items-center justify-between gap-4 pt-4 border-t">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium">Export format:</span>
+              {(['csv', 'pdf', 'excel'] as const).map((fmt) => (
+                <label key={fmt} className="flex items-center gap-1 text-sm">
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    checked={exportFormat === fmt}
+                    onChange={() => setExportFormat(fmt)}
+                  />
+                  {fmt.toUpperCase()}
+                </label>
+              ))}
+            </div>
+            <button className="btn btn-outline" onClick={downloadReport} disabled={exporting}>
+              <Download className="w-4 h-4 mr-2" />
+              {exporting ? 'Preparing…' : 'Download Report'}
+            </button>
+          </div>
+
+          {leaderboard && (
+            <div className="mt-6 pt-4 border-t">
+              <h4 className="text-md font-semibold mb-3">Attendance Leaderboard ({startDate} to {endDate})</h4>
+              {leaderboard.length === 0 ? (
+                <p className="text-muted text-sm">No attendance data for this range.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="table">
+                    <thead className="table-header">
+                      <tr>
+                        <th className="table-header-cell">Rank</th>
+                        <th className="table-header-cell">Employee</th>
+                        <th className="table-header-cell">Branch</th>
+                        <th className="table-header-cell right">Points</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaderboard.slice(0, 20).map((entry) => (
+                        <tr key={entry.user_id} className="table-row">
+                          <td className="table-cell">{entry.rank}</td>
+                          <td className="table-cell">{entry.full_name}</td>
+                          <td className="table-cell">{entry.branch_name || '-'}</td>
+                          <td className="table-cell right">
+                            <span className={`badge ${entry.points >= 0 ? 'badge-secondary' : 'badge-error'}`}>
+                              {entry.points}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

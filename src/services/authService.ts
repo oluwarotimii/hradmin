@@ -202,6 +202,18 @@ export const logout = (): void => {
   secureRemoveItem('userInfo');
   secureRemoveItem('isLoggedIn');
   secureRemoveItem('refreshToken'); // Also remove refresh token if it exists
+  secureRemoveItem('userPermissions'); // Previously left behind, so a next
+  // login on the same browser without a fresh `permissions` payload could
+  // inherit the outgoing admin's permission set.
+
+  // adminDataStore (IndexedDB) is currently unwired/unused, but clear it
+  // defensively so it can never leak a previous admin's cached staff/
+  // department/branch/attendance data if it's adopted later without this
+  // being revisited. Fire-and-forget: logout already triggers a full page
+  // reload immediately after this call.
+  import('./offline/adminDataStore')
+    .then(({ adminDataStore }) => adminDataStore.clear())
+    .catch((error) => console.error('Failed to clear admin data store on logout:', error));
 };
 
 // Function to check if user is logged in

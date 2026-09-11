@@ -2,6 +2,7 @@
 // Admin-focused Attendance Management with List View and Check-in Tracking
 
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import {
   getAllAttendanceRecords,
   getAttendanceSummary,
@@ -689,7 +690,7 @@ const AttendanceView = () => {
               const branchId = selectedBranch ? Number(selectedBranch) : (branches[0]?.id ? Number(branches[0].id) : 0);
               console.log('Opening Auto-Mark Modal for branch:', branchId, branches[0]);
               if (branchId === 0) {
-                alert('Please select a branch first or ensure branches are loaded');
+                toast.error('Please select a branch first or ensure branches are loaded');
                 return;
               }
               setSelectedBranchForAutoMark(branchId);
