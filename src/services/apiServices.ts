@@ -18,7 +18,13 @@ interface ApiResponse<T = any> {
 export const checkSystemReadiness = async (): Promise<{ ready?: boolean; initialized?: boolean; }> => {
   try {
     console.log('Making API call to:', `${API_ENDPOINT}/system-complete/readiness`);
-    const response = await axios.get(`${API_ENDPOINT}/system-complete/readiness`);
+    // Timeout is required here: this call gates the entire app's render
+    // (App.tsx shows a blocking "Checking system status..." screen until it
+    // resolves), so an untimed hang on a slow/unresponsive backend used to
+    // freeze the whole SPA on load with no way out but a hard refresh.
+    const response = await axios.get(`${API_ENDPOINT}/system-complete/readiness`, {
+      timeout: 10000,
+    });
     console.log('API Response:', response.data);
 
     // Extract the systemInitialized value from the actual response format

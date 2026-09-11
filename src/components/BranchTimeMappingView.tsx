@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Trash2, Plus, Building, Users, User, ChevronDown } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { API_ENDPOINT } from '../config/config';
 
 interface Mapping {
@@ -190,7 +191,7 @@ export function BranchTimeMappingView() {
       setSelectedBranchId('');
       await fetchMappings();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to create mapping');
+      toast.error(err?.response?.data?.message || 'Failed to create mapping');
     } finally {
       setSubmitting(false);
     }
