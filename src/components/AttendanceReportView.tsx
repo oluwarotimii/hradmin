@@ -533,6 +533,7 @@ const AttendanceReportView: React.FC = () => {
                         <th className="table-header-cell">Employee</th>
                         <th className="table-header-cell">Branch</th>
                         <th className="table-header-cell right">Punctuality Score</th>
+                        <th className="table-header-cell right">Avg Arrival</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -546,6 +547,7 @@ const AttendanceReportView: React.FC = () => {
                               {entry.points}
                             </span>
                           </td>
+                          <td className="table-cell right text-muted">{entry.avg_check_in_time || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
