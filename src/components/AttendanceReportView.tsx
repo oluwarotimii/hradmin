@@ -519,22 +519,24 @@ const AttendanceReportView: React.FC = () => {
 
           {leaderboard && (
             <div className="mt-6 pt-4 border-t">
-              <h4 className="text-md font-semibold mb-3">Attendance Leaderboard ({startDate} to {endDate})</h4>
+              <h4 className="text-md font-semibold mb-3">
+                Attendance Leaderboard ({startDate} to {endDate}) — {leaderboard.length} {leaderboard.length === 1 ? 'employee' : 'employees'}
+              </h4>
               {leaderboard.length === 0 ? (
                 <p className="text-muted text-sm">No attendance data for this range.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[32rem] overflow-y-auto border rounded-md">
                   <table className="table">
-                    <thead className="table-header">
+                    <thead className="table-header sticky top-0 bg-inherit">
                       <tr>
                         <th className="table-header-cell">Rank</th>
                         <th className="table-header-cell">Employee</th>
                         <th className="table-header-cell">Branch</th>
-                        <th className="table-header-cell right">Points</th>
+                        <th className="table-header-cell right">Punctuality Score</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {leaderboard.slice(0, 20).map((entry) => (
+                      {leaderboard.map((entry) => (
                         <tr key={entry.user_id} className="table-row">
                           <td className="table-cell">{entry.rank}</td>
                           <td className="table-cell">{entry.full_name}</td>
