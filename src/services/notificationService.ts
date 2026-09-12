@@ -41,3 +41,22 @@ export const markNotificationAsRead = async (id: number): Promise<{ success: boo
     return { success: false, message: error.response?.data?.message || 'Failed to mark notification as read' };
   }
 };
+
+// POST /api/notifications/broadcast — gated by notifications:broadcast.
+// Pass recipientUserIds omitted/empty to send to every active staff member.
+export const sendSpecialNote = async (
+  title: string,
+  message: string,
+  recipientUserIds?: number[]
+): Promise<{ success: boolean; sentCount?: number; message?: string }> => {
+  try {
+    const response = await axios.post(
+      `${API_ENDPOINT}/notifications/broadcast`,
+      { title, message, recipientUserIds },
+      { headers: authHeaders() }
+    );
+    return { success: true, sentCount: response.data?.data?.sentCount, message: response.data?.message };
+  } catch (error: any) {
+    return { success: false, message: error.response?.data?.message || 'Failed to send note' };
+  }
+};
