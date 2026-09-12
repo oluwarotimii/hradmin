@@ -3,8 +3,10 @@
 // with read/unread status and allows marking them as read
 
 import { useEffect, useState } from 'react';
-import { X, Bell, Check } from 'lucide-react';
+import { X, Bell, Check, PenSquare } from 'lucide-react';
 import { AppNotification, getMyNotifications, markNotificationAsRead } from '../services/notificationService';
+import { SpecialNoteComposer } from './SpecialNoteComposer';
+import { useAuth } from '../AuthContext';
 
 interface NotificationPanelProps {
   isOpen?: boolean; // Whether the panel is open (defaults to true)
@@ -29,8 +31,10 @@ function humanizeType(type: string): string {
 }
 
 export function NotificationPanel({ isOpen = true, onClose }: NotificationPanelProps) {
+  const { hasPermission } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [composerOpen, setComposerOpen] = useState(false);
   const unreadCount = notifications.filter((n) => !n.opened_at).length;
 
   useEffect(() => {
@@ -81,6 +85,17 @@ export function NotificationPanel({ isOpen = true, onClose }: NotificationPanelP
           </div>
           {/* Header actions */}
           <div className="flex items-center gap-2">
+            {hasPermission('notifications:broadcast') && (
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => setComposerOpen(true)}
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                title="Send a special note to staff"
+              >
+                <PenSquare className="w-3 h-3 mr-1" />
+                New Note
+              </button>
+            )}
             {/* Mark all as read button - only shown if there are unread notifications */}
             {unreadCount > 0 && (
               <button
@@ -146,6 +161,8 @@ export function NotificationPanel({ isOpen = true, onClose }: NotificationPanelP
           )}
         </div>
       </div>
+
+      {composerOpen && <SpecialNoteComposer onClose={() => setComposerOpen(false)} />}
     </>
   );
 }
