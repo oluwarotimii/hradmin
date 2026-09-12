@@ -1,39 +1,64 @@
 // This component renders a slide-out notification panel
-// It displays system notifications with read/unread status and allows marking them as read
+// It displays real notifications (from notification_logs, via the backend)
+// with read/unread status and allows marking them as read
 
-// Import React hooks for state management
-import { useState } from 'react';
-// Import Lucide React icons for UI elements
+import { useEffect, useState } from 'react';
 import { X, Bell, Check } from 'lucide-react';
-// Import notification data and types from staff data
-import { mockNotifications, Notification } from '../data/staffData';
+import { AppNotification, getMyNotifications, markNotificationAsRead } from '../services/notificationService';
 
-// Interface defining props for the NotificationPanel component
 interface NotificationPanelProps {
   isOpen?: boolean; // Whether the panel is open (defaults to true)
   onClose: () => void; // Function to call when closing the panel
 }
 
-// Main component function for notification panel
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (hours < 1) return 'Just now';
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'Yesterday' : `${days}d ago`;
+}
+
+// Turns "leave_request_approved" into "Leave Request Approved" for the section badge.
+function humanizeType(type: string): string {
+  return type
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 export function NotificationPanel({ isOpen = true, onClose }: NotificationPanelProps) {
-  // State for notifications array
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
-  // Calculate count of unread notifications
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const unreadCount = notifications.filter((n) => !n.opened_at).length;
 
-  // Handler to mark a specific notification as read
-  const markAsRead = (id: string) => {
-    setNotifications(notifications.map(n =>
-      n.id === id ? { ...n, read: true } : n
-    ));
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    getMyNotifications(30).then((res) => {
+      if (res.success) setNotifications(res.notifications ?? []);
+      setLoading(false);
+    });
+  }, [isOpen]);
+
+  const markAsRead = (id: number) => {
+    const target = notifications.find((n) => n.id === id);
+    if (!target || target.opened_at) return;
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, opened_at: new Date().toISOString() } : n))
+    );
+    markNotificationAsRead(id);
   };
 
-  // Handler to mark all notifications as read
   const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+    const unread = notifications.filter((n) => !n.opened_at);
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, opened_at: n.opened_at ?? new Date().toISOString() }))
+    );
+    unread.forEach((n) => markNotificationAsRead(n.id));
   };
 
-  // Main render return
   return (
     <>
       {/* Overlay backdrop that closes panel when clicked */}
@@ -76,45 +101,44 @@ export function NotificationPanel({ isOpen = true, onClose }: NotificationPanelP
 
         {/* Notifications list container */}
         <div className="notification-list">
-          {/* Empty state when no notifications */}
-          {notifications.length === 0 ? (
+          {loading ? (
+            <div className="notification-empty">
+              <p className="text-muted">Loading…</p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="notification-empty">
               <Bell className="w-12 h-12" style={{ color: '#e5e7eb' }} />
               <p className="text-muted" style={{ marginTop: '0.5rem' }}>No notifications</p>
             </div>
           ) : (
-            // Map through notifications to create notification items
             notifications.map((notification) => (
-              // Individual notification item
               <div
                 key={notification.id}
-                className={`notification-item ${!notification.read ? 'unread' : ''}`}
+                className={`notification-item ${!notification.opened_at ? 'unread' : ''}`}
                 onClick={() => markAsRead(notification.id)}
               >
                 {/* Unread indicator */}
                 <div className="notification-indicator">
-                  {!notification.read && <div className="notification-dot"></div>}
+                  {!notification.opened_at && <div className="notification-dot"></div>}
                 </div>
                 {/* Notification content */}
                 <div className="notification-content">
-                  {/* Header with staff name and timestamp */}
+                  {/* Header with title and timestamp */}
                   <div className="flex items-start justify-between gap-2" style={{ marginBottom: '0.25rem' }}>
-                    <p style={{ fontWeight: notification.read ? 400 : 600, fontSize: '0.875rem' }}>
-                      {notification.staffName}
+                    <p style={{ fontWeight: notification.opened_at ? 400 : 600, fontSize: '0.875rem' }}>
+                      {notification.title}
                     </p>
                     <span className="text-xs text-muted" style={{ whiteSpace: 'nowrap' }}>
-                      {notification.timestamp}
+                      {timeAgo(notification.created_at)}
                     </span>
                   </div>
-                  {/* Action description */}
+                  {/* Message body */}
                   <p style={{ fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>
-                    {notification.action}
+                    {notification.message}
                   </p>
-                  {/* Additional details */}
-                  <p className="text-xs text-muted">{notification.details}</p>
-                  {/* Section badge */}
+                  {/* Notification type badge */}
                   <div className="notification-badge" style={{ marginTop: '0.5rem' }}>
-                    {notification.section}
+                    {humanizeType(notification.notification_type)}
                   </div>
                 </div>
               </div>
