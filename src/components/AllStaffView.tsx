@@ -84,7 +84,11 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
     try {
       setLoading(true);
       const filters: { status?: string; department?: string; search?: string; minYears?: number } = {};
-      if (activeFilter !== 'all') filters.status = activeFilter === 'active' ? 'active' : 'inactive';
+      // 'all' must be sent explicitly — the backend now defaults to hiding
+      // inactive/terminated staff everywhere else (attendance filters,
+      // assignment pickers, etc), so without this the directory's own "All"
+      // tab would silently start excluding them too.
+      filters.status = activeFilter === 'all' ? 'all' : activeFilter === 'active' ? 'active' : 'inactive';
       if (departmentFilter) filters.department = departmentFilter;
       if (searchTerm) filters.search = searchTerm;
       if (minYearsFilter !== '' && minYearsFilter !== null) filters.minYears = Number(minYearsFilter);

@@ -16,6 +16,9 @@ import { getUserById as getUserByIdForAdmin, resetUserPassword as adminResetUser
 import statesAndLgas from 'nigeria-state-lga-data';
 import { useAuth } from '../AuthContext';
 import { GuarantorForm } from './GuarantorForm';
+import { T } from '../theme';
+import { Avatar } from './Avatar';
+import { StatusBadge } from './StatusBadge';
 
 interface StaffProfileViewProps {
   staff: StaffMember;
@@ -519,11 +522,18 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
     const isEditable = isEditing && field && !shouldDisable;
     const currentValue = field ? editedStaff[field] : value;
 
+    const inputStyle = {
+      backgroundColor: T.surface,
+      border: `1px solid ${T.border}`,
+      borderRadius: '0.5rem',
+      fontSize: '0.85rem',
+    };
+
     return (
-      <div className="p-4" style={{ backgroundColor: '#f8fafc', borderRadius: '0.5rem' }}>
+      <div className="p-4" style={{ backgroundColor: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: '0.65rem' }}>
         <div className="flex items-center gap-2 mb-2">
           {icon}
-          <span className="text-sm text-muted">{label}</span>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: T.textSub, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
         </div>
         {isEditable ? (
           type === 'select' && options ? (
@@ -532,7 +542,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 className="input w-full pr-10"
                 value={currentValue || ''}
                 onChange={(e) => setEditedStaff({ ...editedStaff, [field]: e.target.value })}
-                style={{ backgroundColor: 'white', appearance: 'none' }}
+                style={{ ...inputStyle, appearance: 'none' }}
               >
                 <option value="">Select {label}</option>
                 {options.map((opt: any) => (
@@ -541,7 +551,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: T.textMuted }} />
             </div>
           ) : type === 'textarea' ? (
             <textarea
@@ -549,7 +559,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               value={currentValue || ''}
               onChange={(e) => setEditedStaff({ ...editedStaff, [field]: e.target.value })}
               rows={3}
-              style={{ backgroundColor: 'white' }}
+              style={inputStyle}
             />
           ) : type === 'date' ? (
             <input
@@ -557,7 +567,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               className="input w-full"
               value={currentValue ? currentValue.split('T')[0] : ''}
               onChange={(e) => setEditedStaff({ ...editedStaff, [field]: e.target.value })}
-              style={{ backgroundColor: 'white' }}
+              style={inputStyle}
             />
           ) : type === 'number' ? (
             <input
@@ -565,7 +575,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               className="input w-full"
               value={currentValue || ''}
               onChange={(e) => setEditedStaff({ ...editedStaff, [field]: e.target.value })}
-              style={{ backgroundColor: 'white' }}
+              style={inputStyle}
             />
           ) : (
             <input
@@ -573,155 +583,150 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               className="input w-full"
               value={currentValue || ''}
               onChange={(e) => setEditedStaff({ ...editedStaff, [field]: e.target.value })}
-              style={{ backgroundColor: 'white' }}
+              style={inputStyle}
             />
           )
         ) : (
-          <p className="font-medium" style={{ color: '#0f172a' }}>
-            {type === 'date' ? formatDate(currentValue) : currentValue || 'Not specified'}
+          <p style={{ fontWeight: 600, fontSize: '0.9rem', color: T.text, margin: 0 }}>
+            {type === 'date'
+              ? formatDate(currentValue)
+              : type === 'select' && options
+              ? (options.find((opt: any) => String(opt.value ?? opt) === String(currentValue))?.label ?? value ?? currentValue ?? 'Not specified')
+              : currentValue || 'Not specified'}
           </p>
         )}
       </div>
     );
   };
 
+  const staffFullName = `${editedStaff.firstName || ''} ${editedStaff.middleName || ''} ${editedStaff.lastName || ''}`.replace(/\s+/g, ' ').trim();
+  const statusTone = editedStaff.status?.toLowerCase() === 'active' ? 'success' : editedStaff.status?.toLowerCase() === 'terminated' || editedStaff.status?.toLowerCase() === 'inactive' ? 'danger' : 'warning';
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="btn btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back</span>
-            </button>
-            <h2 className="text-xl font-semibold">Staff Profile</h2>
-          </div>
+    <div className="space-y-4">
+      {/* Top bar */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-            className="btn"
-            disabled={loading}
-            style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              fontWeight: 600,
-              border: 'none',
-              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
-            }}
+            onClick={onBack}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: `1px solid ${T.border}`, background: T.surface, color: T.textSub, borderRadius: '0.6rem', padding: '0.5rem 0.9rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}
           >
-            {isEditing ? (
-              <><Save className="w-4 h-4 mr-2" /> Save Changes</>
-            ) : (
-              <><Edit2 className="w-4 h-4 mr-2" /> Edit Profile</>
-            )}
+            <ArrowLeft className="w-4 h-4" />
+            Back
           </button>
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: T.text, margin: 0 }}>Staff Profile</h2>
+        </div>
+        <button
+          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+          disabled={loading}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.4rem',
+            backgroundColor: T.primary,
+            color: 'white',
+            fontWeight: 700,
+            fontSize: '0.82rem',
+            border: 'none',
+            borderRadius: '0.6rem',
+            padding: '0.55rem 1.1rem',
+            cursor: loading ? 'default' : 'pointer',
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
+          {isEditing ? (
+            <><Save className="w-4 h-4" /> Save Changes</>
+          ) : (
+            <><Edit2 className="w-4 h-4" /> Edit Profile</>
+          )}
+        </button>
+      </div>
+
+      {/* Success Message */}
+      {successMessage && (
+        <div style={{ background: T.successPale, border: `1px solid ${T.successBorder}`, borderRadius: '0.6rem', padding: '0.75rem 1rem' }}>
+          <p style={{ fontSize: '0.85rem', color: T.success, margin: 0, fontWeight: 600 }}>{successMessage}</p>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div style={{ background: T.dangerPale, border: `1px solid ${T.dangerBorder}`, borderRadius: '0.6rem', padding: '0.75rem 1rem' }}>
+          <p style={{ fontSize: '0.85rem', color: T.danger, margin: 0, fontWeight: 600 }}>{error}</p>
+        </div>
+      )}
+
+      {/* Staff Info Header */}
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: '0.9rem', padding: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Profile Photo */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          {editedStaff.profile_picture ? (
+            <img
+              src={editedStaff.profile_picture.startsWith('http')
+                ? editedStaff.profile_picture
+                : `${API_ENDPOINT}${editedStaff.profile_picture}`
+              }
+              alt={`${editedStaff.firstName}'s profile`}
+              style={{
+                width: '6rem',
+                height: '6rem',
+                borderRadius: '0.85rem',
+                objectFit: 'cover',
+                border: `3px solid ${T.surface}`,
+                boxShadow: `0 0 0 1px ${T.border}`,
+              }}
+            />
+          ) : (
+            <div style={{ borderRadius: '0.85rem', overflow: 'hidden', boxShadow: `0 0 0 1px ${T.border}` }}>
+              <Avatar name={staffFullName || 'Staff'} size={96} />
+            </div>
+          )}
+          {isEditing && (
+            <button
+              className="absolute bottom-0 right-0 p-2 rounded-full"
+              style={{ backgroundColor: T.primary, color: 'white', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
+              title="Change profile photo"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Success Message */}
-        {successMessage && (
-          <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
-            <p className="text-sm text-green-700">{successMessage}</p>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-
-        {/* Staff Info Header */}
-        <div className="flex items-start gap-6 p-6" style={{ backgroundColor: '#f8fafc', borderRadius: '1rem', border: '1px solid #e2e8f0' }}>
-          {/* Profile Photo */}
-          <div style={{ position: 'relative' }}>
-            {editedStaff.profile_picture ? (
-              <img
-                src={editedStaff.profile_picture.startsWith('http')
-                  ? editedStaff.profile_picture
-                  : `${API_ENDPOINT}${editedStaff.profile_picture}`
-                }
-                alt={`${editedStaff.firstName}'s profile`}
-                style={{
-                  width: '8rem',
-                  height: '8rem',
-                  borderRadius: '1rem',
-                  objectFit: 'cover',
-                  border: '4px solid white',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                }}
-              />
-            ) : (
-              <div
-                className="avatar"
-                style={{
-                  width: '8rem',
-                  height: '8rem',
-                  fontSize: '2.5rem',
-                  backgroundColor: '#2563eb',
-                  color: 'white',
-                  borderRadius: '1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '4px solid white',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  fontWeight: '600'
-                }}
-              >
-                {editedStaff.avatar || `${editedStaff.firstName?.[0] || ''}${editedStaff.lastName?.[0] || ''}`}
-              </div>
-            )}
-            {/* Photo upload button for editing mode */}
-            {isEditing && (
-              <button
-                className="absolute bottom-0 right-0 p-2 rounded-full shadow-lg"
-                style={{ backgroundColor: '#2563eb', color: 'white' }}
-                title="Change profile photo"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          
-          {/* Staff Info */}
-          <div className="flex-1 pt-2">
-            <h3 className="text-3xl font-bold" style={{ color: '#0f172a' }}>
-              {editedStaff.firstName} {editedStaff.middleName} {editedStaff.lastName}
+        {/* Staff Info */}
+        <div style={{ flex: 1, minWidth: '16rem' }}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: T.text, margin: 0 }}>
+              {staffFullName || 'Unnamed Staff'}
             </h3>
-            <p className="text-muted" style={{ marginTop: '0.5rem', fontSize: '1.1rem' }}>
-              {editedStaff.departmentRole || editedStaff.designation} • {editedStaff.department}
-            </p>
-            <div className="flex items-center gap-3 flex-wrap" style={{ marginTop: '0.75rem' }}>
-              <span className={`badge ${editedStaff.status === 'Active' ? 'badge-success' : 'badge-secondary'}`} style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-                {editedStaff.status}
+            <StatusBadge label={editedStaff.status || 'Unknown'} tone={statusTone as any} />
+          </div>
+          <p style={{ color: T.textSub, marginTop: '0.3rem', fontSize: '0.9rem', fontWeight: 500 }}>
+            {editedStaff.departmentRole || editedStaff.designation} • {editedStaff.department}
+          </p>
+          <div className="flex items-center gap-4 flex-wrap" style={{ marginTop: '0.75rem' }}>
+            {editedStaff.employeeId && (
+              <span style={{ fontSize: '0.8rem', color: T.textSub, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <BadgeCheck className="w-3.5 h-3.5" style={{ color: T.textMuted }} />
+                {editedStaff.employeeId}
               </span>
-              {editedStaff.employeeId && (
-                <span className="text-muted" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <BadgeCheck className="w-4 h-4" />
-                  ID: {editedStaff.employeeId}
-                </span>
-              )}
-              {editedStaff.phoneNumber && (
-                <span className="text-muted" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <Phone className="w-4 h-4" />
-                  {editedStaff.phoneNumber}
-                </span>
-              )}
-              {editedStaff.email && (
-                <span className="text-muted" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <Mail className="w-4 h-4" />
-                  {editedStaff.email}
-                </span>
-              )}
-            </div>
+            )}
+            {editedStaff.phoneNumber && (
+              <span style={{ fontSize: '0.8rem', color: T.textSub, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <Phone className="w-3.5 h-3.5" style={{ color: T.textMuted }} />
+                {editedStaff.phoneNumber}
+              </span>
+            )}
+            {editedStaff.email && (
+              <span style={{ fontSize: '0.8rem', color: T.textSub, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <Mail className="w-3.5 h-3.5" style={{ color: T.textMuted }} />
+                {editedStaff.email}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="card p-2" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #e2e8f0', borderRadius: '0.75rem' }}>
-        <div className="flex flex-wrap gap-1 overflow-x-auto" style={{ padding: '0.25rem' }}>
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: '0.75rem', padding: '0.4rem' }}>
+        <div className="flex flex-wrap gap-1 overflow-x-auto">
           {[
             { id: 'overview', label: 'Overview', icon: User },
             { id: 'personal', label: 'Personal', icon: User },
@@ -737,19 +742,21 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
           ].map(tab => (
             <button
               key={tab.id}
-              className={`rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
-                activeTab === tab.id
-                  ? 'text-white shadow-md'
-                  : 'text-gray-600 hover:bg-gray-100 hover:shadow-sm'
-              }`}
               onClick={() => setActiveTab(tab.id as any)}
               style={{
-                backgroundColor: activeTab === tab.id ? '#2563eb' : 'transparent',
-                padding: '0.875rem 1.5rem',
-                whiteSpace: 'nowrap'
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                backgroundColor: activeTab === tab.id ? T.primaryPale : 'transparent',
+                color: activeTab === tab.id ? T.primary : T.textSub,
+                border: 'none',
+                borderRadius: '0.5rem',
+                padding: '0.55rem 0.9rem',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
               }}
             >
-              <tab.icon className="w-4 h-4" />
+              <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
             </button>
           ))}
@@ -757,32 +764,32 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       </div>
 
       {/* Tab Content */}
-      <div className="card p-6">
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: '0.9rem', padding: '1.5rem' }}>
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Form Completion Status */}
-            <div className="p-6 rounded-lg border" style={{ backgroundColor: isFormComplete ? '#f0fdf4' : '#fff7ed', borderColor: isFormComplete ? '#86efac' : '#fdba74' }}>
+            <div className="p-6 rounded-lg border" style={{ backgroundColor: isFormComplete ? T.successPale : T.warningPale, borderColor: isFormComplete ? T.successBorder : T.warningBorder }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   {isFormComplete ? (
-                    <CheckCircle className="w-6 h-6 text-green-600" />
+                    <CheckCircle className="w-6 h-6" style={{ color: T.success }} />
                   ) : (
-                    <AlertCircle className="w-6 h-6 text-orange-600" />
+                    <AlertCircle className="w-6 h-6" style={{ color: T.warning }} />
                   )}
                   <div>
-                    <h4 className="font-semibold" style={{ color: isFormComplete ? '#166534' : '#9a3412' }}>
+                    <h4 className="font-semibold" style={{ color: isFormComplete ? T.success : T.warning }}>
                       {isFormComplete ? 'Profile Complete' : 'Profile Incomplete'}
                     </h4>
-                    <p className="text-sm" style={{ color: isFormComplete ? '#15803d' : '#c2410c' }}>
-                      {isFormComplete 
-                        ? 'All required personal details have been filled' 
+                    <p className="text-sm" style={{ color: isFormComplete ? T.success : T.warning }}>
+                      {isFormComplete
+                        ? 'All required personal details have been filled'
                         : 'Please complete the required personal details'}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-2xl font-bold" style={{ color: isFormComplete ? '#166534' : '#9a3412' }}>
+                  <span className="text-2xl font-bold" style={{ color: isFormComplete ? T.success : T.warning }}>
                     {formCompletionPercentage}%
                   </span>
                 </div>
@@ -792,47 +799,46 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                   className="h-2.5 rounded-full transition-all duration-500"
                   style={{ 
                     width: `${formCompletionPercentage}%`,
-                    backgroundColor: isFormComplete ? '#22c55e' : '#f97316'
+                    backgroundColor: isFormComplete ? T.success : T.warning
                   }}
                 ></div>
               </div>
             </div>
 
             {isSuperAdmin && (
-              <div className="p-6 rounded-lg border" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
+              <div className="p-6 rounded-lg border" style={{ backgroundColor: T.surfaceAlt, borderColor: T.border }}>
                 <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
                   <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-primary" />
-                    <h4 className="text-lg font-semibold">Admin Actions</h4>
+                    <Shield className="w-5 h-5" style={{ color: T.primary }} />
+                    <h4 style={{ fontSize: '1rem', fontWeight: 700, color: T.text, margin: 0 }}>Admin Actions</h4>
                   </div>
-                  <p className="text-sm text-muted" style={{ margin: 0 }}>Manage access for this staff user.</p>
+                  <p style={{ fontSize: '0.82rem', color: T.textMuted, margin: 0 }}>Manage access for this staff user.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg border bg-white" style={{ borderColor: '#e2e8f0' }}>
-                    <p className="font-semibold mb-1" style={{ color: '#0f172a' }}>Reset Password</p>
-                    <p className="text-sm text-muted mb-3">Generates a temporary password and emails it to the user.</p>
+                  <div className="p-4 rounded-lg border" style={{ background: T.surface, borderColor: T.border }}>
+                    <p style={{ fontWeight: 700, marginBottom: '0.2rem', color: T.text, fontSize: '0.88rem' }}>Reset Password</p>
+                    <p style={{ fontSize: '0.8rem', color: T.textMuted, marginBottom: '0.75rem' }}>Generates a temporary password and emails it to the user.</p>
                     <button
                       type="button"
-                      className="btn"
                       onClick={handleAdminResetPassword}
                       disabled={adminActionLoading}
-                      style={{ backgroundColor: '#0f766e', color: 'white', border: 'none', fontWeight: 700 }}
+                      style={{ backgroundColor: T.success, color: 'white', border: 'none', fontWeight: 700, fontSize: '0.82rem', borderRadius: '0.5rem', padding: '0.55rem 1rem', cursor: adminActionLoading ? 'default' : 'pointer', opacity: adminActionLoading ? 0.7 : 1 }}
                     >
                       {adminActionLoading ? 'Sending…' : 'Send Temporary Password'}
                     </button>
                   </div>
 
-                  <div className="p-4 rounded-lg border bg-white" style={{ borderColor: '#e2e8f0' }}>
-                    <p className="font-semibold mb-1" style={{ color: '#0f172a' }}>Change Role</p>
-                    <p className="text-sm text-muted mb-3">Updates the user’s role and permissions.</p>
+                  <div className="p-4 rounded-lg border" style={{ background: T.surface, borderColor: T.border }}>
+                    <p style={{ fontWeight: 700, marginBottom: '0.2rem', color: T.text, fontSize: '0.88rem' }}>Change Role</p>
+                    <p style={{ fontSize: '0.8rem', color: T.textMuted, marginBottom: '0.75rem' }}>Updates the user’s role and permissions.</p>
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="relative" style={{ minWidth: '14rem', flex: 1 }}>
                         <select
                           className="input w-full pr-10"
                           value={targetUserRoleId ?? ''}
                           onChange={(e) => setTargetUserRoleId(Number(e.target.value))}
-                          style={{ backgroundColor: 'white', appearance: 'none' }}
+                          style={{ backgroundColor: T.surface, border: `1px solid ${T.border}`, borderRadius: '0.5rem', appearance: 'none' }}
                           disabled={adminActionLoading}
                         >
                           <option value="">Select role</option>
@@ -840,14 +846,13 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                             <option key={r.id} value={r.id}>{r.name}</option>
                           ))}
                         </select>
-                        <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: T.textMuted }} />
                       </div>
                       <button
                         type="button"
-                        className="btn"
                         onClick={handleAdminUpdateRole}
                         disabled={adminActionLoading}
-                        style={{ backgroundColor: '#2563eb', color: 'white', border: 'none', fontWeight: 700 }}
+                        style={{ backgroundColor: T.primary, color: 'white', border: 'none', fontWeight: 700, fontSize: '0.82rem', borderRadius: '0.5rem', padding: '0.55rem 1rem', cursor: adminActionLoading ? 'default' : 'pointer', opacity: adminActionLoading ? 0.7 : 1 }}
                       >
                         {adminActionLoading ? 'Updating…' : 'Update Role'}
                       </button>
@@ -878,14 +883,14 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                     width: 'min(540px, 100%)',
                     padding: '1.25rem',
                     borderRadius: '0.9rem',
-                    background: '#fff',
-                    border: '1px solid #e2e8f0',
+                    background: T.surface,
+                    border: `1px solid ${T.border}`,
                     boxShadow: '0 20px 55px rgba(15, 23, 42, 0.25)',
                   }}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h4 className="text-lg font-semibold" style={{ margin: 0, color: '#0f172a' }}>Send temporary password?</h4>
+                      <h4 className="text-lg font-semibold" style={{ margin: 0, color: T.text }}>Send temporary password?</h4>
                       <p className="text-sm text-muted" style={{ margin: '0.35rem 0 0' }}>
                         This will generate a new temporary password and email it to <strong>{editedStaff?.email || 'the user'}</strong>.
                       </p>
@@ -916,7 +921,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                       className="btn"
                       onClick={confirmAdminResetPassword}
                       disabled={adminActionLoading}
-                      style={{ backgroundColor: '#0f766e', color: 'white', border: 'none', fontWeight: 700 }}
+                      style={{ backgroundColor: T.success, color: 'white', border: 'none', fontWeight: 700 }}
                     >
                       {adminActionLoading ? 'Sending…' : 'Send Password'}
                     </button>
@@ -1226,8 +1231,8 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h4 className="text-xl font-bold flex items-center gap-2" style={{ color: '#0f172a' }}>
-                    <FileText className="w-6 h-6 text-blue-600" />
+                  <h4 className="text-xl font-bold flex items-center gap-2" style={{ color: T.text }}>
+                    <FileText className="w-6 h-6" style={{ color: T.primary }} />
                     Staff Documents
                   </h4>
                   <p className="text-sm text-muted" style={{ marginTop: '0.25rem' }}>
@@ -1251,7 +1256,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                   <p className="text-muted mt-4">Loading documents...</p>
                 </div>
               ) : documents.length === 0 ? (
-                <div className="text-center py-16" style={{ backgroundColor: '#f8fafc', borderRadius: '1rem' }}>
+                <div className="text-center py-16" style={{ backgroundColor: T.surfaceAlt, borderRadius: '1rem' }}>
                   <FileText className="w-16 h-16 text-muted mx-auto mb-4" />
                   <p className="text-lg font-medium text-gray-900 mb-2">No documents uploaded</p>
                   <p className="text-sm text-muted mb-6">Upload documents like ID, certificates, resumes, etc.</p>
@@ -1275,14 +1280,14 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                           key={type}
                           className="p-3 rounded-lg border text-center"
                           style={{ 
-                            backgroundColor: count > 0 ? getDocumentTypeColor(type).bg : '#f8fafc',
-                            borderColor: count > 0 ? getDocumentTypeColor(type).border : '#e2e8f0'
+                            backgroundColor: count > 0 ? getDocumentTypeColor(type).bg : T.surfaceAlt,
+                            borderColor: count > 0 ? getDocumentTypeColor(type).border : T.border
                           }}
                         >
-                          <p className="text-xs font-semibold" style={{ color: count > 0 ? getDocumentTypeColor(type).text : '#64748b' }}>
+                          <p className="text-xs font-semibold" style={{ color: count > 0 ? getDocumentTypeColor(type).text : T.textSub }}>
                             {type}
                           </p>
-                          <p className="text-lg font-bold mt-1" style={{ color: count > 0 ? getDocumentTypeColor(type).text : '#94a3b8' }}>
+                          <p className="text-lg font-bold mt-1" style={{ color: count > 0 ? getDocumentTypeColor(type).text : T.textMuted }}>
                             {count}
                           </p>
                         </div>
@@ -1293,7 +1298,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                   {/* Documents Table */}
                   <div className="border border-gray-200 rounded-lg overflow-hidden">
                     <table className="w-full">
-                      <thead style={{ backgroundColor: '#f8fafc' }}>
+                      <thead style={{ backgroundColor: T.surfaceAlt }}>
                         <tr>
                           <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">Document Type</th>
                           <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">File Name</th>
