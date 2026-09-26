@@ -1632,7 +1632,7 @@ export const getAttendanceLeaderboardPreview = async (
 export interface AttendanceCorrectionResult {
   totalChecked: number;
   corrected: number;
-  changes: { userId: number; date: string; from: string; to: string }[];
+  changes: { userId: number; userName: string; date: string; from: string; to: string }[];
 }
 
 export const correctHistoricalAttendance = async (
@@ -1655,6 +1655,33 @@ export const correctHistoricalAttendance = async (
     return { success: true, message: response.data.message, data: response.data.data };
   } catch (error: any) {
     console.error('Error correcting historical attendance:', error);
+    return { success: false, message: error.response?.data?.message || error.message || 'Failed to correct attendance records' };
+  }
+};
+
+// Companion cleanup: staff who actually checked in on a day that (under the
+// old, buggy schedule logic) falsely looked like a working day, and got
+// penalized 'late'/'early_departure' for a shift that shouldn't have existed.
+export const correctHistoricalLateAttendance = async (
+  startDate: string,
+  endDate: string,
+  dryRun: boolean
+): Promise<{ success: boolean; message?: string; data?: AttendanceCorrectionResult }> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, message: 'Authentication token not found. Please log in again.' };
+    }
+
+    const response = await axios.post(
+      `${API_ENDPOINT}/attendance/correct-historical-late`,
+      { startDate, endDate, dryRun },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    return { success: true, message: response.data.message, data: response.data.data };
+  } catch (error: any) {
+    console.error('Error correcting historical late attendance:', error);
     return { success: false, message: error.response?.data?.message || error.message || 'Failed to correct attendance records' };
   }
 };

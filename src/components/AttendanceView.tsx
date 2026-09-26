@@ -14,6 +14,7 @@ import {
   getStaffAttendanceData,
   getFlaggedAttendanceRecords,
   correctHistoricalAttendance,
+  correctHistoricalLateAttendance,
   AttendanceRecord,
   AttendanceRecordsResponse,
   AttendanceCorrectionResult,
@@ -164,6 +165,7 @@ const AttendanceView = () => {
 
   // Historical "absent" correction tool state
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [correctionMode, setCorrectionMode] = useState<'absent' | 'late'>('absent');
   const [correctionStart, setCorrectionStart] = useState(new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1).toISOString().split('T')[0]);
   const [correctionEnd, setCorrectionEnd] = useState(new Date().toISOString().split('T')[0]);
   const [correctionLoading, setCorrectionLoading] = useState(false);
@@ -1328,10 +1330,31 @@ const AttendanceView = () => {
               <button className="btn btn-ghost btn-icon" onClick={() => setShowCorrectionModal(false)}>×</button>
             </div>
             <div className="modal-content space-y-4">
+              <div className="flex gap-2">
+                <button
+                  className={`btn btn-sm ${correctionMode === 'absent' ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => { setCorrectionMode('absent'); setCorrectionPreview(null); setCorrectionApplied(false); }}
+                >
+                  Wrongly marked Absent
+                </button>
+                <button
+                  className={`btn btn-sm ${correctionMode === 'late' ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => { setCorrectionMode('late'); setCorrectionPreview(null); setCorrectionApplied(false); }}
+                >
+                  Wrongly marked Late
+                </button>
+              </div>
               <p className="text-sm text-muted">
-                Scans records currently marked <strong>Absent</strong> with no check-in in the date range below,
-                re-checks each one against the current (fixed) schedule logic, and corrects any that should
-                actually be Weekend, Off, Leave, or Holiday. Records with a real check-in are never touched.
+                {correctionMode === 'absent' ? (
+                  <>Scans records currently marked <strong>Absent</strong> with no check-in in the date range below,
+                  re-checks each one against the current (fixed) schedule logic, and corrects any that should
+                  actually be Weekend, Off, Leave, or Holiday. Records with a real check-in are never touched.</>
+                ) : (
+                  <>Scans records currently marked <strong>Late</strong> or <strong>Early Departure</strong> that DO have
+                  a real check-in, and if that day wasn't actually a scheduled working day (weekend, off, leave, or
+                  holiday), clears the unfair penalty and credits it as <strong>Present</strong>. The check-in itself
+                  is never touched or removed — only the incorrect judgment around it.</>
+                )}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1350,15 +1373,15 @@ const AttendanceView = () => {
                 <div className={`p-3 rounded-lg border ${correctionApplied ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
                   <p className="text-sm font-medium">
                     {correctionApplied
-                      ? `Applied: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} absent records corrected.`
-                      : `Preview: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} absent records would be corrected.`}
+                      ? `Applied: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} ${correctionMode === 'absent' ? 'absent' : "late/early-departure"} records corrected.`
+                      : `Preview: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} ${correctionMode === 'absent' ? 'absent' : "late/early-departure"} records would be corrected.`}
                   </p>
                   {correctionPreview.changes.length > 0 && (
                     <div style={{ maxHeight: '14rem', overflowY: 'auto', marginTop: '0.5rem' }}>
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="text-left text-muted border-b">
-                            <th className="py-1">User ID</th>
+                            <th className="py-1">Staff</th>
                             <th className="py-1">Date</th>
                             <th className="py-1">From</th>
                             <th className="py-1">To</th>
@@ -1367,7 +1390,7 @@ const AttendanceView = () => {
                         <tbody>
                           {correctionPreview.changes.map((c, i) => (
                             <tr key={i} className="border-b">
-                              <td className="py-1">{c.userId}</td>
+                              <td className="py-1">{c.userName}</td>
                               <td className="py-1">{c.date}</td>
                               <td className="py-1">{c.from}</td>
                               <td className="py-1">{c.to}</td>
@@ -1391,7 +1414,8 @@ const AttendanceView = () => {
                 onClick={async () => {
                   setCorrectionLoading(true);
                   setCorrectionApplied(false);
-                  const res = await correctHistoricalAttendance(correctionStart, correctionEnd, true);
+                  const fn = correctionMode === 'absent' ? correctHistoricalAttendance : correctHistoricalLateAttendance;
+                  const res = await fn(correctionStart, correctionEnd, true);
                   setCorrectionLoading(false);
                   if (res.success && res.data) {
                     setCorrectionPreview(res.data);
@@ -1408,7 +1432,8 @@ const AttendanceView = () => {
                 onClick={async () => {
                   if (!window.confirm(`This will update ${correctionPreview?.corrected} attendance record(s) in the database. This cannot be undone. Continue?`)) return;
                   setCorrectionLoading(true);
-                  const res = await correctHistoricalAttendance(correctionStart, correctionEnd, false);
+                  const fn = correctionMode === 'absent' ? correctHistoricalAttendance : correctHistoricalLateAttendance;
+                  const res = await fn(correctionStart, correctionEnd, false);
                   setCorrectionLoading(false);
                   if (res.success && res.data) {
                     setCorrectionPreview(res.data);
