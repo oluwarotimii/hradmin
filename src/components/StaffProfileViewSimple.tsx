@@ -10,7 +10,7 @@ import { API_ENDPOINT } from '../config/config';
 import { StaffMember, getStaffById, updateStaff } from '../services/staffManagementService';
 import { getAllBranches } from '../services/branchManagementService';
 import { getAllDepartments } from '../services/departmentManagementService';
-import { uploadStaffDocument, getStaffDocuments, deleteStaffDocument, getDocumentUrl, downloadStaffDocument, StaffDocument } from '../services/staffDocumentService';
+import { uploadStaffDocument, getStaffDocuments, deleteStaffDocument, getDocumentBlobUrl, downloadStaffDocument, StaffDocument } from '../services/staffDocumentService';
 import { getAllRoles, Role } from '../services/roleManagementService';
 import { getUserById as getUserByIdForAdmin, resetUserPassword as adminResetUserPassword, updateUserRole as adminUpdateUserRole } from '../services/userManagementService';
 import statesAndLgas from 'nigeria-state-lga-data';
@@ -40,6 +40,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [viewingDocument, setViewingDocument] = useState<StaffDocument | null>(null);
+  const [viewingDocumentUrl, setViewingDocumentUrl] = useState<string>('');
   const [formCompletionPercentage, setFormCompletionPercentage] = useState(0);
   const [isFormComplete, setIsFormComplete] = useState(false);
 
@@ -274,6 +275,34 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       setError(err.message || 'Failed to download document');
     }
   };
+
+  // The document-serving route requires auth, so the preview modal fetches
+  // the file as a blob (with the Authorization header) rather than pointing
+  // img/iframe/href directly at the API URL, which would 401.
+  useEffect(() => {
+    if (!viewingDocument) {
+      setViewingDocumentUrl('');
+      return;
+    }
+    let cancelled = false;
+    let objectUrl = '';
+    getDocumentBlobUrl(viewingDocument.file_path)
+      .then((url) => {
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url;
+        setViewingDocumentUrl(url);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || 'Failed to load document preview');
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [viewingDocument]);
 
   const handleSave = async () => {
     console.log('[StaffProfile] Starting save process...');
@@ -1440,7 +1469,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
                 Download
               </button>
               <a
-                href={getDocumentUrl(viewingDocument.file_path)}
+                href={viewingDocumentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-sm btn-outline"
@@ -1460,7 +1489,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               {viewingDocument.mime_type.includes('image') ? (
                 // Image preview
                 <img
-                  src={getDocumentUrl(viewingDocument.file_path)}
+                  src={viewingDocumentUrl}
                   alt={viewingDocument.document_name}
                   className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
                   style={{ maxHeight: '70vh' }}
@@ -1468,7 +1497,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               ) : viewingDocument.mime_type === 'application/pdf' ? (
                 // PDF preview
                 <iframe
-                  src={getDocumentUrl(viewingDocument.file_path)}
+                  src={viewingDocumentUrl}
                   className="w-full h-full rounded-lg shadow-lg"
                   style={{ minHeight: '70vh', border: 'none' }}
                   title={viewingDocument.document_name}

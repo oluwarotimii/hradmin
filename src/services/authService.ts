@@ -134,6 +134,13 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
       // Store the access token in localStorage
       secureSetItem('authToken', data.tokens.accessToken);
 
+      // Store the refresh token too — without this, refreshToken() below has
+      // nothing to send and silently no-ops, forcing a full logout on every
+      // access-token expiry instead of ever actually refreshing.
+      if (data.tokens.refreshToken) {
+        secureSetItem('refreshToken', data.tokens.refreshToken);
+      }
+
       // Store user info if available
       if (data.user) {
         const normalizedUser = normalizeUserInfo(data.user);
@@ -244,8 +251,21 @@ export const getAuthToken = (): string | null => {
 };
 
 // Function to refresh token (if needed)
+// The backend rotates refresh tokens on every use (the old one is revoked the
+// instant a new one is issued), so two tabs racing to refresh the same stored
+// refresh token is a real scenario. The Web Locks API serializes the actual
+// network call across every tab of the same origin; a tab that loses the
+// race re-reads localStorage (already updated by the winner) instead of
+// hitting the server with an already-dead refresh token.
 export const refreshToken = async (): Promise<string | null> => {
-  try {
+  const staleAccessToken = secureGetItem('authToken');
+
+  const doRefresh = async (): Promise<string | null> => {
+    const currentToken = secureGetItem('authToken');
+    if (currentToken && currentToken !== staleAccessToken) {
+      return currentToken;
+    }
+
     const refreshTokenStored = secureGetItem('refreshToken');
     if (!refreshTokenStored) {
       return null;
@@ -255,14 +275,35 @@ export const refreshToken = async (): Promise<string | null> => {
       refreshToken: refreshTokenStored,
     });
 
-    const { token } = response.data;
-    if (token) {
-      secureSetItem('authToken', token);
-      return token;
+    const { success, data } = response.data;
+    if (success && data?.tokens?.accessToken) {
+      secureSetItem('authToken', data.tokens.accessToken);
+      if (data.tokens.refreshToken) {
+        secureSetItem('refreshToken', data.tokens.refreshToken);
+      }
+      return data.tokens.accessToken;
     }
+    return null;
+  };
+
+  try {
+    const newToken = typeof navigator !== 'undefined' && navigator.locks?.request
+      ? await navigator.locks.request('femtech-token-refresh', doRefresh)
+      : await doRefresh();
+
+    if (newToken) {
+      return newToken;
+    }
+    logout();
     return null;
   } catch (error) {
     console.error('Error refreshing token:', error);
+    // A sibling tab may have already refreshed successfully while this one
+    // was failing — don't nuke a session that's actually still fine.
+    const latestToken = secureGetItem('authToken');
+    if (latestToken && latestToken !== staleAccessToken) {
+      return latestToken;
+    }
     logout(); // If refresh fails, log out the user
     return null;
   }

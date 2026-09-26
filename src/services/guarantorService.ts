@@ -78,6 +78,15 @@ export interface GuarantorInput {
   is_active?: boolean;
 }
 
+// The guarantor file-serving route requires auth, so a plain <a href> to it
+// 401s. Fetch it as a blob (axios attaches the auth header via the global
+// interceptor in authService.ts) and hand back an object URL instead.
+// Caller is responsible for revoking the URL when done with it.
+export const getGuarantorFileBlobUrl = async (fileUrl: string): Promise<string> => {
+  const response = await axios.get(fileUrl, { responseType: 'blob' });
+  return window.URL.createObjectURL(new Blob([response.data]));
+};
+
 export const guarantorService = {
   // Get all guarantors for a staff member
   getGuarantors: async (staffId: number): Promise<any> => {

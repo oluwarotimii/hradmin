@@ -74,6 +74,7 @@ import { getAllStaff } from "./services/staffManagementService";
 import { createLeaveRequest, getAllLeaveTypes } from "./services/leaveManagementService";
 import HelpView from "./components/HelpView";
 import { AuditTrailView } from "./components/AuditTrailView";
+import { T } from "./theme";
 
 interface SidebarProps {
   activeView: string;
@@ -103,203 +104,98 @@ function Sidebar({ activeView, onNavigate, user }: SidebarProps) {
     return 'AU'; // Anonymous User
   };
 
+  const mainMenu = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "allstaff", label: "All Staff", icon: Users },
+    { key: "leave", label: "Leaves Management", icon: Calendar },
+    { key: "leave-allocations", label: "Leave Allocations", icon: CalendarDays },
+    { key: "time-off", label: "Time Off", icon: Umbrella },
+    { key: "attendance", label: "Attendance", icon: Clock },
+    { key: "attendance-locations", label: "Locations", icon: MapPin },
+    { key: "branches", label: "Branch Management", icon: Building },
+    { key: "departments", label: "Department Management", icon: Building },
+    { key: "holidays", label: "Holidays", icon: CalendarDays },
+    { key: "shiftscheduling", label: "Shift Scheduling", icon: Calendar },
+  ];
+
+  const settingsMenu = [
+    { key: "usermanagement", label: "User Management", icon: UserIcon },
+    { key: "rolemanagement", label: "Role Management", icon: Shield },
+    { key: "staff-location-assignments", label: "Location Assignments", icon: MapPin },
+    { key: "settings", label: "Settings", icon: Settings },
+    { key: "audit-trail", label: "Audit Trail", icon: History },
+    { key: "help", label: "Help & Guide", icon: HelpCircle },
+  ];
+
+  const NavGroup = ({ label, items }: { label: string; items: typeof mainMenu }) => (
+    <div style={{ marginBottom: '1.75rem' }}>
+      <p style={{ margin: '0 0 0.5rem', padding: '0 0.75rem', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        {label}
+      </p>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+        {items.map(({ key, label: itemLabel, icon: Icon }) => {
+          const active = activeView === key;
+          return (
+            <li key={key} style={{ position: 'relative' }}>
+              {active && (
+                <span style={{ position: 'absolute', left: 0, top: '0.35rem', bottom: '0.35rem', width: 3, borderRadius: '0 3px 3px 0', background: T.primary }} />
+              )}
+              <button
+                onClick={() => onNavigate(key)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.7rem', width: '100%',
+                  padding: '0.55rem 0.75rem 0.55rem 1rem', margin: '0 0.5rem', maxWidth: 'calc(100% - 1rem)',
+                  borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: '0.85rem', fontWeight: active ? 600 : 500,
+                  color: active ? T.primary : T.textSub,
+                  background: active ? T.primaryPale : 'transparent',
+                  transition: 'background 0.12s, color 0.12s',
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = T.surfaceAlt; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+              >
+                <Icon size={16} style={{ flexShrink: 0, color: active ? T.primary : T.textMuted }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{itemLabel}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+
   return (
-    <div className="sidebar shadow-lg">
-      <div className="sidebar-header">
-        <div className="flex items-center gap-3">
-          <div className="logo-box bg-primary-600 shadow-md overflow-hidden">
-            <img src="/femtech.png" alt="Femtech TMS" className="w-10 h-10 object-contain" />
+    <div style={{
+      background: T.surface, borderRight: `1px solid ${T.border}`, width: '16rem', height: '100vh',
+      display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, boxShadow: '1px 0 3px rgba(15,23,42,0.04)',
+    }}>
+      <div style={{ padding: '1.25rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '10px', background: T.primary, boxShadow: '0 2px 6px rgba(30,64,175,0.3)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <img src="/femtech.png" alt="Femtech TMS" style={{ width: '2rem', height: '2rem', objectFit: 'contain' }} />
           </div>
-          <div>
-            <p className="font-bold text-base text-primary leading-none">Femtech TMS</p>
-            <p className="text-xs text-secondary mt-1">Management Portal</p>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: T.text, lineHeight: 1.2 }}>Femtech TMS</p>
+            <p style={{ margin: '0.1rem 0 0', fontSize: '0.72rem', color: T.textMuted }}>Management Portal</p>
           </div>
         </div>
       </div>
-      <div className="sidebar-content">
-        <div className="sidebar-group">
-          <div className="sidebar-group-label">Main Menu</div>
-          <ul className="sidebar-menu">
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("dashboard")}
-                className={`sidebar-menu-button ${activeView === "dashboard" ? "active" : ""}`}
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Dashboard</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("allstaff")}
-                className={`sidebar-menu-button ${activeView === "allstaff" ? "active" : ""}`}
-              >
-                <Users className="w-4 h-4" />
-                <span>All Staff</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("leave")}
-                className={`sidebar-menu-button ${activeView === "leave" ? "active" : ""}`}
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Leaves Management</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("leave-allocations")}
-                className={`sidebar-menu-button ${activeView === "leave-allocations" ? "active" : ""}`}
-              >
-                <CalendarDays className="w-4 h-4" />
-                <span>Leave Allocations</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("time-off")}
-                className={`sidebar-menu-button ${activeView === "time-off" ? "active" : ""}`}
-              >
-                <Umbrella className="w-4 h-4" />
-                <span>Time Off</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("attendance")}
-                className={`sidebar-menu-button ${activeView === "attendance" ? "active" : ""}`}
-              >
-                <Clock className="w-4 h-4" />
-                <span>Attendance</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("attendance-locations")}
-                className={`sidebar-menu-button ${activeView === "attendance-locations" ? "active" : ""}`}
-              >
-                <MapPin className="w-4 h-4" />
-                <span>Locations</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("branches")}
-                className={`sidebar-menu-button ${activeView === "branches" ? "active" : ""}`}
-              >
-                <Building className="w-4 h-4" />
-                <span>Branch Management</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("departments")}
-                className={`sidebar-menu-button ${activeView === "departments" ? "active" : ""}`}
-              >
-                <Building className="w-4 h-4" />
-                <span>Department Management</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("holidays")}
-                className={`sidebar-menu-button ${activeView === "holidays" ? "active" : ""}`}
-              >
-                <CalendarDays className="w-4 h-4" />
-                <span>Holidays</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("shiftscheduling")}
-                className={`sidebar-menu-button ${activeView === "shiftscheduling" ? "active" : ""}`}
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Shift Scheduling</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              {/* <button
-                onClick={() => onNavigate("my-shifts")}
-                className={`sidebar-menu-button ${activeView === "my-shifts" ? "active" : ""}`}
-              >
-                <CalendarDays className="w-4 h-4" />
-                <span>My Shifts</span>
-              </button> */}
-            </li>
-          </ul>
-        </div>
-        <div className="sidebar-group">
-          <div className="sidebar-group-label">Settings</div>
-          <ul className="sidebar-menu">
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("usermanagement")}
-                className={`sidebar-menu-button ${activeView === "usermanagement" ? "active" : ""}`}
-              >
-                <UserIcon className="w-4 h-4" />
-                <span>User Management</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("rolemanagement")}
-                className={`sidebar-menu-button ${activeView === "rolemanagement" ? "active" : ""}`}
-              >
-                <Shield className="w-4 h-4" />
-                <span>Role Management</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("staff-location-assignments")}
-                className={`sidebar-menu-button ${activeView === "staff-location-assignments" ? "active" : ""}`}
-              >
-                <MapPin className="w-4 h-4" />
-                <span>Location Assignments</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("settings")}
-                className={`sidebar-menu-button ${activeView === "settings" ? "active" : ""}`}
-              >
-                <Settings className="w-4 h-4" />
-                <span>Settings</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("audit-trail")}
-                className={`sidebar-menu-button ${activeView === "audit-trail" ? "active" : ""}`}
-              >
-                <History className="w-4 h-4" />
-                <span>Audit Trail</span>
-              </button>
-            </li>
-            <li className="sidebar-menu-item">
-              <button
-                onClick={() => onNavigate("help")}
-                className={`sidebar-menu-button ${activeView === "help" ? "active" : ""}`}
-              >
-                <HelpCircle className="w-4 h-4" />
-                <span>Help & Guide</span>
-              </button>
-            </li>
-          </ul>
-        </div>
+
+      <div style={{ flex: 1, padding: '1.25rem 0', overflowY: 'auto' }}>
+        <NavGroup label="Main Menu" items={mainMenu} />
+        <NavGroup label="Settings" items={settingsMenu} />
       </div>
-      <div className="sidebar-footer">
-        <div className="flex items-center gap-3">
-          <div className="avatar bg-primary-100 text-primary-700 font-bold shadow-sm">
+
+      <div style={{ padding: '1rem', borderTop: `1px solid ${T.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+          <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: T.primaryPale, border: `1px solid ${T.primaryBorder}`, color: T.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.8rem', flexShrink: 0 }}>
             {getAvatarInitials()}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-primary truncate">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontWeight: 600, fontSize: '0.82rem', color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayName}
             </p>
-            <p className="text-xs text-secondary truncate">
+            <p style={{ margin: 0, fontSize: '0.72rem', color: T.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user?.email || 'No email'}
             </p>
           </div>
@@ -1010,26 +906,26 @@ export default function App() {
       <Sidebar activeView={activeView} onNavigate={setActiveView} user={user} />
       <main className="main-content">
         {/* Header */}
-        <header className="header">
+        <header style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, position: 'sticky', top: 0, zIndex: 10 }}>
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
-              <button className="sidebar-trigger">
+              <button
+                className="sidebar-trigger"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '2rem', height: '2rem', border: `1px solid ${T.border}`, borderRadius: '7px', background: 'transparent', cursor: 'pointer', color: T.textSub }}
+              >
                 <Menu className="w-4 h-4" />
               </button>
               <div className="search-container" style={{ position: 'relative', width: '100%', maxWidth: '500px' }}>
-                <div className="input-wrapper">
-                  <div className="input-icon">
-                    <Search className="w-4 h-4" />
-                  </div>
+                <div style={{ position: 'relative' }}>
+                  <Search size={14} color={T.textMuted} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                   <input
                     ref={setSearchInputRef}
                     type="text"
                     placeholder="Search staff, departments, leave types... (Ctrl+K)"
-                    className="input input-with-icon"
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                     onFocus={() => searchQuery && searchResults.length > 0 && setShowSearchResults(true)}
-                    style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", width: '100%' }}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.875rem 0.55rem 2.2rem', border: `1.5px solid ${T.border}`, borderRadius: '8px', fontSize: '0.85rem', color: T.text, background: T.surfaceAlt, outline: 'none', fontFamily: 'inherit' }}
                   />
                 </div>
 
@@ -1210,7 +1106,7 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-gray-700 mr-3">{currentTime}</span>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: T.textSub, marginRight: '0.5rem' }}>{currentTime}</span>
               {/* Notification bell commented out - not functional
               <button className="btn btn-ghost btn-icon" onClick={() => setNotificationPanelOpen(!notificationPanelOpen)} style={{ position: 'relative' }}>
                 <Bell className="w-5 h-5" />
@@ -1219,10 +1115,21 @@ export default function App() {
                 )}
               </button>
               */}
-              <button className="btn btn-ghost" onClick={handleLogout} style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
+              <button
+                onClick={handleLogout}
+                style={{ fontSize: '0.82rem', fontWeight: 600, padding: '0.5rem 1rem', border: `1px solid ${T.border}`, borderRadius: '8px', background: T.surface, color: T.textSub, cursor: 'pointer', fontFamily: 'inherit' }}
+              >
                 Logout
               </button>
-              <div className="avatar">AD</div>
+              <div style={{ width: '2.1rem', height: '2.1rem', borderRadius: '50%', background: T.primaryPale, border: `1px solid ${T.primaryBorder}`, color: T.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.78rem' }}>
+                {(() => {
+                  const name = user?.displayName || user?.fullName || user?.full_name || user?.name || '';
+                  const parts = name.trim().split(/\s+/).filter(Boolean);
+                  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+                  if (parts.length === 1) return parts[0][0].toUpperCase();
+                  return 'AD';
+                })()}
+              </div>
             </div>
           </div>
         </header>

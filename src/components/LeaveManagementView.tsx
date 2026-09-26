@@ -2,6 +2,7 @@
 // It handles leave requests, approvals, reporting, and year-end processing
 
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye, Paperclip, ExternalLink, Image, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
 import { API_ENDPOINT } from '../config/config';
@@ -185,6 +186,7 @@ const LeaveManagementView = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRequestDetails, setSelectedRequestDetails] = useState<any | null>(null);
   const [viewingAttachment, setViewingAttachment] = useState<any | null>(null);
+  const [viewingAttachmentUrl, setViewingAttachmentUrl] = useState('');
   const [showCreateLeaveTypeModal, setShowCreateLeaveTypeModal] = useState(false);
   const [showEditLeaveTypeModal, setShowEditLeaveTypeModal] = useState(false);
   const [showCleanupModal, setShowCleanupModal] = useState(false);
@@ -389,6 +391,45 @@ const LeaveManagementView = () => {
   const paginatedRequests = filteredRequests;
 
   useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, filterLeaveType, selectedDepartment]);
+
+  // Attachment files require auth to fetch, so a plain <img>/<iframe>/<a> at
+  // the API URL would 401 — fetch as a blob (axios attaches the auth header
+  // via the global interceptor in authService.ts) and use that URL instead.
+  useEffect(() => {
+    if (!viewingAttachment?.file_path) {
+      setViewingAttachmentUrl('');
+      return;
+    }
+    let cancelled = false;
+    let objectUrl = '';
+    axios.get(`${API_ENDPOINT}${viewingAttachment.file_path}`, { responseType: 'blob' })
+      .then((response) => {
+        if (cancelled) return;
+        objectUrl = window.URL.createObjectURL(new Blob([response.data]));
+        setViewingAttachmentUrl(objectUrl);
+      })
+      .catch(() => { /* preview stays blank; Download/Full Screen buttons still work via downloadAttachment */ });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [viewingAttachment]);
+
+  const downloadAttachment = async (att: any) => {
+    try {
+      const response = await axios.get(`${API_ENDPOINT}${att.file_path}`, { responseType: 'blob' });
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = window.document.createElement('a');
+      link.href = blobUrl;
+      link.download = att.file_name || 'attachment';
+      window.document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch {
+      // no-op — surfaced by the button's disabled/error state elsewhere if needed
+    }
+  };
 
   const totalRequests = totalItems;
   const approvedCount = leaveRequests.filter(r=>r.status==='Approved').length;
@@ -986,11 +1027,23 @@ const LeaveManagementView = () => {
                             const fileSize = att.file_size;
                             const isImage = mimeType.includes('image')||fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i);
                             const isPDF = mimeType.includes('pdf')||fileName.match(/\.pdf$/i);
+                            const openAttachment = async () => {
+                              if (filePath.startsWith('http')) {
+                                window.open(filePath, '_blank', 'noopener,noreferrer');
+                                return;
+                              }
+                              try {
+                                const response = await axios.get(`${API_ENDPOINT}${filePath}`, { responseType: 'blob' });
+                                const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+                                window.open(blobUrl, '_blank', 'noopener,noreferrer');
+                                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                              } catch { /* no-op */ }
+                            };
                             return (
-                              <a key={i} href={`${filePath.startsWith('http')?filePath:`${API_ENDPOINT}${filePath}`}`} target="_blank" rel="noopener noreferrer"
-                                style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'9px', textDecoration:'none', transition:'box-shadow 0.15s, border-color 0.15s' }}
-                                onMouseEnter={e=>{(e.currentTarget as HTMLAnchorElement).style.borderColor=T.primaryBorder;(e.currentTarget as HTMLAnchorElement).style.boxShadow='0 2px 10px rgba(15,23,42,.08)';}}
-                                onMouseLeave={e=>{(e.currentTarget as HTMLAnchorElement).style.borderColor=T.border;(e.currentTarget as HTMLAnchorElement).style.boxShadow='none';}}>
+                              <button key={i} onClick={openAttachment}
+                                style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', background:T.surfaceAlt, border:`1px solid ${T.border}`, borderRadius:'9px', textDecoration:'none', transition:'box-shadow 0.15s, border-color 0.15s', width:'100%', textAlign:'left', cursor:'pointer', fontFamily:'inherit' }}
+                                onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor=T.primaryBorder;(e.currentTarget as HTMLButtonElement).style.boxShadow='0 2px 10px rgba(15,23,42,.08)';}}
+                                onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.borderColor=T.border;(e.currentTarget as HTMLButtonElement).style.boxShadow='none';}}>
                                 <div style={{ width:'2.25rem', height:'2.25rem', borderRadius:'7px', background:isImage?T.purplePale:isPDF?T.dangerPale:T.primaryPale, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                                   {isImage?<Image size={14} color={T.purple}/>:<FileText size={14} color={isPDF?T.danger:T.primary}/>}
                                 </div>
@@ -999,7 +1052,7 @@ const LeaveManagementView = () => {
                                   <p style={{ margin:0, fontSize:'0.7rem', color:T.textMuted }}>{mimeType.split('/')[1]?.toUpperCase()||'Document'}{fileSize&&` · ${formatFileSize(fileSize)}`}</p>
                                 </div>
                                 <ExternalLink size={14} color={T.primary}/>
-                              </a>
+                              </button>
                             );
                           })}
                         </div>
@@ -1148,10 +1201,10 @@ const LeaveManagementView = () => {
                                       <Eye size={11}/> View
                                     </button>
                                   )}
-                                  <a href={`${API_ENDPOINT}${att.file_path}`} download={att.file_name}
-                                    style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.3rem 0.6rem', border:'none', borderRadius:'6px', background:T.primary, color:'#fff', cursor:'pointer', fontSize:'0.72rem', fontWeight:600, textDecoration:'none' }}>
+                                  <button onClick={()=>downloadAttachment(att)}
+                                    style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.3rem 0.6rem', border:'none', borderRadius:'6px', background:T.primary, color:'#fff', cursor:'pointer', fontSize:'0.72rem', fontWeight:600, fontFamily:'inherit' }}>
                                     <Download size={11}/> Download
-                                  </a>
+                                  </button>
                                 </div>
                               </div>
                             ))}
@@ -1382,24 +1435,26 @@ const LeaveManagementView = () => {
                     </div>
                   </div>
                   <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
-                    <a href={`${API_ENDPOINT}${viewingAttachment.file_path}`} download={viewingAttachment.file_name}
-                      style={{ ...btnPrimary, textDecoration:'none' }}><Download size={13}/> Download</a>
-                    <a href={`${API_ENDPOINT}${viewingAttachment.file_path}`} target="_blank" rel="noopener noreferrer"
-                      style={{ ...btnOutline, textDecoration:'none' }}><Eye size={13}/> Full Screen</a>
+                    <button onClick={()=>downloadAttachment(viewingAttachment)}
+                      style={{ ...btnPrimary, border:'none', cursor:'pointer', fontFamily:'inherit' }}><Download size={13}/> Download</button>
+                    <a href={viewingAttachmentUrl || undefined} target="_blank" rel="noopener noreferrer"
+                      style={{ ...btnOutline, textDecoration:'none', opacity: viewingAttachmentUrl ? 1 : 0.5, pointerEvents: viewingAttachmentUrl ? 'auto' : 'none' }}><Eye size={13}/> Full Screen</a>
                     <button onClick={()=>setViewingAttachment(null)} style={{ display:'flex', alignItems:'center', justifyContent:'center', width:'1.75rem', height:'1.75rem', border:'none', background:'transparent', cursor:'pointer', color:T.textMuted, borderRadius:'6px' }}><X size={16}/></button>
                   </div>
                 </div>
                 <div style={{ flex:1, overflow:'auto', background:T.surfaceMuted, display:'flex', alignItems:'center', justifyContent:'center', padding:'1.25rem' }}>
-                  {viewingAttachment.mime_type?.includes('image') ? (
-                    <img src={`${API_ENDPOINT}${viewingAttachment.file_path}`} alt={viewingAttachment.file_name||'Attachment'} style={{ maxWidth:'100%', maxHeight:'70vh', objectFit:'contain', borderRadius:'8px', boxShadow:'0 4px 24px rgba(15,23,42,.15)' }}/>
+                  {!viewingAttachmentUrl ? (
+                    <div style={{ textAlign:'center', padding:'2rem', color:T.textMuted, fontSize:'0.85rem' }}>Loading preview…</div>
+                  ) : viewingAttachment.mime_type?.includes('image') ? (
+                    <img src={viewingAttachmentUrl} alt={viewingAttachment.file_name||'Attachment'} style={{ maxWidth:'100%', maxHeight:'70vh', objectFit:'contain', borderRadius:'8px', boxShadow:'0 4px 24px rgba(15,23,42,.15)' }}/>
                   ) : viewingAttachment.mime_type?.includes('pdf') ? (
-                    <iframe src={`${API_ENDPOINT}${viewingAttachment.file_path}`} style={{ width:'100%', minHeight:'70vh', border:'none', borderRadius:'8px' }} title={viewingAttachment.file_name||'Attachment'}/>
+                    <iframe src={viewingAttachmentUrl} style={{ width:'100%', minHeight:'70vh', border:'none', borderRadius:'8px' }} title={viewingAttachment.file_name||'Attachment'}/>
                   ) : (
                     <div style={{ textAlign:'center', padding:'2rem', background:T.surface, borderRadius:'12px', boxShadow:'0 2px 12px rgba(15,23,42,.08)' }}>
                       <FileText size={48} color={T.primary} style={{ margin:'0 auto 1rem' }}/>
                       <p style={{ fontWeight:700, color:T.text, margin:'0 0 0.4rem' }}>{viewingAttachment.file_name||'Attachment'}</p>
                       <p style={{ color:T.textMuted, fontSize:'0.85rem', margin:'0 0 1.25rem' }}>This file type cannot be previewed. Please download to view.</p>
-                      <a href={`${API_ENDPOINT}${viewingAttachment.file_path}`} download={viewingAttachment.file_name} style={{ ...btnPrimary, textDecoration:'none' }}><Download size={14}/> Download File</a>
+                      <button onClick={()=>downloadAttachment(viewingAttachment)} style={{ ...btnPrimary, border:'none', cursor:'pointer', fontFamily:'inherit' }}><Download size={14}/> Download File</button>
                     </div>
                   )}
                 </div>

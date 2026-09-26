@@ -157,6 +157,29 @@ export const getDocumentUrl = (filePath: string): string => {
 };
 
 /**
+ * Fetch a document as an authenticated blob URL, for inline preview
+ * (img/iframe src, "open in new tab" links). The serving route requires a
+ * Bearer token, so a plain <img src>/<a href> to it would 401 — this fetches
+ * with the Authorization header and hands back an object URL instead.
+ * Caller is responsible for revoking the URL (URL.revokeObjectURL) when done.
+ */
+export const getDocumentBlobUrl = async (filePath: string): Promise<string> => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication token not found');
+  }
+
+  const response = await axios.get(getDocumentUrl(filePath), {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    responseType: 'blob'
+  });
+
+  return window.URL.createObjectURL(new Blob([response.data]));
+};
+
+/**
  * Download staff document
  */
 export const downloadStaffDocument = async (document: StaffDocument): Promise<void> => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Upload, Download, Trash2, CheckCircle, AlertCircle, User, Phone, Mail, MapPin, Briefcase, FileText, Shield, Calendar, Plus, UserCheck, Eye, ChevronDown } from 'lucide-react';
-import { guarantorService, Guarantor, GuarantorInput } from '../services/guarantorService';
+import { guarantorService, getGuarantorFileBlobUrl, Guarantor, GuarantorInput } from '../services/guarantorService';
 import { API_ENDPOINT } from '../config/config';
 
 interface GuarantorFormProps {
@@ -159,6 +159,10 @@ const metricStyle = (accent: string, pale: string): React.CSSProperties => ({
   gap: '1rem',
 });
 
+// Guarantor files are only ever served through the authenticated
+// /guarantors/uploads/:filename route (guarantor.route.ts) — never the raw
+// stored path — since the raw path also matches an old public static mount
+// that has been removed from the backend.
 const getGuarantorFileUrl = (filePath?: string | null): string | null => {
   if (!filePath) {
     return null;
@@ -172,7 +176,8 @@ const getGuarantorFileUrl = (filePath?: string | null): string | null => {
     return `${API_ENDPOINT.replace(/\/$/, '')}${filePath}`;
   }
 
-  return `${API_ENDPOINT.replace(/\/$/, '')}/${filePath.replace(/^\//, '')}`;
+  const filename = filePath.split('/').pop();
+  return `${API_ENDPOINT.replace(/\/$/, '')}/guarantors/uploads/${filename}`;
 };
 
 export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
@@ -368,6 +373,20 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
 
   const handleInputChange = (field: keyof GuarantorInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // The file-serving route requires auth, so we can't just point an <a href>
+  // at it — fetch it as a blob and open that instead.
+  const handleViewGuarantorFile = async (filePath?: string | null) => {
+    const url = getGuarantorFileUrl(filePath);
+    if (!url) return;
+    try {
+      const blobUrl = await getGuarantorFileBlobUrl(url);
+      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load document');
+    }
   };
 
   const stats = {
@@ -820,14 +839,12 @@ export function GuarantorForm({ staffId, onSuccess }: GuarantorFormProps) {
                   </div>
 
                   {guarantor.guarantor_form_path && (
-                    <a
-                      href={getGuarantorFileUrl(guarantor.guarantor_form_path) || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: T.textSub, fontSize: '0.78rem', fontWeight: 800, textDecoration: 'none' }}
+                    <button
+                      onClick={() => handleViewGuarantorFile(guarantor.guarantor_form_path)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: 'none', background: 'transparent', color: T.textSub, fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
                     >
                       <Eye className="w-3.5 h-3.5" /> View
-                    </a>
+                    </button>
                   )}
                 </div>
 
