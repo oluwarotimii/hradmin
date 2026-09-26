@@ -2,7 +2,7 @@
 // It handles leave requests, approvals, reporting, and year-end processing
 
 import { useState, useEffect } from 'react';
-import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye, Paperclip, ExternalLink, Image } from 'lucide-react';
+import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye, Paperclip, ExternalLink, Image, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
 import { API_ENDPOINT } from '../config/config';
 import {
@@ -20,15 +20,11 @@ import {
 } from '../services/leaveManagementService';
 import { getLeavePolicy } from '../services/leavePolicyService';
 import { triggerLeaveCleanup, getLeaveCleanupStatus } from '../services/leaveCleanupService';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
+import { Pagination } from './Pagination';
+import { OverflowMenu } from './OverflowMenu';
+import { Avatar } from './Avatar';
+import { StatusBadge, BadgeTone } from './StatusBadge';
+import { T } from '../theme';
 
 interface LeaveRequest {
   id: string;
@@ -48,34 +44,6 @@ interface LeaveRequest {
   declineReason?: string;
   coveringStaff?: string;
 }
-
-// ─── Design tokens (consistent with rest of portal) ───────────────────────
-const T = {
-  primary:       '#1e40af',
-  primaryLight:  '#3b82f6',
-  primaryPale:   '#eff6ff',
-  primaryBorder: '#bfdbfe',
-  success:       '#059669',
-  successPale:   '#ecfdf5',
-  successBorder: '#a7f3d0',
-  warning:       '#d97706',
-  warningPale:   '#fffbeb',
-  warningBorder: '#fde68a',
-  danger:        '#dc2626',
-  dangerPale:    '#fef2f2',
-  dangerBorder:  '#fecaca',
-  purple:        '#7c3aed',
-  purplePale:    '#f5f3ff',
-  purpleBorder:  '#ddd6fe',
-  surface:       '#ffffff',
-  surfaceAlt:    '#f8fafc',
-  surfaceMuted:  '#f1f5f9',
-  border:        '#e2e8f0',
-  borderStrong:  '#cbd5e1',
-  text:          '#0f172a',
-  textSub:       '#475569',
-  textMuted:     '#94a3b8',
-};
 
 // Shared style primitives
 const card: React.CSSProperties = {
@@ -191,35 +159,13 @@ const Td = ({ ch, right }: { ch: React.ReactNode; right?: boolean }) => (
   </td>
 );
 
-const StatusBadge = ({ status }: { status: string }) => {
-  const map: Record<string, [string, string, string]> = {
-    Approved: [T.success, T.successPale, T.successBorder],
-    approved: [T.success, T.successPale, T.successBorder],
-    Active:   [T.primary, T.primaryPale, T.primaryBorder],
-    active:   [T.primary, T.primaryPale, T.primaryBorder],
-    Declined: [T.danger,  T.dangerPale,  T.dangerBorder],
-    rejected: [T.danger,  T.dangerPale,  T.dangerBorder],
-    Pending:  [T.warning, T.warningPale, T.warningBorder],
-    submitted:[T.warning, T.warningPale, T.warningBorder],
-  };
-  const [dot, bg, border] = map[status] || [T.textMuted, T.surfaceMuted, T.border];
-  return (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.2rem 0.6rem', borderRadius:'100px', fontSize:'0.72rem', fontWeight:600, background:bg, color:dot, border:`1px solid ${border}` }}>
-      <span style={{ width:5, height:5, borderRadius:'50%', background:dot, display:'inline-block' }}/>
-      {status}
-    </span>
-  );
+const leaveTone = (status: string): BadgeTone => {
+  const s = status?.toLowerCase();
+  if (s === 'approved' || s === 'active') return s === 'active' ? 'primary' : 'success';
+  if (s === 'declined' || s === 'rejected') return 'danger';
+  if (s === 'pending' || s === 'submitted') return 'warning';
+  return 'neutral';
 };
-
-const initials2 = (name: string) => name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??';
-const avatarPalette = ['#1e40af','#0369a1','#059669','#7c3aed','#d97706','#be185d','#0891b2','#0d9488'];
-const avatarBg = (name: string) => avatarPalette[(name?.charCodeAt(0) || 0) % avatarPalette.length];
-
-const Avatar = ({ name, size = 40 }: { name: string; size?: number }) => (
-  <div style={{ width: size, height: size, borderRadius: size > 36 ? '10px' : '8px', background: avatarBg(name), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: size > 36 ? '0.9rem' : '0.65rem', fontWeight: 700, flexShrink: 0, letterSpacing: '0.02em' }}>
-    {initials2(name)}
-  </div>
-);
 
 // ─── Main component ──────────────────────────────────────────────────────
 const LeaveManagementView = () => {
@@ -227,6 +173,8 @@ const LeaveManagementView = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'declined' | 'active' | 'pending'>('all');
   const [filterLeaveType, setFilterLeaveType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showLeaveTypes, setShowLeaveTypes] = useState(false);
+  const [openRowMenu, setOpenRowMenu] = useState<string | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [activeTab, setActiveTab] = useState<'requests' | 'report'>('requests');
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -252,7 +200,7 @@ const LeaveManagementView = () => {
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
   const [excludeSundaysFromLeave, setExcludeSundaysFromLeave] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [pendingTotal, setPendingTotal] = useState(0);
@@ -364,7 +312,11 @@ const LeaveManagementView = () => {
 
   useEffect(() => {
     refreshAllData();
-  }, [currentPage, filterStatus, filterLeaveType, searchTerm]);
+  }, [currentPage, itemsPerPage, filterStatus, filterLeaveType, searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   const getLeaveTypeIcon = () => Calendar;
 
@@ -434,8 +386,6 @@ const LeaveManagementView = () => {
   };
 
   const filteredRequests = leaveRequests;
-  const startIndex = (currentPage-1)*itemsPerPage;
-  const endIndex = startIndex+itemsPerPage;
   const paginatedRequests = filteredRequests;
 
   useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, filterLeaveType, selectedDepartment]);
@@ -626,23 +576,32 @@ const LeaveManagementView = () => {
         )}
       </div>
 
-      {/* Leave Types Guide */}
-      <div style={{ ...card, padding:'1.25rem' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1rem', flexWrap:'wrap', gap:'0.75rem' }}>
+      {/* Leave Types Guide — collapsed by default; this is config, not a daily task */}
+      <div style={{ ...card, padding: showLeaveTypes ? '1.25rem' : '0.6rem 1rem' }}>
+        <button
+          onClick={()=>setShowLeaveTypes(v=>!v)}
+          style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', border:'none', background:'transparent', cursor:'pointer', padding:0, fontFamily:'inherit' }}
+        >
           <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+            {showLeaveTypes ? <ChevronDown size={15} color={T.textMuted}/> : <ChevronRight size={15} color={T.textMuted}/>}
             <Info size={15} color={T.primary}/>
-            <h3 style={{ margin:0, fontSize:'0.95rem', fontWeight:700, color:T.text }}>Leave Types &amp; Policies</h3>
+            <span style={{ fontSize:'0.88rem', fontWeight:700, color:T.text }}>Leave Types &amp; Policies</span>
+            <span style={{ fontSize:'0.72rem', color:T.textMuted, fontWeight:500 }}>({leaveTypes.length})</span>
           </div>
-          <div style={{ display:'flex', gap:'0.5rem' }}>
-            <button style={{ ...btnOutline, fontSize:'0.78rem', padding:'0.4rem 0.875rem' }}
-              onClick={()=>{ handleFetchCleanupStatus(); setShowCleanupModal(true); }}>
-              <Clock size={13}/> Cleanup Expired
-            </button>
-            <button style={{ ...btnPrimary, fontSize:'0.78rem', padding:'0.4rem 0.875rem' }}
-              onClick={()=>setShowCreateLeaveTypeModal(true)}>
-              + Create Leave Type
-            </button>
-          </div>
+          <span style={{ fontSize:'0.76rem', color:T.primary, fontWeight:600 }}>{showLeaveTypes ? 'Hide' : 'Manage'}</span>
+        </button>
+
+        {showLeaveTypes && (
+        <div style={{ marginTop:'1rem' }}>
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.5rem', marginBottom:'1rem' }}>
+          <button style={{ ...btnOutline, fontSize:'0.78rem', padding:'0.4rem 0.875rem' }}
+            onClick={()=>{ handleFetchCleanupStatus(); setShowCleanupModal(true); }}>
+            <Clock size={13}/> Cleanup Expired
+          </button>
+          <button style={{ ...btnPrimary, fontSize:'0.78rem', padding:'0.4rem 0.875rem' }}
+            onClick={()=>setShowCreateLeaveTypeModal(true)}>
+            + Create Leave Type
+          </button>
         </div>
 
         {leaveTypes.length > 0 ? (
@@ -679,6 +638,8 @@ const LeaveManagementView = () => {
             <button style={btnPrimary} onClick={()=>setShowCreateLeaveTypeModal(true)}>Create Your First Leave Type</button>
           </div>
         )}
+        </div>
+        )}
       </div>
 
       {/* Leave Requests Table */}
@@ -686,12 +647,21 @@ const LeaveManagementView = () => {
         <div style={{ padding:'1rem 1.25rem', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <div>
             <h3 style={{ margin:0, fontSize:'0.95rem', fontWeight:700, color:T.text }}>Leave Requests</h3>
-            <p style={{ margin:'0.15rem 0 0', fontSize:'0.78rem', color:T.textMuted }}>
-              Showing {startIndex+1}–{Math.min(endIndex, filteredRequests.length)} of {totalItems}
-              {filterStatus!=='all' && <span style={{ color:T.primary, fontWeight:600 }}> · {filterStatus}</span>}
-            </p>
+            {filterStatus!=='all' && (
+              <p style={{ margin:'0.15rem 0 0', fontSize:'0.78rem', color:T.primary, fontWeight:600 }}>Filtered by {filterStatus}</p>
+            )}
           </div>
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setItemsPerPage}
+          itemLabel="leave requests"
+        />
 
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.875rem' }}>
@@ -739,7 +709,7 @@ const LeaveManagementView = () => {
                     }/>
                     <Td ch={
                       <div>
-                        <StatusBadge status={request.status}/>
+                        <StatusBadge label={request.status} tone={leaveTone(request.status)}/>
                         {request.status==='Active' && (
                           <p style={{ margin:'0.2rem 0 0', fontSize:'0.7rem', color:T.textMuted }}>
                             Ends {new Date(request.endDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
@@ -754,10 +724,14 @@ const LeaveManagementView = () => {
                             onClick={()=>handleApprovalAction(request,'approve')}>
                             <Check size={12}/> Approve
                           </button>
-                          <button style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.75rem', borderRadius:'7px', border:`1px solid ${T.dangerBorder}`, background:T.dangerPale, color:T.danger, cursor:'pointer', fontSize:'0.78rem', fontWeight:600, fontFamily:'inherit' }}
-                            onClick={()=>handleApprovalAction(request,'decline')}>
-                            <X size={12}/> Decline
-                          </button>
+                          <OverflowMenu
+                            open={openRowMenu===request.id}
+                            onToggle={()=>setOpenRowMenu(v=>v===request.id?null:request.id)}
+                            onClose={()=>setOpenRowMenu(null)}
+                            items={[
+                              { label:'Decline', icon:X, danger:true, onClick:()=>handleApprovalAction(request,'decline') },
+                            ]}
+                          />
                         </div>
                       ) : request.status==='Approved' ? (
                         <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', gap:'0.4rem' }}>
@@ -765,10 +739,14 @@ const LeaveManagementView = () => {
                             onClick={()=>handleViewDetails(request)}>
                             <FileText size={12}/> Details
                           </button>
-                          <button style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.75rem', borderRadius:'7px', border:`1px solid ${T.dangerBorder}`, background:T.dangerPale, color:T.danger, cursor:'pointer', fontSize:'0.78rem', fontWeight:600, fontFamily:'inherit' }}
-                            onClick={()=>{ setSelectedRequest(request); setShowCancelModal(true); }}>
-                            <X size={12}/> Cancel
-                          </button>
+                          <OverflowMenu
+                            open={openRowMenu===request.id}
+                            onToggle={()=>setOpenRowMenu(v=>v===request.id?null:request.id)}
+                            onClose={()=>setOpenRowMenu(null)}
+                            items={[
+                              { label:'Cancel Leave', icon:X, danger:true, onClick:()=>{ setSelectedRequest(request); setShowCancelModal(true); } },
+                            ]}
+                          />
                         </div>
                       ) : (
                         <button style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.75rem', borderRadius:'7px', border:`1px solid ${T.border}`, background:T.surface, color:T.textSub, cursor:'pointer', fontSize:'0.78rem', fontWeight:600, fontFamily:'inherit' }}
@@ -783,36 +761,6 @@ const LeaveManagementView = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div style={{ padding:'0.875rem 1.25rem', borderTop:`1px solid ${T.border}`, background:T.surfaceAlt, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.75rem' }}>
-            <p style={{ margin:0, fontSize:'0.78rem', color:T.textMuted }}>
-              Showing <strong style={{ color:T.text }}>{startIndex+1}</strong>–<strong style={{ color:T.text }}>{Math.min(endIndex,totalItems)}</strong> of <strong style={{ color:T.text }}>{totalItems}</strong>
-            </p>
-            <div style={{ display:'flex', gap:'0.3rem', alignItems:'center' }}>
-              <button className="lmv-pg" disabled={currentPage===1} onClick={()=>setCurrentPage(p=>Math.max(1,p-1))}
-                style={{ padding:'0.35rem 0.75rem', border:`1px solid ${T.border}`, borderRadius:'7px', background:T.surface, color:T.textSub, fontSize:'0.8rem', fontWeight:500, cursor:currentPage===1?'not-allowed':'pointer', opacity:currentPage===1?.4:1, fontFamily:'inherit', transition:'all 0.12s' }}>
-                ← Prev
-              </button>
-              {Array.from({length:Math.min(5,totalPages)},(_,i)=>{
-                let p: number;
-                if (totalPages<=5) p=i+1;
-                else if (currentPage<=3) p=i+1;
-                else if (currentPage>=totalPages-2) p=totalPages-4+i;
-                else p=currentPage-2+i;
-                const active=currentPage===p;
-                return <button key={p} onClick={()=>setCurrentPage(p)} className={!active?'lmv-pg':''}
-                  style={{ width:'2rem', height:'2rem', border:active?'none':`1px solid ${T.border}`, borderRadius:'7px', background:active?T.primary:T.surface, color:active?'#fff':T.textSub, fontSize:'0.8rem', fontWeight:active?700:500, cursor:'pointer', fontFamily:'inherit', boxShadow:active?`0 1px 4px rgba(30,64,175,.25)`:'none', transition:'all 0.12s' }}>{p}</button>;
-              })}
-              {totalPages>5 && currentPage<totalPages-2 && <span style={{ color:T.textMuted, fontSize:'0.8rem', padding:'0 0.2rem' }}>…</span>}
-              <button className="lmv-pg" disabled={currentPage>=totalPages} onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))}
-                style={{ padding:'0.35rem 0.75rem', border:`1px solid ${T.border}`, borderRadius:'7px', background:T.surface, color:T.textSub, fontSize:'0.8rem', fontWeight:500, cursor:currentPage>=totalPages?'not-allowed':'pointer', opacity:currentPage>=totalPages?.4:1, fontFamily:'inherit', transition:'all 0.12s' }}>
-                Next →
-              </button>
-            </div>
-          </div>
-        )}
 
         {filteredRequests.length===0 && !loading && (
           <div style={{ padding:'4rem', textAlign:'center' }}>
@@ -1009,7 +957,7 @@ const LeaveManagementView = () => {
                         <p style={{ margin:0, fontWeight:700, fontSize:'0.95rem', color:T.text }}>{selectedRequest.staffName}</p>
                         <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:T.textMuted }}>{selectedRequest.staffId} · {selectedRequest.department}</p>
                       </div>
-                      <StatusBadge status={selectedRequest.status}/>
+                      <StatusBadge label={selectedRequest.status} tone={leaveTone(selectedRequest.status)}/>
                     </div>
 
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
@@ -1111,7 +1059,7 @@ const LeaveManagementView = () => {
                         <p style={{ margin:0, fontWeight:700, fontSize:'0.95rem', color:T.text }}>{selectedRequest.staffName}</p>
                         <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:T.textMuted }}>{selectedRequest.staffId} · {selectedRequest.department}</p>
                       </div>
-                      <StatusBadge status={selectedRequest.status}/>
+                      <StatusBadge label={selectedRequest.status} tone={leaveTone(selectedRequest.status)}/>
                     </div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
                       <InfoRow label="Leave Type" value={selectedRequest.leaveType} accent={T.primary}/>
@@ -1154,7 +1102,7 @@ const LeaveManagementView = () => {
                           <p style={{ margin:0, fontWeight:700, fontSize:'1rem', color:T.text }}>{selectedRequestDetails.user_name||selectedRequest.staffName}</p>
                           <p style={{ margin:'0.2rem 0 0', fontSize:'0.78rem', color:T.textMuted }}>ID: {selectedRequestDetails.user_id} · {selectedRequest.department} · {selectedRequest.branch}</p>
                         </div>
-                        <StatusBadge status={selectedRequestDetails.status}/>
+                        <StatusBadge label={selectedRequestDetails.status} tone={leaveTone(selectedRequestDetails.status)}/>
                       </div>
 
                       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>

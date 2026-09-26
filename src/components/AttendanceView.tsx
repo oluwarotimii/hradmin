@@ -1,7 +1,7 @@
 // src/components/AttendanceView.tsx
 // Admin-focused Attendance Management with List View and Check-in Tracking
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   getAllAttendanceRecords,
@@ -12,23 +12,29 @@ import {
   updateAttendanceRecord,
   deleteAttendanceRecord,
   getStaffAttendanceData,
+  getFlaggedAttendanceRecords,
+  correctHistoricalAttendance,
   AttendanceRecord,
   AttendanceRecordsResponse,
+  AttendanceCorrectionResult,
   StaffAttendanceSummaryRow
 } from '../services/attendanceService';
 import { getAllStaff } from '../services/staffManagementService';
 import { getAllBranches, Branch } from '../services/branchManagementService';
 import ProcessAttendanceModal from './ProcessAttendanceModal';
-import { holidayService } from '../services/holidayService';
 import { AutoMarkSettingsModal } from './AutoMarkSettingsModal';
 import { getLockStatus } from '../services/attendanceSettingsService';
 import { useAuth } from '../AuthContext';
+import { Pagination } from './Pagination';
+import { OverflowMenu } from './OverflowMenu';
+import { Avatar } from './Avatar';
+import { StatusBadge } from './StatusBadge';
 // Calendar view temporarily disabled - focusing on list view functionality
 // import AttendanceCalendarWrapper from './AttendanceCalendarWrapper';
 import {
   Calendar, Clock, CheckCircle, XCircle, AlertCircle, Search, Filter, Download,
-  Plus, Edit3, Trash2, Users, Building, TrendingUp, TrendingDown, RefreshCw,
-  ChevronLeft, ChevronRight, RotateCcw, Lock
+  Plus, Edit3, Trash2, TrendingUp, TrendingDown, RefreshCw,
+  RotateCcw, Lock, Wrench
 } from 'lucide-react';
 
 interface StaffMember {
@@ -52,7 +58,7 @@ interface AttendanceWithStaff extends AttendanceRecord {
 
 const AttendanceView = () => {
   const { hasPermission } = useAuth();
-  const colSpanCount = 7 + (hasPermission('attendance:manage') ? 2 : 0);
+  const colSpanCount = 7 + (hasPermission('attendance:manage') ? 1 : 0);
   // Calendar view temporarily disabled
   const [activeView, setActiveView] = useState<'list'>('list');
   // const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
@@ -60,11 +66,12 @@ const AttendanceView = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Data state
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceWithStaff[]>([]);
+  // Data state — rawRecords holds the API response as-is; attendanceRecords (below,
+  // via useMemo) re-enriches it with staff/branch info whenever any of the three
+  // change, so enrichment never depends on fetch ordering between them.
+  const [rawRecords, setRawRecords] = useState<AttendanceRecord[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [holidays, setHolidays] = useState<any[]>([]);
 
   // Filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,12 +85,8 @@ const AttendanceView = () => {
 
   // Advanced filter state
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
-  const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-
-  // Bulk action state
-  const [selectedRecords, setSelectedRecords] = useState<number[]>([]);
-  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showToolbarMenu, setShowToolbarMenu] = useState(false);
 
   // View details modal state
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -140,47 +143,106 @@ const AttendanceView = () => {
     check_out_time: '',
     notes: '',
   });
+  const [editOverrideNeeded, setEditOverrideNeeded] = useState<string | null>(null);
+  const [editOverrideReason, setEditOverrideReason] = useState('');
+
+  // Flagged records (present/late/half_day on a closed/holiday day) — monitoring view
+  const [showFlaggedModal, setShowFlaggedModal] = useState(false);
+  const [flaggedLoading, setFlaggedLoading] = useState(false);
+  const [flaggedRecords, setFlaggedRecords] = useState<any[]>([]);
+  const [flaggedTotal, setFlaggedTotal] = useState(0);
 
   // Summary state (for date range, not paginated page)
   const [summaryPresent, setSummaryPresent] = useState(0);
   const [summaryLate, setSummaryLate] = useState(0);
   const [summaryAbsent, setSummaryAbsent] = useState(0);
 
-  // Calendar state
-  const [calendarDate, setCalendarDate] = useState(new Date());
-
   // Auto-Mark settings state
   const [showAutoMarkModal, setShowAutoMarkModal] = useState(false);
   const [lockStatus, setLockStatus] = useState<any>(null);
   const [selectedBranchForAutoMark, setSelectedBranchForAutoMark] = useState<number | ''>('');
+
+  // Historical "absent" correction tool state
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
+  const [correctionStart, setCorrectionStart] = useState(new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1).toISOString().split('T')[0]);
+  const [correctionEnd, setCorrectionEnd] = useState(new Date().toISOString().split('T')[0]);
+  const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [correctionPreview, setCorrectionPreview] = useState<AttendanceCorrectionResult | null>(null);
+  const [correctionApplied, setCorrectionApplied] = useState(false);
+
+  // Staff and branches barely change — load them once, not on every page/filter
+  // change (this used to re-fetch all 1000+ staff and every branch on every
+  // pagination click, which was pure wasted work).
+  useEffect(() => {
+    loadStaticData();
+  }, []);
+
+  const loadStaticData = async () => {
+    try {
+      const [staffRes, branchesRes] = await Promise.all([
+        getAllStaff(1, 1000),
+        getAllBranches(),
+      ]);
+
+      if (staffRes.success && staffRes.staff) {
+        const mapped = staffRes.staff.map((s: any) => {
+          const firstName = s.firstName || s.first_name || '';
+          const lastName = s.lastName || s.last_name || '';
+          const middleName = s.middleName || s.middle_name || '';
+          const fullName = s.full_name || [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
+
+          return {
+            id: s.id,
+            userId: Number(s.user_id || s.userId || s.id),
+            name: fullName || s.name || 'Unknown',
+            email: s.work_email || s.email,
+            department: s.department,
+            branch_id: s.branch_id || s.branchId,
+            full_name: fullName,
+            employee_id: s.employee_id || s.employeeId
+          };
+        });
+        setStaffMembers(mapped);
+      }
+
+      if (branchesRes.success && branchesRes.branches) {
+        setBranches(branchesRes.branches);
+      }
+    } catch (err) {
+      console.error('Failed to load staff/branches:', err);
+    }
+  };
 
   // Load data
   useEffect(() => {
     loadData();
   }, [currentPage, pageSize]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when server-side filters change (date range, status — the
+  // only filters the backend actually supports). Search/Branch/Department stay
+  // client-side below, so they don't need a refetch.
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     } else {
       loadData();
     }
-  }, [dateRange.start, dateRange.end, selectedBranch, selectedStatus]);
+  }, [dateRange.start, dateRange.end, selectedStatus]);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const startDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1).toISOString().split('T')[0];
-      const endDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).toISOString().split('T')[0];
-
-      const [attendanceRes, staffRes, branchesRes, holidaysRes, summaryRes] = await Promise.all([
-        getAllAttendanceRecords(currentPage, pageSize, undefined, dateRange.start, dateRange.end),
-        getAllStaff(1, 1000),
-        getAllBranches(),
-        holidayService.getHolidays({ startDate, endDate }),
+      const [attendanceRes, summaryRes] = await Promise.all([
+        getAllAttendanceRecords(
+          currentPage,
+          pageSize,
+          undefined,
+          dateRange.start,
+          dateRange.end,
+          selectedStatus !== 'all' ? selectedStatus : undefined
+        ),
         getAttendanceSummary(dateRange.start, dateRange.end)
       ]);
 
@@ -190,38 +252,7 @@ const AttendanceView = () => {
         setSummaryAbsent(summaryRes.summary.total_absent || 0);
       }
 
-      let currentMappedStaff = staffMembers;
-      if (staffRes.success && staffRes.staff) {
-        currentMappedStaff = staffRes.staff.map((s: any) => {
-          const firstName = s.firstName || s.first_name || '';
-          const lastName = s.lastName || s.last_name || '';
-          const middleName = s.middleName || s.middle_name || '';
-          const fullName = s.full_name || [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
-          
-          return {
-            id: s.id, // Staff Record ID
-            userId: Number(s.user_id || s.userId || s.id), // Actual User Auth ID
-            name: fullName || s.name || 'Unknown',
-            email: s.work_email || s.email,
-            department: s.department,
-            branch_id: s.branch_id || s.branchId,
-            full_name: fullName,
-            employee_id: s.employee_id || s.employeeId
-          };
-        });
-        setStaffMembers(currentMappedStaff);
-      }
-
-      if (branchesRes.success && branchesRes.branches) {
-        setBranches(branchesRes.branches);
-      }
-
-      if (holidaysRes.success && holidaysRes.data && holidaysRes.data.holidays) {
-        setHolidays(holidaysRes.data.holidays);
-      }
-
       if (attendanceRes.success && attendanceRes.records) {
-        // Update pagination info - handle both snake_case and camelCase
         if (attendanceRes.pagination) {
           const apiPagination = attendanceRes.pagination as any;
           const paginationData = {
@@ -231,46 +262,13 @@ const AttendanceView = () => {
             totalPages: apiPagination.total_pages || apiPagination.totalPages || 0,
             itemsPerPage: apiPagination.per_page || apiPagination.pageSize || 20
           };
-          
+
           setPagination(paginationData);
           setTotalRecords(paginationData.totalItems);
           setTotalPages(paginationData.totalPages);
         }
 
-        // DEBUG: Log pagination data to console
-        const apiPagination = attendanceRes.pagination as any;
-        console.log('📊 ATTENDANCE PAGINATION DATA:', {
-          currentPage,
-          pageSize,
-          totalRecords: apiPagination?.total_records || apiPagination?.totalItems || 0,
-          totalPages: apiPagination?.total_pages || apiPagination?.totalPages || 0,
-          recordsOnPage: attendanceRes.records.length,
-          pagination: attendanceRes.pagination,
-          records: attendanceRes.records.map((r: any) => ({
-            id: r.id,
-            user_id: r.user_id,
-            date: r.date,
-            status: r.status,
-            check_in: r.check_in_time,
-            check_out: r.check_out_time
-          }))
-        });
-
-        // Enrich attendance records with staff info
-        const enriched = attendanceRes.records.map((record: AttendanceRecord) => {
-          // Find staff by matching the record's user_id against the staff's userId
-          const staff = currentMappedStaff.find((s: any) => s.userId === record.user_id);
-          const branch = branchesRes.branches?.find((b: Branch) => Number(b.id) === Number(staff?.branch_id));
-          return {
-            ...record,
-            staff_name: staff?.full_name || staff?.name || 'Unknown',
-            staff_email: staff?.email || staff?.work_email,
-            employee_id: staff?.employee_id,
-            department: staff?.department,
-            branch_name: branch?.name
-          };
-        });
-        setAttendanceRecords(enriched);
+        setRawRecords(attendanceRes.records);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load attendance data');
@@ -317,13 +315,22 @@ const AttendanceView = () => {
 
     setLoading(true);
     try {
-      const response = await updateAttendanceRecord(selectedRecord.id, editForm);
+      const payload: any = { ...editForm };
+      if (editOverrideNeeded) {
+        payload.override_non_working_day = true;
+        payload.override_reason = editOverrideReason;
+      }
+      const response = await updateAttendanceRecord(selectedRecord.id, payload);
       if (response.success) {
         setSuccessMessage('Attendance record updated successfully');
         setShowEditModal(false);
         setSelectedRecord(null);
+        setEditOverrideNeeded(null);
+        setEditOverrideReason('');
         loadData();
         setTimeout(() => setSuccessMessage(null), 3000);
+      } else if (response.requires_override) {
+        setEditOverrideNeeded(response.message || 'This date is non-working. Provide a reason to override.');
       } else {
         setError(response.message || 'Failed to update attendance');
       }
@@ -345,6 +352,28 @@ const AttendanceView = () => {
     });
   };
 
+  const loadFlaggedRecords = async () => {
+    setFlaggedLoading(true);
+    try {
+      const response = await getFlaggedAttendanceRecords(1, 100);
+      if (response.success) {
+        setFlaggedRecords(response.records || []);
+        setFlaggedTotal(response.pagination?.total_records || (response.records || []).length);
+      } else {
+        toast.error(response.message || 'Failed to load flagged records');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load flagged records');
+    } finally {
+      setFlaggedLoading(false);
+    }
+  };
+
+  const openFlaggedModal = () => {
+    setShowFlaggedModal(true);
+    loadFlaggedRecords();
+  };
+
   const openEditModal = (record: AttendanceWithStaff) => {
     setSelectedRecord(record);
     setEditForm({
@@ -353,6 +382,8 @@ const AttendanceView = () => {
       check_out_time: record.check_out_time || '',
       notes: record.notes || '',
     });
+    setEditOverrideNeeded(null);
+    setEditOverrideReason('');
     setShowEditModal(true);
   };
 
@@ -610,7 +641,28 @@ const AttendanceView = () => {
     }
   };
 
-  // Filter records
+  // Re-enrich records with staff/branch info whenever any of the three change —
+  // decoupled from the fetch itself so it's always correct regardless of which
+  // of rawRecords/staffMembers/branches finished loading first.
+  const attendanceRecords: AttendanceWithStaff[] = useMemo(() => {
+    return rawRecords.map((record) => {
+      const staff = staffMembers.find((s) => s.userId === record.user_id);
+      const branch = branches.find((b) => Number(b.id) === Number(staff?.branch_id));
+      return {
+        ...record,
+        staff_name: staff?.full_name || staff?.name || 'Unknown',
+        staff_email: staff?.email,
+        employee_id: staff?.employee_id,
+        department: staff?.department,
+        branch_name: branch?.name,
+      };
+    });
+  }, [rawRecords, staffMembers, branches]);
+
+  // Search/Branch/Department aren't supported as server-side filters by the
+  // attendance API, so they only narrow down the records already on this page
+  // (date range and status ARE applied server-side in loadData, covering the
+  // full dataset). "More Filters" panel explains this scope to the admin.
   const filteredRecords = attendanceRecords.filter(record => {
     const matchesSearch = searchTerm === '' ||
       record.staff_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -619,14 +671,9 @@ const AttendanceView = () => {
 
     const matchesBranch = !selectedBranch || record.branch_name === (branches.find(b => Number(b.id) === Number(selectedBranch))?.name);
 
-    const matchesStatus = selectedStatus === 'all' || record.status === selectedStatus;
+    const matchesDepartment = !selectedDepartment || record.department === selectedDepartment;
 
-    const recordDate = new Date(record.date);
-    const startDate = new Date(dateRange.start);
-    const endDate = new Date(dateRange.end);
-    const matchesDateRange = recordDate >= startDate && recordDate <= endDate;
-
-    return matchesSearch && matchesBranch && matchesStatus && matchesDateRange;
+    return matchesSearch && matchesBranch && matchesDepartment;
   });
 
   // Calculate statistics from date-range summary (not paginated page)
@@ -645,61 +692,28 @@ const AttendanceView = () => {
     return { daysInMonth, startingDay, year, month };
   };
 
-  const getAttendanceForDate = (day: number) => {
-    const dateStr = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), day).toISOString().split('T')[0];
-    return filteredRecords.filter(r => r.date === dateStr);
-  };
-
-  const isHoliday = (day: number) => {
-    const dateStr = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), day).toISOString().split('T')[0];
-    return holidays.find(h => h.date === dateStr);
-  };
-
   const renderListView = () => (
     <div className="space-y-6">
-      {/* Action Bar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <button
-            className={`btn btn-primary`}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            List View
-          </button>
-          {/* Calendar view temporarily disabled
-          <button
-            className={`btn ${activeView === 'calendar' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setActiveView('calendar')}
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            Calendar
-          </button>
-          */}
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Search + Filters */}
+      <div className="card p-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative" style={{ flex: '1 1 260px', minWidth: '200px' }}>
+            <Search className="w-4 h-4" style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+            <input
+              type="text"
+              className="input"
+              placeholder="Search by name, email, department…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ paddingLeft: '2.2rem' }}
+            />
+          </div>
           <button
             className="btn btn-outline"
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
           >
             <Filter className="w-4 h-4 mr-2" />
-            {showAdvancedFilters ? 'Hide' : 'Show'} Filters
-          </button>
-          <button
-            className="btn btn-outline"
-            onClick={() => {
-              const branchId = selectedBranch ? Number(selectedBranch) : (branches[0]?.id ? Number(branches[0].id) : 0);
-              console.log('Opening Auto-Mark Modal for branch:', branchId, branches[0]);
-              if (branchId === 0) {
-                toast.error('Please select a branch first or ensure branches are loaded');
-                return;
-              }
-              setSelectedBranchForAutoMark(branchId);
-              setShowAutoMarkModal(true);
-            }}
-            title="Configure auto-mark absent time and lock attendance"
-          >
-            <Lock className="w-4 h-4 mr-2" />
-            Auto-Mark Settings
+            {showAdvancedFilters ? 'Hide' : 'More'} Filters
           </button>
           {hasPermission('attendance:manage') && (
             <>
@@ -720,137 +734,109 @@ const AttendanceView = () => {
             </>
           )}
           <button
-            className="btn btn-outline"
+            className="btn btn-outline btn-icon"
             onClick={loadData}
+            title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+          <OverflowMenu
+            label="More Actions"
+            open={showToolbarMenu}
+            onToggle={() => setShowToolbarMenu(v => !v)}
+            onClose={() => setShowToolbarMenu(false)}
+            items={[
+              { label: 'Flagged Records', icon: AlertCircle, onClick: openFlaggedModal },
+              {
+                label: 'Auto-Mark Settings', icon: Lock, onClick: () => {
+                  const branchId = selectedBranch ? Number(selectedBranch) : (branches[0]?.id ? Number(branches[0].id) : 0);
+                  if (branchId === 0) {
+                    toast.error('Please select a branch first or ensure branches are loaded');
+                    return;
+                  }
+                  setSelectedBranchForAutoMark(branchId);
+                  setShowAutoMarkModal(true);
+                },
+              },
+              { label: 'Export Detailed Report', icon: Download, onClick: handleExportWithRange },
+              { label: 'Export Summary CSV', icon: Download, onClick: () => exportAttendanceSummaryCSV() },
+              {
+                label: 'Correct Historical Errors', icon: Wrench, onClick: () => {
+                  setCorrectionPreview(null);
+                  setCorrectionApplied(false);
+                  setShowCorrectionModal(true);
+                },
+              },
+            ]}
+          />
         </div>
-      </div>
 
-      {/* Export Toolbar */}
-      <div className="card p-4 bg-blue-50 border border-blue-200">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Users className="w-5 h-5 text-blue-600" />
-            <div>
-              <p className="text-sm font-medium text-blue-900">
-                {filteredRecords.length} attendance record(s) available
-              </p>
-              <p className="text-xs text-blue-700 mt-0.5">
-                {dateRange.start} to {dateRange.end}
-              </p>
+        {showAdvancedFilters && (
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid #e2e8f0' }}>
+            <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-5'}`}>
+              <div>
+                <label className="block text-sm font-medium mb-1">From</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">To</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Branch</label>
+                <select
+                  className="input w-full"
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value ? Number(e.target.value) : ('' as ''))}
+                >
+                  <option value="">All Branches</option>
+                  {branches.map(branch => (
+                    <option key={branch.id} value={branch.id}>{branch.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  className="input w-full"
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="present">Present</option>
+                  <option value="late">Late</option>
+                  <option value="absent">Absent</option>
+                  <option value="leave">Leave</option>
+                  <option value="holiday">Holiday</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Department</label>
+                <select
+                  className="input w-full"
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                >
+                  <option value="">All Departments</option>
+                  {Array.from(new Set(staffMembers.map(s => s.department).filter(Boolean))).map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-600 font-medium">From:</label>
-              <input
-                type="date"
-                className="input input-sm w-32"
-                value={dateRange.start}
-                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-600 font-medium">To:</label>
-              <input
-                type="date"
-                className="input input-sm w-32"
-                value={dateRange.end}
-                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-              />
-            </div>
-            <button
-              className="btn btn-sm btn-outline"
-              onClick={() => {
-                setCurrentPage(1);
-                loadData();
-              }}
-            >
-              Apply
-            </button>
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={handleExportWithRange}
-              disabled={loading}
-            >
-              <Download className="w-4 h-4" />
-              Export Report
-            </button>
-            <button
-              className="btn btn-sm btn-outline"
-              onClick={() => exportAttendanceSummaryCSV()}
-              disabled={loading}
-            >
-              <Download className="w-4 h-4" />
-              Export Summary
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Advanced Filters */}
-      {showAdvancedFilters && (
-        <div className="card p-4">
-          <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-4'}`}>
-            <div>
-              <label className="block text-sm font-medium mb-1">Search</label>
-              <input
-                type="text"
-                className="input w-full"
-                placeholder="Name, email, department..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Branch</label>
-              <select
-                className="input w-full"
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value ? Number(e.target.value) : ('' as ''))}
-              >
-                <option value="">All Branches</option>
-                {branches.map(branch => (
-                  <option key={branch.id} value={branch.id}>{branch.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Status</label>
-              <select
-                className="input w-full"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
-                <option value="all">All Statuses</option>
-                <option value="present">Present</option>
-                <option value="late">Late</option>
-                <option value="absent">Absent</option>
-                <option value="leave">Leave</option>
-                <option value="holiday">Holiday</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Department</label>
-              <select
-                className="input w-full"
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-              >
-                <option value="">All Departments</option>
-                {Array.from(new Set(staffMembers.map(s => s.department).filter(Boolean))).map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {isMobile && (
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex gap-2 justify-end">
               <button
-                className="btn btn-sm btn-outline flex-1"
+                className="btn btn-sm btn-outline"
                 onClick={() => {
                   setSearchTerm('');
                   setSelectedBranch('' as '');
@@ -859,123 +845,85 @@ const AttendanceView = () => {
                 }}
               >
                 <RotateCcw className="w-3 h-3 mr-2" />
-                Clear Filters
+                Clear All
+              </button>
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  setCurrentPage(1);
+                  loadData();
+                }}
+              >
+                Apply
               </button>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* <div className="card p-4 transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: '#dbeafe', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem' }}>
-              <Users className="w-5 h-5" style={{ color: '#2563eb' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.75rem' }}>Total Records</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{totalRecords}</p>
-            </div>
           </div>
-        </div> */}
-        <div className="card p-4 transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: '#dcfce7', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem' }}>
-              <CheckCircle className="w-5 h-5" style={{ color: '#16a34a' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.75rem' }}>Present</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{summaryPresent}</p>
-            </div>
-          </div>
-        </div>
-        <div className="card p-4 transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: '#fef3c7', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem' }}>
-              <Clock className="w-5 h-5" style={{ color: '#ca8a04' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.75rem' }}>Late</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{summaryLate}</p>
-            </div>
-          </div>
-        </div>
-        <div className="card p-4 transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: '#fee2e2', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem' }}>
-              <XCircle className="w-5 h-5" style={{ color: '#dc2626' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.75rem' }}>Absent</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 600 }}>{summaryAbsent}</p>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Attendance Rate Card */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between">
+      {/* Summary strip — Present/Late/Absent/Rate as one compact row instead of
+          three separate padded cards plus a whole extra "Attendance Rate" card
+          duplicating the same numbers underneath. */}
+      <div className="card" style={{ padding: '0.875rem 1.25rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="flex items-center gap-2">
+          <CheckCircle className="w-4 h-4" style={{ color: '#16a34a', flexShrink: 0 }} />
           <div>
-            <h3 className="text-lg font-semibold mb-2">Attendance Rate</h3>
-            <p className="text-muted text-sm">Based on {dateRange.start} to {dateRange.end}</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-3xl font-bold" style={{ color: attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 70 ? '#ca8a04' : '#dc2626' }}>
-                {attendanceRate}%
-              </p>
-              <div className="flex items-center gap-1 mt-1">
-                {attendanceRate >= 90 ? (
-                  <TrendingUp className="w-4 h-4 text-green-600" />
-                ) : attendanceRate >= 70 ? (
-                  <TrendingDown className="w-4 h-4 text-yellow-600" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-red-600" />
-                )}
-                <span className={`text-sm ${attendanceRate >= 90 ? 'text-green-600' : attendanceRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {attendanceRate >= 90 ? 'Excellent' : attendanceRate >= 70 ? 'Good' : 'Needs Attention'}
-                </span>
-              </div>
-            </div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Present</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{summaryPresent}</p>
           </div>
         </div>
-        <div className="mt-4">
-          <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${attendanceRate}%`,
-                backgroundColor: attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 70 ? '#ca8a04' : '#dc2626'
-              }}
-            />
+        <div className="flex items-center gap-2" style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: '1rem' }}>
+          <Clock className="w-4 h-4" style={{ color: '#ca8a04', flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Late</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{summaryLate}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: '1rem' }}>
+          <XCircle className="w-4 h-4" style={{ color: '#dc2626', flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Absent</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{summaryAbsent}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: '1rem' }}>
+          {attendanceRate >= 90 ? (
+            <TrendingUp className="w-4 h-4 text-green-600" style={{ flexShrink: 0 }} />
+          ) : attendanceRate >= 70 ? (
+            <TrendingDown className="w-4 h-4 text-yellow-600" style={{ flexShrink: 0 }} />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-red-600" style={{ flexShrink: 0 }} />
+          )}
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Attendance Rate</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3, color: attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 70 ? '#ca8a04' : '#dc2626' }}>
+              {attendanceRate}%
+            </p>
           </div>
         </div>
       </div>
 
       {/* Attendance Table */}
       <div className="card overflow-hidden">
+        <div className="p-4" style={{ borderBottom: '1px solid #e2e8f0' }}>
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Attendance Records</h3>
+          <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
+            {dateRange.start} to {dateRange.end}
+          </p>
+        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalRecords}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+          itemLabel="records"
+        />
         <div className="overflow-x-auto">
           <table className="table min-w-full">
             <thead className="table-header">
               <tr>
-                {hasPermission('attendance:manage') && (
-                  <th className="table-header-cell" style={{ width: '40px' }}>
-                    <input
-                      type="checkbox"
-                      className="checkbox"
-                      checked={selectedRecords.length === filteredRecords.length && filteredRecords.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedRecords(filteredRecords.map(r => r.id));
-                        } else {
-                          setSelectedRecords([]);
-                        }
-                      }}
-                    />
-                  </th>
-                )}
                 <th className="table-header-cell whitespace-nowrap">Employee</th>
                 <th className="table-header-cell whitespace-nowrap">Date</th>
                 <th className="table-header-cell whitespace-nowrap">Check-in</th>
@@ -1011,26 +959,13 @@ const AttendanceView = () => {
               ) : (
                 filteredRecords.map((record) => (
                   <tr key={record.id} className="table-row">
-                    {hasPermission('attendance:manage') && (
-                      <td className="table-cell">
-                        <input
-                          type="checkbox"
-                          className="checkbox"
-                          checked={selectedRecords.includes(record.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedRecords([...selectedRecords, record.id]);
-                            } else {
-                              setSelectedRecords(selectedRecords.filter(id => id !== record.id));
-                            }
-                          }}
-                        />
-                      </td>
-                    )}
                     <td className="table-cell">
-                      <div>
-                        <p style={{ fontWeight: 500 }}>{record.staff_name || `User ${record.user_id}`}</p>
-                        <p className="text-xs text-muted">{record.staff_email}</p>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={record.staff_name || `User ${record.user_id}`} size={32} />
+                        <div>
+                          <p style={{ fontWeight: 500 }}>{record.staff_name || `User ${record.user_id}`}</p>
+                          <p className="text-xs text-muted">{record.staff_email}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="table-cell">
@@ -1058,14 +993,15 @@ const AttendanceView = () => {
                       )}
                     </td>
                     <td className="table-cell">
-                      <span className={`badge ${
-                        record.status === 'present' ? 'badge-success' :
-                        record.status === 'late' ? 'badge-warning' :
-                        record.status === 'absent' ? 'badge-error' :
-                        'badge-secondary'
-                      }`}>
-                        {record.status}
-                      </span>
+                      <StatusBadge
+                        label={record.status}
+                        tone={
+                          record.status === 'present' ? 'success' :
+                          record.status === 'late' ? 'warning' :
+                          record.status === 'absent' ? 'danger' :
+                          'neutral'
+                        }
+                      />
                     </td>
                     <td className="table-cell">
                       <span className="text-sm">{record.branch_name || '-'}</span>
@@ -1103,77 +1039,6 @@ const AttendanceView = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <p className="text-sm text-gray-600">
-                  Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to{' '}
-                  <span className="font-medium">{Math.min(currentPage * pageSize, totalRecords)}</span> of{' '}
-                  <span className="font-medium">{totalRecords}</span> records
-                </p>
-                <select
-                  className="input input-sm"
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  style={{ width: 'auto', padding: '0.375rem 0.5rem' }}
-                >
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
-                  <option value={100}>100 / page</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="btn btn-sm btn-outline"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Previous
-                </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        className={`btn btn-sm ${currentPage === pageNum ? 'btn-primary' : 'btn-outline'}`}
-                        onClick={() => setCurrentPage(pageNum)}
-                        style={{ minWidth: '2.5rem' }}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button
-                  className="btn btn-sm btn-outline"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1214,44 +1079,6 @@ const AttendanceView = () => {
 
       {/* Content */}
       {activeView === 'list' ? renderListView() : renderCalendarView()}
-
-      {/* Pagination - Only show in list view */}
-      {activeView === 'list' && pagination && pagination.totalPages > 1 && (
-        <div className="card p-4">
-          {/* DEBUG: Pagination state */}
-          {console.log('📄 PAGINATION CONTROLS RENDERING:', {
-            currentPage,
-            pageSize,
-            totalPages: pagination.totalPages,
-            totalItems: pagination.totalItems,
-            hasNext: currentPage < pagination.totalPages,
-            hasPrev: currentPage > 1,
-            showingFrom: (currentPage - 1) * pageSize + 1,
-            showingTo: Math.min(currentPage * pageSize, pagination.totalItems)
-          })}
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted">
-              Showing page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalItems} total records)
-            </p>
-            <div className="flex gap-2">
-              <button
-                className="btn btn-sm btn-outline"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </button>
-              <button
-                className="btn btn-sm btn-outline"
-                onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
-                disabled={currentPage === pagination.totalPages}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Manual Attendance Modal */}
       {showManualAttendanceModal && (
@@ -1491,6 +1318,196 @@ const AttendanceView = () => {
         </>
       )}
 
+      {/* Correct Historical Errors Modal — dry-run preview, then explicit apply */}
+      {showCorrectionModal && (
+        <>
+          <div className="modal-overlay" onClick={() => setShowCorrectionModal(false)}></div>
+          <div className="modal" style={{ maxWidth: '36rem' }}>
+            <div className="modal-header">
+              <h3>Correct Historical Attendance Errors</h3>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowCorrectionModal(false)}>×</button>
+            </div>
+            <div className="modal-content space-y-4">
+              <p className="text-sm text-muted">
+                Scans records currently marked <strong>Absent</strong> with no check-in in the date range below,
+                re-checks each one against the current (fixed) schedule logic, and corrects any that should
+                actually be Weekend, Off, Leave, or Holiday. Records with a real check-in are never touched.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">From</label>
+                  <input type="date" className="input w-full" value={correctionStart}
+                    onChange={(e) => { setCorrectionStart(e.target.value); setCorrectionPreview(null); setCorrectionApplied(false); }} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">To</label>
+                  <input type="date" className="input w-full" value={correctionEnd}
+                    onChange={(e) => { setCorrectionEnd(e.target.value); setCorrectionPreview(null); setCorrectionApplied(false); }} />
+                </div>
+              </div>
+
+              {correctionPreview && (
+                <div className={`p-3 rounded-lg border ${correctionApplied ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                  <p className="text-sm font-medium">
+                    {correctionApplied
+                      ? `Applied: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} absent records corrected.`
+                      : `Preview: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} absent records would be corrected.`}
+                  </p>
+                  {correctionPreview.changes.length > 0 && (
+                    <div style={{ maxHeight: '14rem', overflowY: 'auto', marginTop: '0.5rem' }}>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-left text-muted border-b">
+                            <th className="py-1">User ID</th>
+                            <th className="py-1">Date</th>
+                            <th className="py-1">From</th>
+                            <th className="py-1">To</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {correctionPreview.changes.map((c, i) => (
+                            <tr key={i} className="border-b">
+                              <td className="py-1">{c.userId}</td>
+                              <td className="py-1">{c.date}</td>
+                              <td className="py-1">{c.from}</td>
+                              <td className="py-1">{c.to}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {correctionPreview.corrected > correctionPreview.changes.length && (
+                        <p className="text-xs text-muted mt-1">…and {correctionPreview.corrected - correctionPreview.changes.length} more not shown.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowCorrectionModal(false)}>Close</button>
+              <button
+                className="btn btn-outline"
+                disabled={correctionLoading}
+                onClick={async () => {
+                  setCorrectionLoading(true);
+                  setCorrectionApplied(false);
+                  const res = await correctHistoricalAttendance(correctionStart, correctionEnd, true);
+                  setCorrectionLoading(false);
+                  if (res.success && res.data) {
+                    setCorrectionPreview(res.data);
+                  } else {
+                    toast.error(res.message || 'Failed to preview corrections');
+                  }
+                }}
+              >
+                {correctionLoading ? 'Checking…' : 'Preview'}
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={correctionLoading || !correctionPreview || correctionPreview.corrected === 0 || correctionApplied}
+                onClick={async () => {
+                  if (!window.confirm(`This will update ${correctionPreview?.corrected} attendance record(s) in the database. This cannot be undone. Continue?`)) return;
+                  setCorrectionLoading(true);
+                  const res = await correctHistoricalAttendance(correctionStart, correctionEnd, false);
+                  setCorrectionLoading(false);
+                  if (res.success && res.data) {
+                    setCorrectionPreview(res.data);
+                    setCorrectionApplied(true);
+                    toast.success(res.message || 'Corrections applied');
+                    loadData();
+                  } else {
+                    toast.error(res.message || 'Failed to apply corrections');
+                  }
+                }}
+              >
+                {correctionLoading ? 'Applying…' : 'Apply Corrections'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Flagged Records Modal — monitoring view for present/late/half_day marked on a closed or holiday day */}
+      {showFlaggedModal && (
+        <>
+          <div className="modal-overlay" onClick={() => setShowFlaggedModal(false)}></div>
+          <div className="modal" style={{ maxWidth: '56rem' }}>
+            <div className="modal-header">
+              <h3>Flagged Records</h3>
+              <button className="btn btn-ghost btn-icon" onClick={() => setShowFlaggedModal(false)}>×</button>
+            </div>
+            <div className="modal-content space-y-3">
+              <p className="text-sm text-muted">
+                Records marked present, late, half day, or early departure on a date the staff
+                member's branch was closed, or on a holiday. {flaggedTotal > 0 && `(${flaggedTotal} found)`}
+              </p>
+              {flaggedLoading ? (
+                <p className="text-sm text-muted">Loading…</p>
+              ) : flaggedRecords.length === 0 ? (
+                <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <p className="text-sm text-green-800">No flagged records found.</p>
+                </div>
+              ) : (
+                <div style={{ maxHeight: '24rem', overflowY: 'auto' }}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-muted border-b">
+                        <th className="py-2 pr-2">Staff</th>
+                        <th className="py-2 pr-2">Branch</th>
+                        <th className="py-2 pr-2">Date</th>
+                        <th className="py-2 pr-2">Status</th>
+                        <th className="py-2 pr-2">Reason Flagged</th>
+                        <th className="py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flaggedRecords.map((r) => (
+                        <tr key={r.id} className="border-b last:border-0">
+                          <td className="py-2 pr-2">{r.full_name || r.employee_id || r.user_id}</td>
+                          <td className="py-2 pr-2">{r.branch_name || '—'}</td>
+                          <td className="py-2 pr-2">{new Date(r.date).toLocaleDateString()}</td>
+                          <td className="py-2 pr-2 capitalize">{r.status}</td>
+                          <td className="py-2 pr-2">{r.holiday_name ? `Holiday: ${r.holiday_name}` : 'Branch closed'}</td>
+                          <td className="py-2">
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => {
+                                setShowFlaggedModal(false);
+                                openEditModal({
+                                  id: r.id,
+                                  user_id: r.user_id,
+                                  date: r.date,
+                                  status: r.status,
+                                  check_in_time: r.check_in_time,
+                                  check_out_time: r.check_out_time,
+                                  notes: r.notes,
+                                  staff_name: r.full_name,
+                                  branch_name: r.branch_name
+                                } as AttendanceWithStaff);
+                              }}
+                            >
+                              Review
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={loadFlaggedRecords} disabled={flaggedLoading}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowFlaggedModal(false)}>Close</button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Edit Attendance Modal */}
       {showEditModal && selectedRecord && (
         <>
@@ -1511,7 +1528,11 @@ const AttendanceView = () => {
                   <select
                     className="input w-full"
                     value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, status: e.target.value });
+                      setEditOverrideNeeded(null);
+                      setEditOverrideReason('');
+                    }}
                     required
                   >
                     <option value="present">Present</option>
@@ -1520,8 +1541,27 @@ const AttendanceView = () => {
                     <option value="half_day">Half Day</option>
                     <option value="leave">Leave</option>
                     <option value="holiday">Holiday</option>
+                    <option value="weekend">Weekend</option>
+                    <option value="off">Off Day</option>
                   </select>
                 </div>
+                {editOverrideNeeded && (
+                  <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="w-full">
+                      <p className="text-sm text-amber-800">{editOverrideNeeded}</p>
+                      <label className="block text-xs font-medium mt-2 mb-1 text-amber-900">Reason for override *</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        value={editOverrideReason}
+                        onChange={(e) => setEditOverrideReason(e.target.value)}
+                        placeholder="e.g. Staff genuinely worked this day"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Check-in Time</label>
@@ -1555,8 +1595,12 @@ const AttendanceView = () => {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setShowEditModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={loading}>
-                  {loading ? 'Saving...' : 'Update Record'}
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading || (!!editOverrideNeeded && !editOverrideReason.trim())}
+                >
+                  {loading ? 'Saving...' : editOverrideNeeded ? 'Confirm Override & Save' : 'Update Record'}
                 </button>
               </div>
             </form>

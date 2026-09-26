@@ -494,13 +494,16 @@ const SettingsView = () => {
     }
   };
 
+  // Branch Mapping tab hidden — everyone follows their own branch's working
+  // hours now, no per-staff/department branch overrides. Not deleted, just
+  // excluded from the tab list, so this can be restored if needed.
   const tabs = [
     { key: 'attendance',    label: 'Attendance',       icon: Settings },
     { key: 'working-days',  label: 'Working Days',     icon: Clock    },
     { key: 'auto-mark',     label: 'Auto-Mark',        icon: Timer    },
     { key: 'leave-policy',  label: 'Leave Policy',     icon: Calendar },
     { key: 'global',        label: 'Global',            icon: Settings },
-    { key: 'branch-mapping', label: 'Branch Mapping',  icon: Building  },
+    // { key: 'branch-mapping', label: 'Branch Mapping',  icon: Building  },
     { key: 'reminders',     label: 'Reminders',         icon: Mail     },
   ];
 

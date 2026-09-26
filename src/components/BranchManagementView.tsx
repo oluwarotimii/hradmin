@@ -8,7 +8,10 @@ import {
   CreateBranchRequest,
   UpdateBranchRequest
 } from '../services/branchManagementService';
-import { Building, MapPin, Phone, Mail, Plus, Edit3, Trash2, X, Check, AlertCircle, Clock } from 'lucide-react';
+import { Building, MapPin, Phone, Mail, Plus, Edit3, Trash2, X, Check, AlertCircle, Clock, Search } from 'lucide-react';
+import { T } from '../theme';
+import { Avatar } from './Avatar';
+import { StatusBadge } from './StatusBadge';
 
 const BranchManagementView = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -38,6 +41,7 @@ const BranchManagementView = () => {
 
   // Location state
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Load branches on component mount
   useEffect(() => {
@@ -251,104 +255,90 @@ const BranchManagementView = () => {
   const activeBranches = branches.filter(b => b.status === 'active').length;
   const inactiveBranches = branches.filter(b => b.status === 'inactive').length;
   const closedBranches = branches.filter(b => b.status === 'closed').length;
+  const filteredBranches = branches.filter(b =>
+    searchTerm === '' || b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    b.code.toLowerCase().includes(searchTerm.toLowerCase()) || b.city?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '16rem' }}>
+        <div style={{ width: 32, height: 32, border: `2.5px solid ${T.primaryBorder}`, borderTopColor: T.primary, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Success Message */}
-      {successMessage && (
-        <div className="bg-green-50 border-l-4 border-green-500 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <Check className="h-5 w-5 text-green-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-green-700">{successMessage}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Error Message */}
+      {/* Error toast */}
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
+        <div style={{ padding: '0.75rem 1rem', background: T.dangerPale, border: `1px solid ${T.dangerBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <AlertCircle size={15} color={T.danger} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#7f1d1d', flex: 1, fontWeight: 500 }}>{error}</p>
+          <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.danger, display: 'flex' }}><X size={14} /></button>
         </div>
       )}
 
-      {/* Stats Cards - Compact design to fit all 4 on one line */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-3 cursor-pointer transition-all hover-lift">
-          <div className="flex items-center gap-2">
-            <div className="icon-wrapper" style={{ backgroundColor: '#dbeafe', width: '2rem', height: '2rem', borderRadius: '0.375rem' }}>
-              <Building className="w-3 h-3" style={{ color: '#2563eb' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.65rem', lineHeight: '1' }}>Total Branches</p>
-              <p style={{ fontSize: '1.25rem', fontWeight: 600, lineHeight: '1.25' }}>{totalBranches}</p>
-            </div>
+      {/* Success toast */}
+      {successMessage && (
+        <div style={{ padding: '0.75rem 1rem', background: T.successPale, border: `1px solid ${T.successBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <Check size={15} color={T.success} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#065f46', flex: 1, fontWeight: 500 }}>{successMessage}</p>
+          <button onClick={() => setSuccessMessage(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.success, display: 'flex' }}><X size={14} /></button>
+        </div>
+      )}
+
+      {/* Summary strip */}
+      <div className="card" style={{ padding: '0.875rem 1.25rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="flex items-center gap-2">
+          <Building size={16} style={{ color: T.primary, flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Total Branches</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{totalBranches}</p>
           </div>
         </div>
-
-        <div className="card p-3 cursor-pointer transition-all hover-lift">
-          <div className="flex items-center gap-2">
-            <div className="icon-wrapper" style={{ backgroundColor: '#dcfce7', width: '2rem', height: '2rem', borderRadius: '0.375rem' }}>
-              <Check className="w-3 h-3" style={{ color: '#16a34a' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.65rem', lineHeight: '1' }}>Active</p>
-              <p style={{ fontSize: '1.25rem', fontWeight: 600, lineHeight: '1.25' }}>{activeBranches}</p>
-            </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <Check size={16} style={{ color: T.success, flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Active</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{activeBranches}</p>
           </div>
         </div>
-
-        <div className="card p-3 cursor-pointer transition-all hover-lift">
-          <div className="flex items-center gap-2">
-            <div className="icon-wrapper" style={{ backgroundColor: '#fef9c3', width: '2rem', height: '2rem', borderRadius: '0.375rem' }}>
-              <Clock className="w-3 h-3" style={{ color: '#ca8a04' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.65rem', lineHeight: '1' }}>Inactive</p>
-              <p style={{ fontSize: '1.25rem', fontWeight: 600, lineHeight: '1.25' }}>{inactiveBranches}</p>
-            </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <Clock size={16} style={{ color: T.warning, flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Inactive</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{inactiveBranches}</p>
           </div>
         </div>
-
-        <div className="card p-3 cursor-pointer transition-all hover-lift">
-          <div className="flex items-center gap-2">
-            <div className="icon-wrapper" style={{ backgroundColor: '#fee2e2', width: '2rem', height: '2rem', borderRadius: '0.375rem' }}>
-              <X className="w-3 h-3" style={{ color: '#dc2626' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.65rem', lineHeight: '1' }}>Closed</p>
-              <p style={{ fontSize: '1.25rem', fontWeight: 600, lineHeight: '1.25' }}>{closedBranches}</p>
-            </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <X size={16} style={{ color: T.danger, flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Closed</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{closedBranches}</p>
           </div>
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="flex justify-end">
+      {/* Search + Create */}
+      <div className="card" style={{ padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: '1 1 230px', minWidth: '200px' }}>
+          <Search size={13} color={T.textMuted} style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          <input
+            type="text"
+            placeholder="Search by name, code, city…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '0.575rem 0.875rem 0.575rem 2.1rem', border: `1.5px solid ${T.border}`, borderRadius: '8px', fontSize: '0.875rem', color: T.text, background: T.surface, outline: 'none', fontFamily: 'inherit' }}
+          />
+        </div>
         <button
           onClick={() => {
             resetForm();
             setShowCreateForm(true);
           }}
           className="btn btn-primary"
+          style={{ marginLeft: 'auto' }}
         >
           <Plus className="w-4 h-4 mr-2" />
           Create New Branch
@@ -770,83 +760,76 @@ const BranchManagementView = () => {
       )}
 
       {/* Branches Table */}
-      <div className="card">
-        <div className="p-4 border-b">
-          <h3 className="text-lg font-medium">Existing Branches</h3>
-          <p className="text-muted text-sm">Showing {branches.length} branch{branches.length !== 1 ? 'es' : ''}</p>
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: '12px', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', overflow: 'hidden' }}>
+        <div style={{ padding: '1rem 1.25rem', borderBottom: `1px solid ${T.border}` }}>
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Branches</h3>
+          <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: T.textMuted }}>
+            Showing {filteredBranches.length} of {totalBranches}
+          </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="table">
-            <thead className="table-header">
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+            <thead>
               <tr>
-                <th className="table-header-cell">Branch</th>
-                <th className="table-header-cell">Code</th>
-                <th className="table-header-cell">Location</th>
-                <th className="table-header-cell">Contact</th>
-                <th className="table-header-cell">Status</th>
-                <th className="table-header-cell">Created</th>
-                <th className="table-header-cell right">Actions</th>
+                {['Branch', 'Location', 'Contact', 'Status', 'Created'].map((h) => (
+                  <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>{h}</th>
+                ))}
+                <th style={{ padding: '0.7rem 1rem', textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {branches.map((branch) => (
-                <tr key={branch.id} className="table-row">
-                  <td className="table-cell">
-                    <div className="flex items-center gap-3">
-                      <div className="avatar" style={{ width: '2.5rem', height: '2.5rem', fontSize: '0.75rem' }}>
-                        {branch.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </div>
+              {filteredBranches.map((branch) => (
+                <tr key={branch.id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => (e.currentTarget.style.background = T.surfaceAlt)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <Avatar name={branch.name} size={34} />
                       <div>
-                        <p style={{ fontWeight: 500, fontSize: '0.875rem' }}>{branch.name}</p>
-                        <p className="text-xs text-muted">{branch.code}</p>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: '0.85rem', color: T.text }}>{branch.name}</p>
+                        <p style={{ margin: 0, fontSize: '0.72rem', color: T.textMuted }}>{branch.code}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="table-cell font-medium">{branch.code}</td>
-                  <td className="table-cell">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-gray-400" />
-                      <span>{`${branch.city}, ${branch.state}`}</span>
+                  <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: T.textSub }}>
+                      <MapPin size={12} color={T.textMuted} />
+                      {branch.city}, {branch.state}
                     </div>
-                    <p className="text-xs text-muted">{branch.country}</p>
+                    <p style={{ margin: '0.1rem 0 0', fontSize: '0.72rem', color: T.textMuted }}>{branch.country}</p>
                   </td>
-                  <td className="table-cell">
-                    <div className="flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-gray-400" />
-                      <span>{branch.phone}</span>
+                  <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: T.textSub }}>
+                      <Phone size={12} color={T.textMuted} />
+                      {branch.phone || '—'}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Mail className="w-3 h-3 text-gray-400" />
-                      <span className="text-xs">{branch.email}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: T.textMuted, marginTop: '0.1rem' }}>
+                      <Mail size={11} color={T.textMuted} />
+                      {branch.email || '—'}
                     </div>
                   </td>
-                  <td className="table-cell">
-                    <span className={`badge ${
-                      branch.status === 'active' ? 'badge-success' :
-                      branch.status === 'inactive' ? 'badge-warning' :
-                      'badge-danger'
-                    }`}>
-                      {branch.status.charAt(0).toUpperCase() + branch.status.slice(1)}
-                    </span>
+                  <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                    <StatusBadge
+                      label={branch.status.charAt(0).toUpperCase() + branch.status.slice(1)}
+                      tone={branch.status === 'active' ? 'success' : branch.status === 'inactive' ? 'warning' : 'danger'}
+                    />
                   </td>
-                  <td className="table-cell">
+                  <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}`, fontSize: '0.8rem', color: T.textSub }}>
                     {branch.created_at ? new Date(branch.created_at).toLocaleDateString() : 'N/A'}
                   </td>
-                  <td className="table-cell right">
-                    <div className="flex items-center justify-end gap-2">
+                  <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}`, textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
                       <button
                         onClick={() => handleEditClick(branch)}
-                        className="btn btn-sm btn-outline"
+                        title="Edit"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.9rem', height: '1.9rem', border: `1px solid ${T.border}`, borderRadius: '7px', background: T.surface, color: T.textSub, cursor: 'pointer' }}
                       >
-                        <Edit3 className="w-3 h-3 mr-1" />
-                        Edit
+                        <Edit3 size={13} />
                       </button>
                       <button
                         onClick={() => handleDeleteBranch(branch.id)}
-                        className="btn btn-sm btn-outline red"
+                        title="Delete"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.9rem', height: '1.9rem', border: `1px solid ${T.dangerBorder}`, borderRadius: '7px', background: T.dangerPale, color: T.danger, cursor: 'pointer' }}
                       >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Delete
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </td>
@@ -855,23 +838,29 @@ const BranchManagementView = () => {
             </tbody>
           </table>
         </div>
-        {branches.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-              <Building className="w-8 h-8 text-blue-500" />
+        {filteredBranches.length === 0 && (
+          <div style={{ padding: '4rem 1rem', textAlign: 'center' }}>
+            <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', background: T.primaryPale, border: `1px solid ${T.primaryBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.875rem' }}>
+              <Building size={18} color={T.primary} />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-1">No Branches Yet</h3>
-            <p className="text-gray-500 mb-4">Get started by creating your first branch</p>
-            <button
-              onClick={() => {
-                resetForm();
-                setShowCreateForm(true);
-              }}
-              className="btn btn-primary"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Branch
-            </button>
+            <p style={{ fontWeight: 600, color: T.text, margin: '0 0 0.3rem' }}>
+              {totalBranches === 0 ? 'No branches yet' : 'No branches found'}
+            </p>
+            <p style={{ fontSize: '0.8rem', color: T.textMuted, margin: '0 0 1rem' }}>
+              {totalBranches === 0 ? 'Get started by creating your first branch' : 'Try adjusting your search'}
+            </p>
+            {totalBranches === 0 && (
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowCreateForm(true);
+                }}
+                className="btn btn-primary"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Branch
+              </button>
+            )}
           </div>
         )}
       </div>

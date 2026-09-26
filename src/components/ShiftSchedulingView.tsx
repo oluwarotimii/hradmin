@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { API_ENDPOINT } from '../config/config';
+import { Pagination } from './Pagination';
 import {
   shiftSchedulingService,
   ShiftTemplate,
@@ -241,7 +242,7 @@ const statCard = (accentColor: string, paleBg: string): React.CSSProperties => (
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ShiftSchedulingView = () => {
-  const [activeTab, setActiveTab] = useState<'templates' | 'assignments' | 'exceptions' | 'types'>('templates');
+  const [activeTab, setActiveTab] = useState<'templates' | 'assignments' | 'exceptions' | 'types'>('exceptions');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -1160,9 +1161,12 @@ const ShiftSchedulingView = () => {
   );
 
   // ─── Tabs ────────────────────────────────────────────────────────────────
+  // Templates/Assignments tabs hidden — everyone follows their branch's working
+  // hours now (see shift-scheduling.service.ts), not individual shift setups.
+  // Not deleted, just excluded from the tab list, so this can be restored.
   const tabs: { key: typeof activeTab; label: string; icon: React.ElementType }[] = [
-    { key: 'templates',   label: 'Templates',       icon: Settings    },
-    { key: 'assignments', label: 'Assignments',      icon: Users       },
+    // { key: 'templates',   label: 'Templates',       icon: Settings    },
+    // { key: 'assignments', label: 'Assignments',      icon: Users       },
     { key: 'exceptions',  label: 'Exceptions',       icon: AlertCircle },
     { key: 'types',       label: 'Exception Types',  icon: Settings    },
   ];
@@ -1638,6 +1642,15 @@ const ShiftSchedulingView = () => {
           ))}
         </div>
 
+        <Pagination
+          currentPage={exceptionPage}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={exceptionPageSize}
+          onPageChange={setExceptionPage}
+          itemLabel="exceptions"
+        />
+
         <TableWrap>
           <thead>
             <tr>
@@ -1700,21 +1713,6 @@ const ShiftSchedulingView = () => {
             })}
           </tbody>
         </TableWrap>
-        {totalPages > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.5rem 0' }}>
-            <button disabled={exceptionPage <= 1} onClick={() => setExceptionPage(p => p - 1)}
-              style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, border: `1px solid ${colors.border}`, cursor: exceptionPage <= 1 ? 'not-allowed' : 'pointer', background: exceptionPage <= 1 ? colors.surfaceMuted : colors.surface, color: exceptionPage <= 1 ? colors.textMuted : colors.textPrimary, opacity: exceptionPage <= 1 ? 0.5 : 1 }}>
-              Previous
-            </button>
-            <span style={{ fontSize: '0.8rem', color: colors.textSecondary }}>
-              Page {exceptionPage} of {totalPages}
-            </span>
-            <button disabled={exceptionPage >= totalPages} onClick={() => setExceptionPage(p => p + 1)}
-              style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, border: `1px solid ${colors.border}`, cursor: exceptionPage >= totalPages ? 'not-allowed' : 'pointer', background: exceptionPage >= totalPages ? colors.surfaceMuted : colors.surface, color: exceptionPage >= totalPages ? colors.textMuted : colors.textPrimary, opacity: exceptionPage >= totalPages ? 0.5 : 1 }}>
-              Next
-            </button>
-          </div>
-        )}
       </div>
     );
   };

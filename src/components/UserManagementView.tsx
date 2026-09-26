@@ -16,15 +16,10 @@ import {
   User as UserIcon, Plus, Edit3, Trash2, X, Check, AlertCircle,
   Mail, Shield, Building, Search, Eye, EyeOff
 } from 'lucide-react';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
+import { Pagination } from './Pagination';
+import { Avatar } from './Avatar';
+import { StatusBadge } from './StatusBadge';
+import { T } from '../theme';
 
 const UserManagementView = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -34,7 +29,7 @@ const UserManagementView = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalUsers, setTotalUsers] = useState(0);
 
   // Search
@@ -98,6 +93,10 @@ const UserManagementView = () => {
     loadUsers(currentPage, searchQuery);
     loadDropdowns();
   }, [currentPage, loadUsers, loadDropdowns]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -333,71 +332,65 @@ const UserManagementView = () => {
     <div className="space-y-6 animate-fade-in">
       {/* Success / Error toasts */}
       {successMessage && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-          <Check className="w-5 h-5" style={{ color: '#16a34a' }} />
-          <span className="text-sm font-medium" style={{ color: '#15803d' }}>{successMessage}</span>
+        <div style={{ padding: '0.75rem 1rem', background: T.successPale, border: `1px solid ${T.successBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <Check size={15} color={T.success} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#065f46', flex: 1, fontWeight: 500 }}>{successMessage}</p>
+          <button onClick={() => setSuccessMessage(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.success, display: 'flex' }}><X size={14} /></button>
         </div>
       )}
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
-          <AlertCircle className="w-5 h-5" style={{ color: '#ef4444' }} />
-          <span className="text-sm font-medium" style={{ color: '#dc2626' }}>{error}</span>
+        <div style={{ padding: '0.75rem 1rem', background: T.dangerPale, border: `1px solid ${T.dangerBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <AlertCircle size={15} color={T.danger} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#7f1d1d', flex: 1, fontWeight: 500 }}>{error}</p>
+          <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.danger, display: 'flex' }}><X size={14} /></button>
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg-grid-cols-4 gap-4">
-        <div className="card p-4 hover-lift flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg" style={{ backgroundColor: 'var(--primary-100)' }}>
-            <UserIcon className="w-5 h-5" style={{ color: 'var(--primary-600)' }} />
-          </div>
+      {/* Summary strip */}
+      <div className="card" style={{ padding: '0.875rem 1.25rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="flex items-center gap-2">
+          <UserIcon size={16} style={{ color: T.primary, flexShrink: 0 }} />
           <div>
-            <p className="text-xs font-medium text-tertiary" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Users</p>
-            <p className="text-2xl font-bold text-primary">{totalUsers}</p>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Total Users</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{totalUsers}</p>
           </div>
         </div>
-        <div className="card p-4 hover-lift flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg" style={{ backgroundColor: 'var(--success-100)' }}>
-            <Check className="w-5 h-5" style={{ color: 'var(--success-600)' }} />
-          </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <Check size={16} style={{ color: T.success, flexShrink: 0 }} />
           <div>
-            <p className="text-xs font-medium text-tertiary" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</p>
-            <p className="text-2xl font-bold text-primary">{activeCount}</p>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Active</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{activeCount}</p>
           </div>
         </div>
-        <div className="card p-4 hover-lift flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg" style={{ backgroundColor: 'var(--warning-100)' }}>
-            <X className="w-5 h-5" style={{ color: 'var(--warning-600)' }} />
-          </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <X size={16} style={{ color: T.warning, flexShrink: 0 }} />
           <div>
-            <p className="text-xs font-medium text-tertiary" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inactive</p>
-            <p className="text-2xl font-bold text-primary">{inactiveCount}</p>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Inactive</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{inactiveCount}</p>
           </div>
         </div>
-        <div className="card p-4 hover-lift flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg" style={{ backgroundColor: 'var(--purple-100)' }}>
-            <Shield className="w-5 h-5" style={{ color: 'var(--purple-600)' }} />
-          </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <Shield size={16} style={{ color: T.purple, flexShrink: 0 }} />
           <div>
-            <p className="text-xs font-medium text-tertiary" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>Admins</p>
-            <p className="text-2xl font-bold text-primary">{adminCount}</p>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Admins</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{adminCount}</p>
           </div>
         </div>
       </div>
 
       {/* Action Bar with Search */}
-      <div className="flex items-start justify-between gap-4" style={{ flexWrap: 'wrap' }}>
-        <div className="relative" style={{ maxWidth: '360px', minWidth: '250px', flex: 1 }}>
-          <Search className="absolute w-4 h-4" style={{ left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+      <div className="card" style={{ padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: '1 1 230px', minWidth: '200px' }}>
+          <Search size={13} color={T.textMuted} style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
           <input
             type="text"
-            className="input input-with-icon"
-            placeholder="Search by name or email..."
+            placeholder="Search by name or email…"
             value={searchQuery}
             onChange={e => handleSearchChange(e.target.value)}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '0.575rem 0.875rem 0.575rem 2.1rem', border: `1.5px solid ${T.border}`, borderRadius: '8px', fontSize: '0.875rem', color: T.text, background: T.surface, outline: 'none', fontFamily: 'inherit' }}
           />
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowCreateForm(true); }}>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setShowCreateForm(true); }} style={{ marginLeft: 'auto' }}>
           <Plus className="w-4 h-4" />
           Create User
         </button>
@@ -408,79 +401,76 @@ const UserManagementView = () => {
       {showEditForm && editingUser && renderModal(`Edit User: ${firstName} ${lastName}`, handleUpdateUser, 'Update User')}
 
       {/* Users Table */}
-      <div className="card">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <h3 className="font-semibold text-primary">Existing Users</h3>
-            <p className="text-sm text-tertiary">{totalUsers} user{totalUsers !== 1 ? 's' : ''} found</p>
-          </div>
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: '12px', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', overflow: 'hidden' }}>
+        <div style={{ padding: '1rem 1.25rem', borderBottom: `1px solid ${T.border}` }}>
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Users</h3>
+          <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: T.textMuted }}>{totalUsers} user{totalUsers !== 1 ? 's' : ''} found</p>
         </div>
-        <div className="table-container" style={{ border: 'none', borderRadius: 0, boxShadow: 'none' }}>
-          <table className="table">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalUsers}
+          pageSize={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setItemsPerPage}
+          itemLabel="users"
+        />
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr>
-                <th>User</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Branch</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
+                {['User', 'Email', 'Role', 'Branch', 'Status'].map((h) => (
+                  <th key={h} style={{ padding: '0.7rem 1rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>{h}</th>
+                ))}
+                <th style={{ padding: '0.7rem 1rem', textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {users.map(user => {
                 const fullName = `${user.firstName} ${user.lastName}`.trim() || 'N/A';
-                const initials = (user.firstName?.[0] || '') + (user.lastName?.[0] || '');
                 return (
-                  <tr key={user.id}>
-                    <td>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-9 h-9 rounded-full font-semibold text-xs" style={{
-                          backgroundColor: user.isActive ? 'var(--primary-100)' : 'var(--bg-tertiary)',
-                          color: user.isActive ? 'var(--primary-700)' : 'var(--text-tertiary)'
-                        }}>
-                          {initials || '?'}
-                        </div>
-                        <span className="font-medium text-sm text-primary">{fullName}</span>
+                  <tr key={user.id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => (e.currentTarget.style.background = T.surfaceAlt)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <Avatar name={fullName} size={32} />
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: '0.85rem', color: T.text }}>{fullName}</p>
                       </div>
                     </td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-3.5 h-3.5 text-tertiary" />
-                        <span className="text-sm">{user.email}</span>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: T.textSub }}>
+                        <Mail size={12} color={T.textMuted} />
+                        {user.email}
                       </div>
                     </td>
-                    <td>
-                      <span className="text-sm">{roles.find(r => r.id === user.roleId)?.name || <span className="text-tertiary">N/A</span>}</span>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}`, fontSize: '0.8rem', color: T.textSub }}>
+                      {roles.find(r => r.id === user.roleId)?.name || <span style={{ color: T.textMuted }}>N/A</span>}
                     </td>
-                    <td>
-                      <span className="text-sm">{branches.find(b => b.id === user.branchId)?.name || <span className="text-tertiary">N/A</span>}</span>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}`, fontSize: '0.8rem', color: T.textSub }}>
+                      {branches.find(b => b.id === user.branchId)?.name || <span style={{ color: T.textMuted }}>N/A</span>}
                     </td>
-                    <td>
-                      <span className={`badge ${user.isActive ? 'badge-success' : 'badge-warning'}`}>
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                      <StatusBadge label={user.isActive ? 'Active' : 'Inactive'} tone={user.isActive ? 'success' : 'warning'} />
                     </td>
-                    <td>
-                      <div className="flex items-center justify-end gap-2">
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}`, textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
                         {user.isActive ? (
-                          <button className="btn btn-sm btn-outline" onClick={() => handleDeactivateUser(user.id)} title="Deactivate user">
-                            <X className="w-3 h-3" />
-                            Deactivate
+                          <button onClick={() => handleDeactivateUser(user.id)} title="Deactivate"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.9rem', height: '1.9rem', border: `1px solid ${T.warningBorder}`, borderRadius: '7px', background: T.warningPale, color: T.warning, cursor: 'pointer' }}>
+                            <X size={13} />
                           </button>
                         ) : (
-                          <button className="btn btn-sm btn-outline green" onClick={() => handleActivateUser(user.id)} title="Activate user">
-                            <Check className="w-3 h-3" />
-                            Activate
+                          <button onClick={() => handleActivateUser(user.id)} title="Activate"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.9rem', height: '1.9rem', border: `1px solid ${T.successBorder}`, borderRadius: '7px', background: T.successPale, color: T.success, cursor: 'pointer' }}>
+                            <Check size={13} />
                           </button>
                         )}
-                        <button className="btn btn-sm btn-outline" onClick={() => startEditing(user)}>
-                          <Edit3 className="w-3 h-3" />
-                          Edit
+                        <button onClick={() => startEditing(user)} title="Edit"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.9rem', height: '1.9rem', border: `1px solid ${T.border}`, borderRadius: '7px', background: T.surface, color: T.textSub, cursor: 'pointer' }}>
+                          <Edit3 size={13} />
                         </button>
-                        <button className="btn btn-sm btn-outline red" onClick={() => handleDeleteUser(user.id)}>
-                          <Trash2 className="w-3 h-3" />
-                          Delete
+                        <button onClick={() => handleDeleteUser(user.id)} title="Delete"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.9rem', height: '1.9rem', border: `1px solid ${T.dangerBorder}`, borderRadius: '7px', background: T.dangerPale, color: T.danger, cursor: 'pointer' }}>
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>
@@ -490,56 +480,6 @@ const UserManagementView = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination */}
-        {(totalPages > 1 || users.length === itemsPerPage) && totalPages > 0 && (
-          <div className="flex flex-col items-center gap-3 px-6 py-4 border-t">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={e => { e.preventDefault(); setCurrentPage(p => Math.max(1, p - 1)); }}
-                    className={currentPage <= 1 ? 'pointer-events-none opacity-50' : ''}
-                  />
-                </PaginationItem>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum: number;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  if (pageNum < 1 || pageNum > totalPages) return null;
-                  return (
-                    <PaginationItem key={pageNum}>
-                      <PaginationLink href="#" onClick={e => { e.preventDefault(); setCurrentPage(pageNum); }} isActive={currentPage === pageNum}>
-                        {pageNum}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
-                {totalPages > 5 && currentPage < totalPages - 2 && (
-                  <PaginationItem><PaginationEllipsis /></PaginationItem>
-                )}
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={e => { e.preventDefault(); setCurrentPage(p => p + 1); }}
-                    className={currentPage >= totalPages ? 'pointer-events-none opacity-50' : ''}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-            <span className="text-xs text-tertiary">
-              Page {currentPage} of {totalPages} ({totalUsers} total users)
-            </span>
-          </div>
-        )}
 
         {/* Empty State */}
         {users.length === 0 && !loading && (

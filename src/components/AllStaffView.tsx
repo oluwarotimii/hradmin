@@ -2,58 +2,14 @@
 // It provides filtering, searching, and detailed staff profile access
 
 import { useState, useEffect } from 'react';
-import { Search, Users, UserX, Plus, Mail, Phone, MapPin, Briefcase, Calendar, UserCheck, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Users, UserX, Plus, Mail, Phone, MapPin, Briefcase, Calendar, UserCheck, X } from 'lucide-react';
 import { isStaffOnActiveOffDay } from '../data/staffData';
 import { StaffProfileView } from './StaffProfileViewSimple';
 import StaffInvitationView from './StaffInvitationView';
 import { StaffMember, getAllStaff, activateStaff, deactivateStaff } from '../services/staffManagementService';
 import { API_ENDPOINT } from '../config/config';
-
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const T = {
-  primary:       '#1e40af',
-  primaryLight:  '#3b82f6',
-  primaryPale:   '#eff6ff',
-  primaryBorder: '#bfdbfe',
-  success:       '#059669',
-  successPale:   '#ecfdf5',
-  successBorder: '#a7f3d0',
-  warning:       '#d97706',
-  warningPale:   '#fffbeb',
-  warningBorder: '#fde68a',
-  danger:        '#dc2626',
-  dangerPale:    '#fef2f2',
-  dangerBorder:  '#fecaca',
-  purple:        '#7c3aed',
-  purplePale:    '#f5f3ff',
-  surface:       '#ffffff',
-  surfaceAlt:    '#f8fafc',
-  surfaceMuted:  '#f1f5f9',
-  border:        '#e2e8f0',
-  borderStrong:  '#cbd5e1',
-  text:          '#0f172a',
-  textSub:       '#475569',
-  textMuted:     '#94a3b8',
-};
-
-// Accent palette per department — richer, more distinct
-const DEPT_ACCENTS = [
-  { dot: '#3b82f6', pale: '#eff6ff', border: '#bfdbfe', text: '#1e40af' },   // blue
-  { dot: '#059669', pale: '#ecfdf5', border: '#a7f3d0', text: '#065f46' },   // green
-  { dot: '#d97706', pale: '#fffbeb', border: '#fde68a', text: '#92400e' },   // amber
-  { dot: '#7c3aed', pale: '#f5f3ff', border: '#ddd6fe', text: '#4c1d95' },   // purple
-  { dot: '#db2777', pale: '#fdf2f8', border: '#fbcfe8', text: '#831843' },   // pink
-  { dot: '#0891b2', pale: '#ecfeff', border: '#a5f3fc', text: '#164e63' },   // cyan
-  { dot: '#0d9488', pale: '#f0fdfa', border: '#99f6e4', text: '#134e4a' },   // teal
-  { dot: '#ea580c', pale: '#fff7ed', border: '#fed7aa', text: '#7c2d12' },   // orange
-];
-
-const getDeptAccent = (dept: string) => {
-  if (!dept || dept === 'N/A') return DEPT_ACCENTS[0];
-  let h = 0;
-  for (let i = 0; i < dept.length; i++) { h = ((h << 5) - h) + dept.charCodeAt(i); h = h & h; }
-  return DEPT_ACCENTS[Math.abs(h) % DEPT_ACCENTS.length];
-};
+import { T, getDeptAccent } from '../theme';
+import { Pagination } from './Pagination';
 
 const avatarPalette = ['#1e40af','#0369a1','#059669','#7c3aed','#d97706','#be185d','#0891b2','#0d9488'];
 const getAvatarColor = (name?: string) => {
@@ -110,16 +66,16 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters or page size change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeFilter, departmentFilter, searchTerm, minYearsFilter]);
+  }, [activeFilter, departmentFilter, searchTerm, minYearsFilter, itemsPerPage]);
 
-  useEffect(() => { loadStaffList(); }, [currentPage, activeFilter, departmentFilter, searchTerm, minYearsFilter]);
+  useEffect(() => { loadStaffList(); }, [currentPage, itemsPerPage, activeFilter, departmentFilter, searchTerm, minYearsFilter]);
 
   useEffect(() => { if (initialSelectedStaff) setSelectedStaff(initialSelectedStaff); }, [initialSelectedStaff]);
 
@@ -192,8 +148,6 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
   const totalStaff = totalItems;
   const activeCount = staffList.filter(s => s.status === 'Active').length;
   const inactiveCount = staffList.filter(s => s.status === 'Inactive').length;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
   const paginatedStaff = filteredStaff;
 
   if (selectedStaff) {
@@ -353,6 +307,16 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
           )}
         </div>
 
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setItemsPerPage}
+          itemLabel="staff members"
+        />
+
         {/* Grid */}
         <div style={{ padding: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '0.875rem' }}>
           {paginatedStaff.map((staff, idx) => {
@@ -466,60 +430,6 @@ export function AllStaffView({ initialSelectedStaff }: { initialSelectedStaff?: 
             </div>
             <p style={{ margin: 0, fontWeight: 600, color: T.text }}>No staff members found</p>
             <p style={{ margin: 0, fontSize: '0.8rem', color: T.textMuted }}>Try adjusting your search or filters</p>
-          </div>
-        )}
-
-        {/* ── Pagination ────────────────────────────────────────────── */}
-        {totalPages > 1 && (
-          <div style={{ padding: '0.875rem 1.25rem', borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', background: T.surfaceAlt }}>
-            <p style={{ margin: 0, fontSize: '0.78rem', color: T.textMuted }}>
-              Showing <strong style={{ color: T.text }}>{startIndex + 1}</strong>–<strong style={{ color: T.text }}>{Math.min(endIndex, totalItems)}</strong> of <strong style={{ color: T.text }}>{totalItems}</strong>
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              {/* Prev */}
-              <button
-                className="page-btn"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                style={{ width: '2rem', height: '2rem', borderRadius: '7px', border: `1px solid ${T.border}`, background: T.surface, cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s' }}
-              >
-                <ChevronLeft size={14} color={T.textSub} />
-              </button>
-
-              {/* Page numbers */}
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) pageNum = i + 1;
-                else if (currentPage <= 3) pageNum = i + 1;
-                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                else pageNum = currentPage - 2 + i;
-                const isActive = currentPage === pageNum;
-                return (
-                  <button
-                    key={pageNum}
-                    className={!isActive ? 'page-btn' : ''}
-                    onClick={() => setCurrentPage(pageNum)}
-                    style={{ width: '2rem', height: '2rem', borderRadius: '7px', border: isActive ? 'none' : `1px solid ${T.border}`, background: isActive ? T.primary : T.surface, color: isActive ? '#fff' : T.textSub, cursor: 'pointer', fontSize: '0.8rem', fontWeight: isActive ? 700 : 500, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s', boxShadow: isActive ? `0 1px 4px rgba(30,64,175,0.25)` : 'none', fontFamily: 'inherit' }}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              {totalPages > 5 && currentPage < totalPages - 2 && (
-                <span style={{ color: T.textMuted, fontSize: '0.8rem', padding: '0 0.2rem' }}>…</span>
-              )}
-
-              {/* Next */}
-              <button
-                className="page-btn"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-                style={{ width: '2rem', height: '2rem', borderRadius: '7px', border: `1px solid ${T.border}`, background: T.surface, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', opacity: currentPage >= totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s' }}
-              >
-                <ChevronRight size={14} color={T.textSub} />
-              </button>
-            </div>
           </div>
         )}
       </div>

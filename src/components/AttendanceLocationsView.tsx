@@ -12,9 +12,10 @@ import {
 import { getAllBranches, Branch } from '../services/branchManagementService';
 import {
   MapPin, Plus, Edit2, Trash2, Search, Filter, RefreshCw,
-  CheckCircle, XCircle, Building, ChevronLeft, ChevronRight,
+  CheckCircle, XCircle, Building,
   LocateFixed, Navigation
 } from 'lucide-react';
+import { Pagination } from './Pagination';
 
 interface LocationWithBranch extends AttendanceLocation {
   branch_name?: string;
@@ -509,6 +510,15 @@ const AttendanceLocationsView: React.FC = () => {
 
       {/* Locations Table */}
       <div className="card overflow-hidden">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredLocations.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+          itemLabel="locations"
+        />
         <div className="overflow-x-auto">
           <table className="table">
             <thead className="table-header">
@@ -611,77 +621,6 @@ const AttendanceLocationsView: React.FC = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <p className="text-sm text-gray-600">
-                  Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to{' '}
-                  <span className="font-medium">{Math.min(currentPage * pageSize, filteredLocations.length)}</span> of{' '}
-                  <span className="font-medium">{filteredLocations.length}</span> locations
-                </p>
-                <select
-                  className="input input-sm"
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  style={{ width: 'auto', padding: '0.375rem 0.5rem' }}
-                >
-                  <option value={10}>10 / page</option>
-                  <option value={20}>20 / page</option>
-                  <option value={50}>50 / page</option>
-                  <option value={100}>100 / page</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="btn btn-sm btn-outline"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Previous
-                </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        className={`btn btn-sm ${currentPage === pageNum ? 'btn-primary' : 'btn-outline'}`}
-                        onClick={() => setCurrentPage(pageNum)}
-                        style={{ minWidth: '2.5rem' }}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button
-                  className="btn btn-sm btn-outline"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Create Location Modal */}

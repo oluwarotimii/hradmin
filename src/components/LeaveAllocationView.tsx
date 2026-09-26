@@ -18,8 +18,6 @@ import {
   FileText,
   CalendarDays,
   Clock,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import {
   getAllAllocations,
@@ -35,6 +33,8 @@ import {
 } from '../services/leaveAllocationService';
 import { getAllLeaveTypes, LeaveType } from '../services/leaveManagementService';
 import { getAllStaff } from '../services/staffManagementService';
+import { T } from '../theme';
+import { Pagination } from './Pagination';
 
 interface StaffMember {
   id: number;
@@ -51,15 +51,6 @@ const initials = (name: string) => name.split(' ').map(n => n[0]).join('').slice
 const avatarColor = (name: string) => {
   const colors = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
   return colors[name.charCodeAt(0) % colors.length];
-};
-
-const T = {
-  primary: '#1e40af',
-  surfaceAlt: '#f8fafc',
-  border: '#e2e8f0',
-  text: '#0f172a',
-  textSub: '#475569',
-  textMuted: '#94a3b8',
 };
 
 const LeaveAllocationView = () => {
@@ -418,81 +409,6 @@ const LeaveAllocationView = () => {
   const getProgressColor = (p: number) => p > 90 ? 'bg-red-500' : p > 70 ? 'bg-yellow-500' : 'bg-green-500';
 
   const totalPages = pagination?.totalPages || 0;
-  const startIndex = ((currentPage - 1) * limit) + 1;
-  const endIndex = Math.min(currentPage * limit, pagination?.totalRecords || 0);
-
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-
-    const getPages = () => {
-      const pages: (number | 'ellipsis')[] = [];
-      if (totalPages <= 5) {
-        for (let i = 1; i <= totalPages; i++) pages.push(i);
-      } else if (currentPage <= 3) {
-        for (let i = 1; i <= 5; i++) pages.push(i);
-        pages.push('ellipsis');
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1);
-        pages.push('ellipsis');
-        for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
-      } else {
-        pages.push(1);
-        pages.push('ellipsis');
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
-        pages.push('ellipsis');
-        pages.push(totalPages);
-      }
-      return pages;
-    };
-
-    return (
-      <div style={{ padding: '0.875rem 1.25rem', borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', background: T.surfaceAlt }}>
-        <p style={{ margin: 0, fontSize: '0.78rem', color: T.textMuted }}>
-          Showing <strong style={{ color: T.text }}>{startIndex}</strong>&ndash;<strong style={{ color: T.text }}>{endIndex}</strong> of <strong style={{ color: T.text }}>{pagination?.totalRecords || 0}</strong>
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-          <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            style={{ width: '2rem', height: '2rem', borderRadius: '7px', border: `1px solid ${T.border}`, background: '#fff', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <ChevronLeft size={14} color={T.textSub} />
-          </button>
-          {getPages().map((item, idx) =>
-            item === 'ellipsis' ? (
-              <span key={`e-${idx}`} style={{ color: T.textMuted, fontSize: '0.8rem', padding: '0 0.2rem' }}>&hellip;</span>
-            ) : (
-              <button
-                key={item}
-                onClick={() => setCurrentPage(item)}
-                style={{
-                  width: '2rem', height: '2rem', borderRadius: '7px',
-                  border: currentPage === item ? 'none' : `1px solid ${T.border}`,
-                  background: currentPage === item ? T.primary : '#fff',
-                  color: currentPage === item ? '#fff' : T.textSub,
-                  cursor: 'pointer', fontSize: '0.8rem',
-                  fontWeight: currentPage === item ? 700 : 500,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: currentPage === item ? '0 1px 4px rgba(30,64,175,0.25)' : 'none',
-                  fontFamily: 'inherit',
-                }}
-              >
-                {item}
-              </button>
-            )
-          )}
-          <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
-            style={{ width: '2rem', height: '2rem', borderRadius: '7px', border: `1px solid ${T.border}`, background: '#fff', cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', opacity: currentPage >= totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <ChevronRight size={14} color={T.textSub} />
-          </button>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="p-6">
@@ -502,64 +418,51 @@ const LeaveAllocationView = () => {
       </div>
 
       {successMessage && (
-        <div className="mb-6 p-4 bg-success-100 border border-success-500 rounded-lg flex items-start gap-3 animate-fade-in">
-          <CheckCircle className="w-5 h-5 text-success-500 mt-0.5 shrink-0" />
-          <p className="text-sm font-medium text-success-700 flex-1">{successMessage}</p>
-          <button onClick={() => setSuccessMessage(null)} className="text-success-600 hover:text-success-800 shrink-0"><X className="w-4 h-4" /></button>
+        <div style={{ marginBottom: '1.25rem', padding: '0.75rem 1rem', background: T.successPale, border: `1px solid ${T.successBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <CheckCircle size={15} color={T.success} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#065f46', flex: 1, fontWeight: 500 }}>{successMessage}</p>
+          <button onClick={() => setSuccessMessage(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.success, display: 'flex' }}><X size={14} /></button>
         </div>
       )}
 
       {error && (
-        <div className="mb-6 p-4 bg-error-100 border border-error-500 rounded-lg flex items-start gap-3 animate-fade-in">
-          <AlertCircle className="w-5 h-5 text-error-500 mt-0.5 shrink-0" />
-          <p className="text-sm font-medium text-error-700 flex-1">{error}</p>
-          <button onClick={() => setError(null)} className="text-error-600 hover:text-error-800 shrink-0"><X className="w-4 h-4" /></button>
+        <div style={{ marginBottom: '1.25rem', padding: '0.75rem 1rem', background: T.dangerPale, border: `1px solid ${T.dangerBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <AlertCircle size={15} color={T.danger} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#7f1d1d', flex: 1, fontWeight: 500 }}>{error}</p>
+          <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.danger, display: 'flex' }}><X size={14} /></button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="card p-4 transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: 'var(--primary-100)', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users className="w-5 h-5" style={{ color: 'var(--primary-600)' }} />
-            </div>
-            <div>
-              <p className="text-muted">{selectedUserId || selectedLeaveTypeId || selectedYear || searchTerm ? 'Filtered' : 'Total'} Allocations</p>
-              <p className="text-2xl font-bold text-primary">{allocations.length}</p>
-            </div>
+      {/* Summary strip */}
+      <div className="card" style={{ padding: '0.875rem 1.25rem', marginBottom: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="flex items-center gap-2">
+          <Users size={16} style={{ color: T.primary, flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>
+              {selectedUserId || selectedLeaveTypeId || selectedYear || searchTerm ? 'Filtered' : 'Total'} Allocations
+            </p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{allocations.length}</p>
           </div>
         </div>
-        <div className="card p-4 transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: 'var(--success-100)', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle className="w-5 h-5" style={{ color: 'var(--success-500)' }} />
-            </div>
-            <div>
-              <p className="text-muted">Days Allocated</p>
-              <p className="text-2xl font-bold text-success-600">{totalAllocated}</p>
-            </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <CheckCircle size={16} style={{ color: T.success, flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Days Allocated</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{totalAllocated}</p>
           </div>
         </div>
-        <div className="card p-4 transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: 'var(--warning-100)', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Calendar className="w-5 h-5" style={{ color: 'var(--warning-500)' }} />
-            </div>
-            <div>
-              <p className="text-muted">Days Used</p>
-              <p className="text-2xl font-bold text-warning-600">{totalUsed}</p>
-            </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <Calendar size={16} style={{ color: T.warning, flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Days Used</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{totalUsed}</p>
           </div>
         </div>
-        <div className="card p-4 transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: '#d1fae5', width: '2.5rem', height: '2.5rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <TrendingUp className="w-5 h-5" style={{ color: 'var(--success-500)' }} />
-            </div>
-            <div>
-              <p className="text-muted">Days Remaining</p>
-              <p className="text-2xl font-bold text-success-600">{totalRemaining}</p>
-            </div>
+        <div className="flex items-center gap-2" style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: '1rem' }}>
+          <TrendingUp size={16} style={{ color: T.success, flexShrink: 0 }} />
+          <div>
+            <p className="text-muted" style={{ fontSize: '0.7rem', lineHeight: 1 }}>Days Remaining</p>
+            <p style={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.3 }}>{totalRemaining}</p>
           </div>
         </div>
       </div>
@@ -569,10 +472,10 @@ const LeaveAllocationView = () => {
           <button onClick={() => { loadStaffMembers(); setShowCreateModal(true); }} className="btn btn-sm btn-primary">
             <Plus className="w-4 h-4 mr-2" /> New Allocation
           </button>
-          <button onClick={() => { loadStaffMembers(); setShowBulkModal(true); }} className="btn btn-sm" style={{ backgroundColor: '#7c3aed', color: 'white' }}>
+          <button onClick={() => { loadStaffMembers(); setShowBulkModal(true); }} className="btn btn-sm" style={{ backgroundColor: T.purple, color: 'white' }}>
             <Users className="w-4 h-4 mr-2" /> Bulk Allocate
           </button>
-          <button onClick={() => setShowBulkAllModal(true)} className="btn btn-sm" style={{ backgroundColor: '#4f46e5', color: 'white' }}>
+          <button onClick={() => setShowBulkAllModal(true)} className="btn btn-sm" style={{ backgroundColor: T.primary, color: 'white' }}>
             <UserPlus className="w-4 h-4 mr-2" /> Allocate to All
           </button>
           {(selectedAllocationIds.length > 0 || selectAllMode !== 'none') && (
@@ -638,13 +541,22 @@ const LeaveAllocationView = () => {
       </div>
 
       {(selectedAllocationIds.length > 0 || selectAllMode !== 'none') && (
-        <div className="mb-4 p-3 bg-primary-50 border border-primary-200 rounded-lg flex items-center justify-between">
-          <span className="text-sm text-primary-800">{selectAllMode === 'all' ? 'All allocations selected' : `${selectedAllocationIds.length} selected`}</span>
-          <button onClick={() => { setSelectedAllocationIds([]); setSelectAllMode('none'); }} className="text-sm text-primary-600 hover:text-primary-800 font-medium">Clear</button>
+        <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', background: T.primaryPale, border: `1px solid ${T.primaryBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '0.85rem', color: T.primary, fontWeight: 600 }}>{selectAllMode === 'all' ? 'All allocations selected' : `${selectedAllocationIds.length} selected`}</span>
+          <button onClick={() => { setSelectedAllocationIds([]); setSelectAllMode('none'); }} style={{ fontSize: '0.8rem', color: T.primary, fontWeight: 600, border: 'none', background: 'none', cursor: 'pointer' }}>Clear</button>
         </div>
       )}
 
       <div className="card overflow-hidden">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={pagination?.totalRecords || 0}
+          pageSize={limit}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setLimit}
+          itemLabel="allocations"
+        />
         <div className="overflow-x-auto">
           <table className="table">
             <thead className="table-header">
@@ -735,23 +647,6 @@ const LeaveAllocationView = () => {
             </tbody>
           </table>
         </div>
-
-        {renderPagination()}
-
-        {totalPages > 1 && (
-          <div style={{ padding: '0.5rem 1.25rem', borderTop: `1px solid ${T.border}`, display: 'flex', justifyContent: 'flex-end', background: T.surfaceAlt }}>
-            <select
-              value={limit}
-              onChange={e => setLimit(Number(e.target.value))}
-              style={{ padding: '0.2rem 0.4rem', border: `1px solid ${T.border}`, borderRadius: '6px', fontSize: '0.75rem', color: T.textSub, background: '#fff', outline: 'none', fontFamily: 'inherit' }}
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-        )}
       </div>
 
       {/* Create Modal */}

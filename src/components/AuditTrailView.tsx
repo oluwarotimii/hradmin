@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { History, Search, RefreshCw, ChevronLeft, ChevronRight, User, Filter } from 'lucide-react';
+import { History, Search, RefreshCw, User, Filter } from 'lucide-react';
 import axios from 'axios';
 import { API_ENDPOINT } from '../config/config';
+import { Pagination as PaginationBar } from './Pagination';
 
 interface AuditLog {
   id: number;
@@ -119,6 +120,14 @@ export function AuditTrailView() {
       </div>
 
       <div className="card">
+        <PaginationBar
+          currentPage={page}
+          totalPages={pagination.total_pages}
+          totalItems={pagination.total_records}
+          pageSize={pagination.limit}
+          onPageChange={setPage}
+          itemLabel="audit log entries"
+        />
         <div className="table-responsive">
           <table className="table">
             <thead>
@@ -196,32 +205,6 @@ export function AuditTrailView() {
             </tbody>
           </table>
         </div>
-
-        {pagination.total_pages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Page {pagination.page} of {pagination.total_pages} ({pagination.total_records} records)
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                className="btn btn-sm btn-outline"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
-              </button>
-              <button
-                className="btn btn-sm btn-outline"
-                onClick={() => setPage(p => Math.min(pagination.total_pages, p + 1))}
-                disabled={page >= pagination.total_pages}
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

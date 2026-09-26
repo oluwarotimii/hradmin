@@ -9,7 +9,8 @@ import {
   UpdateDepartmentRequest
 } from '../services/departmentManagementService';
 import { getAllBranches, Branch } from '../services/branchManagementService';
-import { Building, Users, Plus, Edit3, Trash2, X, Check, AlertCircle, Briefcase } from 'lucide-react';
+import { Building, Plus, Edit3, Trash2, X, Check, AlertCircle, Search } from 'lucide-react';
+import { T, getDeptAccent } from '../theme';
 
 const DepartmentManagementView = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -27,6 +28,7 @@ const DepartmentManagementView = () => {
   const [departmentName, setDepartmentName] = useState('');
   const [departmentDescription, setDepartmentDescription] = useState('');
   const [departmentBranchId, setDepartmentBranchId] = useState<number | ''>('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Load departments and branches on component mount
   useEffect(() => {
@@ -156,76 +158,63 @@ const DepartmentManagementView = () => {
     setError(null);
   };
 
-  // Calculate statistics
   const totalDepartments = departments.length;
-  const itDepartments = departments.filter(d => d.name.toLowerCase().includes('it') || d.name.toLowerCase().includes('tech')).length;
-  const hrDepartments = departments.filter(d => d.name.toLowerCase().includes('hr') || d.name.toLowerCase().includes('human')).length;
-  const otherDepartments = totalDepartments - itDepartments - hrDepartments;
+  const filteredDepartments = departments.filter(d =>
+    searchTerm === '' || d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    d.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '16rem' }}>
+        <div style={{ width: 32, height: 32, border: `2.5px solid ${T.primaryBorder}`, borderTopColor: T.primary, borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Success Message */}
-      {successMessage && (
-        <div className="bg-green-50 border-l-4 border-green-500 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <Check className="h-5 w-5 text-green-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-green-700">{successMessage}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Error Message */}
+      {/* Error toast */}
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
+        <div style={{ padding: '0.75rem 1rem', background: T.dangerPale, border: `1px solid ${T.dangerBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <AlertCircle size={15} color={T.danger} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#7f1d1d', flex: 1, fontWeight: 500 }}>{error}</p>
+          <button onClick={() => setError(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.danger, display: 'flex' }}><X size={14} /></button>
         </div>
       )}
 
-      {/* Stats Cards - Only Total Departments */}
-      <div className="grid grid-cols-1 gap-4">
-        <div className="card p-6 cursor-pointer transition-all hover-lift">
-          <div className="flex items-center gap-3">
-            <div className="icon-wrapper" style={{ backgroundColor: '#dbeafe', width: '3rem', height: '3rem', borderRadius: '0.5rem' }}>
-              <Building className="w-5 h-5" style={{ color: '#2563eb' }} />
-            </div>
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.875rem', lineHeight: '1' }}>Total Departments</p>
-              <p style={{ fontSize: '2rem', fontWeight: 600, lineHeight: '1' }}>{totalDepartments}</p>
-            </div>
-          </div>
+      {/* Success toast */}
+      {successMessage && (
+        <div style={{ padding: '0.75rem 1rem', background: T.successPale, border: `1px solid ${T.successBorder}`, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <Check size={15} color={T.success} />
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#065f46', flex: 1, fontWeight: 500 }}>{successMessage}</p>
+          <button onClick={() => setSuccessMessage(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: T.success, display: 'flex' }}><X size={14} /></button>
         </div>
-      </div>
+      )}
 
-      {/* Action Bar */}
-      <div className="flex justify-end">
+      {/* Search + Create */}
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: '12px', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: '1 1 230px', minWidth: '200px' }}>
+          <Search size={13} color={T.textMuted} style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          <input
+            type="text"
+            placeholder="Search departments…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '0.575rem 0.875rem 0.575rem 2.1rem', border: `1.5px solid ${T.border}`, borderRadius: '8px', fontSize: '0.875rem', color: T.text, background: T.surface, outline: 'none', fontFamily: 'inherit' }}
+          />
+        </div>
+        <span style={{ fontSize: '0.78rem', color: T.textMuted }}>{totalDepartments} department{totalDepartments !== 1 ? 's' : ''}</span>
         <button
           onClick={() => {
             resetForm();
             setShowCreateForm(true);
           }}
           className="btn btn-primary"
+          style={{ marginLeft: 'auto' }}
         >
           <Plus className="w-4 h-4 mr-2" />
-          Create New Department
+          Create Department
         </button>
       </div>
 
@@ -364,88 +353,97 @@ const DepartmentManagementView = () => {
       )}
 
       {/* Departments Table */}
-      <div className="card">
-        <div className="p-4 border-b">
-          <h3 className="text-lg font-medium">Existing Departments</h3>
-          <p className="text-muted text-sm">Showing {departments.length} department{departments.length !== 1 ? 's' : ''}</p>
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: '12px', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', overflow: 'hidden' }}>
+        <div style={{ padding: '1rem 1.25rem', borderBottom: `1px solid ${T.border}` }}>
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Departments</h3>
+          <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: T.textMuted }}>
+            Showing {filteredDepartments.length} of {totalDepartments}
+          </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="table">
-            <thead className="table-header">
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+            <thead>
               <tr>
-                <th className="table-header-cell">Department</th>
-                <th className="table-header-cell">Description</th>
-                <th className="table-header-cell">Branch</th>
-                <th className="table-header-cell">Created</th>
-                <th className="table-header-cell right">Actions</th>
+                <th style={{ padding: '0.7rem 1rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>Department</th>
+                <th style={{ padding: '0.7rem 1rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>Description</th>
+                <th style={{ padding: '0.7rem 1rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>Branch</th>
+                <th style={{ padding: '0.7rem 1rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>Created</th>
+                <th style={{ padding: '0.7rem 1rem', textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', background: T.surfaceAlt, borderBottom: `1px solid ${T.border}` }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {departments.map((department) => (
-                <tr key={department.id} className="table-row">
-                  <td className="table-cell">
-                    <div className="flex items-center gap-3">
-                      <div className="avatar" style={{ width: '2.5rem', height: '2.5rem', fontSize: '0.75rem', backgroundColor: '#dbeafe' }}>
-                        <Building className="w-3 h-3 text-blue-600" />
+              {filteredDepartments.map((department) => {
+                const accent = getDeptAccent(department.name);
+                return (
+                  <tr key={department.id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => (e.currentTarget.style.background = T.surfaceAlt)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '8px', background: accent.pale, border: `1px solid ${accent.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Building size={14} color={accent.text} />
+                        </div>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: '0.85rem', color: T.text }}>{department.name}</p>
                       </div>
-                      <div>
-                        <p style={{ fontWeight: 500, fontSize: '0.875rem' }}>{department.name}</p>
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}` }}>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: T.textSub, maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {department.description || '—'}
+                      </p>
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}`, fontSize: '0.8rem', color: T.textSub }}>
+                      {branches.find(b => b.id === department.branch_id)?.name || (
+                        <span style={{ color: T.textMuted, fontStyle: 'italic' }}>Not assigned</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}`, fontSize: '0.8rem', color: T.textSub }}>
+                      {department.created_at ? new Date(department.created_at).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${T.border}`, textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                        <button
+                          onClick={() => handleEditClick(department)}
+                          title="Edit"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.9rem', height: '1.9rem', border: `1px solid ${T.border}`, borderRadius: '7px', background: T.surface, color: T.textSub, cursor: 'pointer' }}
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDepartment(department.id)}
+                          title="Delete"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '1.9rem', height: '1.9rem', border: `1px solid ${T.dangerBorder}`, borderRadius: '7px', background: T.dangerPale, color: T.danger, cursor: 'pointer' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
-                    </div>
-                  </td>
-                  <td className="table-cell">
-                    <p className="text-sm" style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {department.description || '—'}
-                    </p>
-                  </td>
-                  <td className="table-cell">
-                    {branches.find(b => b.id === department.branch_id)?.name || (
-                      <span className="text-muted">No branch assigned</span>
-                    )}
-                  </td>
-                  <td className="table-cell">
-                    {department.created_at ? new Date(department.created_at).toLocaleDateString() : 'N/A'}
-                  </td>
-                  <td className="table-cell right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleEditClick(department)}
-                        className="btn btn-sm btn-outline"
-                      >
-                        <Edit3 className="w-3 h-3 mr-1" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDepartment(department.id)}
-                        className="btn btn-sm btn-outline red"
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-        {departments.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-              <Building className="w-8 h-8 text-blue-500" />
+        {filteredDepartments.length === 0 && (
+          <div style={{ padding: '4rem 1rem', textAlign: 'center' }}>
+            <div style={{ width: '3.5rem', height: '3.5rem', borderRadius: '50%', background: T.primaryPale, border: `1px solid ${T.primaryBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.875rem' }}>
+              <Building size={18} color={T.primary} />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-1">No Departments Yet</h3>
-            <p className="text-gray-500 mb-4">Get started by creating your first department</p>
-            <button
-              onClick={() => {
-                resetForm();
-                setShowCreateForm(true);
-              }}
-              className="btn btn-primary"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Department
-            </button>
+            <p style={{ fontWeight: 600, color: T.text, margin: '0 0 0.3rem' }}>
+              {totalDepartments === 0 ? 'No departments yet' : 'No departments found'}
+            </p>
+            <p style={{ fontSize: '0.8rem', color: T.textMuted, margin: '0 0 1rem' }}>
+              {totalDepartments === 0 ? 'Get started by creating your first department' : 'Try adjusting your search'}
+            </p>
+            {totalDepartments === 0 && (
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowCreateForm(true);
+                }}
+                className="btn btn-primary"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Department
+              </button>
+            )}
           </div>
         )}
       </div>

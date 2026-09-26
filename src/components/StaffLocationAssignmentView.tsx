@@ -16,7 +16,6 @@ import {
   RefreshCw,
   UserCheck,
   Map,
-  ChevronDown,
   Info
 } from 'lucide-react';
 import { getAllStaff } from '../services/staffManagementService';
@@ -24,34 +23,8 @@ import { getAllAttendanceLocations, AttendanceLocation } from '../services/atten
 import { getAllBranches } from '../services/branchManagementService';
 import axios from 'axios';
 import { API_ENDPOINT } from '../config/config';
-
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const T = {
-  primary:       '#1e40af',
-  primaryLight:  '#3b82f6',
-  primaryPale:   '#eff6ff',
-  primaryBorder: '#bfdbfe',
-  success:       '#059669',
-  successPale:   '#ecfdf5',
-  successBorder: '#a7f3d0',
-  warning:       '#d97706',
-  warningPale:   '#fffbeb',
-  warningBorder: '#fde68a',
-  danger:        '#dc2626',
-  dangerPale:    '#fef2f2',
-  dangerBorder:  '#fecaca',
-  purple:        '#7c3aed',
-  purplePale:    '#f5f3ff',
-  purpleBorder:  '#ddd6fe',
-  surface:       '#ffffff',
-  surfaceAlt:    '#f8fafc',
-  surfaceMuted:  '#f1f5f9',
-  border:        '#e2e8f0',
-  borderStrong:  '#cbd5e1',
-  text:          '#0f172a',
-  textSub:       '#475569',
-  textMuted:     '#94a3b8',
-};
+import { T } from '../theme';
+import { Pagination } from './Pagination';
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const card: React.CSSProperties = {
@@ -722,11 +695,19 @@ const StaffLocationAssignmentView: React.FC = () => {
         }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: T.text }}>Staff Directory</h3>
-            <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: T.textMuted }}>
-              {loading ? 'Loading...' : `Showing ${paginatedStaff.length} of ${filteredStaff.length} members`}
-            </p>
+            {loading && <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: T.textMuted }}>Loading...</p>}
           </div>
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredStaff.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+          itemLabel="staff"
+        />
 
         {/* Table */}
         <div style={{ overflowX: 'auto' }}>
@@ -1265,67 +1246,6 @@ const StaffLocationAssignmentView: React.FC = () => {
               <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: T.textMuted }}>
                 Try adjusting your search or filters
               </p>
-            </div>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div style={{ 
-            padding: '0.875rem 1.25rem', 
-            borderTop: `1px solid ${T.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '0.75rem',
-            background: T.surfaceAlt
-          }}>
-            <p style={{ margin: 0, fontSize: '0.78rem', color: T.textMuted }}>
-              Showing <strong style={{ color: T.text }}>{(currentPage - 1) * pageSize + 1}</strong>–<strong style={{ color: T.text }}>{Math.min(currentPage * pageSize, filteredStaff.length)}</strong> of <strong style={{ color: T.text }}>{filteredStaff.length}</strong>
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                style={{ 
-                  width: '2rem', 
-                  height: '2rem', 
-                  borderRadius: '7px', 
-                  border: `1px solid ${T.border}`, 
-                  background: T.surface, 
-                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer', 
-                  opacity: currentPage === 1 ? 0.4 : 1, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center' 
-                }}
-              >
-                <ChevronDown size={14} color={T.textSub} style={{ transform: 'rotate(90deg)' }} />
-              </button>
-              
-              <span style={{ fontSize: '0.8rem', color: T.text, fontWeight: 600, minWidth: '3rem', textAlign: 'center' }}>
-                {currentPage} / {totalPages}
-              </span>
-              
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-                style={{ 
-                  width: '2rem', 
-                  height: '2rem', 
-                  borderRadius: '7px', 
-                  border: `1px solid ${T.border}`, 
-                  background: T.surface, 
-                  cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', 
-                  opacity: currentPage >= totalPages ? 0.4 : 1, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center' 
-                }}
-              >
-                <ChevronDown size={14} color={T.textSub} style={{ transform: 'rotate(-90deg)' }} />
-              </button>
             </div>
           </div>
         )}

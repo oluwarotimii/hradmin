@@ -2,33 +2,8 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Edit, Trash2, Loader2, AlertCircle, Check, X, Users, Gift, Building, Eye, UserMinus } from 'lucide-react';
 import { shiftSchedulingService } from '../services/shiftSchedulingService';
 import { getAllStaff } from '../services/staffManagementService';
-
-const T = {
-  primary:       '#1e40af',
-  primaryLight:  '#3b82f6',
-  primaryPale:   '#eff6ff',
-  primaryBorder: '#bfdbfe',
-  success:       '#059669',
-  successPale:   '#ecfdf5',
-  successBorder: '#a7f3d0',
-  warning:       '#d97706',
-  warningPale:   '#fffbeb',
-  warningBorder: '#fde68a',
-  danger:        '#dc2626',
-  dangerPale:    '#fef2f2',
-  dangerBorder:  '#fecaca',
-  purple:        '#7c3aed',
-  purplePale:    '#f5f3ff',
-  purpleBorder:  '#ddd6fe',
-  surface:       '#ffffff',
-  surfaceAlt:    '#f8fafc',
-  surfaceMuted:  '#f1f5f9',
-  border:        '#e2e8f0',
-  borderStrong:  '#cbd5e1',
-  text:          '#0f172a',
-  textSub:       '#475569',
-  textMuted:     '#94a3b8',
-};
+import { T } from '../theme';
+import { Pagination } from './Pagination';
 
 const card: React.CSSProperties = {
   background: T.surface, border: `1px solid ${T.border}`,
@@ -170,6 +145,7 @@ export default function TimeOffBankManagementView() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalPrograms, setTotalPrograms] = useState(0);
   const [modal, setModal] = useState<ModalType>(null);
   const [editing, setEditing] = useState<any>(null);
   const [assigningTo, setAssigningTo] = useState<any>(null);
@@ -199,7 +175,10 @@ export default function TimeOffBankManagementView() {
       if (res.success) {
         const d = res.data;
         setPrograms(d.programs || []);
-        if (d.pagination) setTotalPages(d.pagination.totalPages || 1);
+        if (d.pagination) {
+          setTotalPages(d.pagination.totalPages || 1);
+          setTotalPrograms(d.pagination.total ?? d.pagination.totalItems ?? (d.programs || []).length);
+        }
       } else {
         setError(res.message || 'Failed to load programs');
       }
@@ -727,6 +706,14 @@ export default function TimeOffBankManagementView() {
 
       {/* Table */}
       <div style={{ ...card, overflow: 'hidden' }}>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={totalPrograms}
+          pageSize={limit}
+          onPageChange={setPage}
+          itemLabel="programs"
+        />
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -798,26 +785,6 @@ export default function TimeOffBankManagementView() {
           </table>
         </div>
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-            style={{ padding: '0.4rem 0.75rem', border: `1px solid ${T.border}`, borderRadius: '6px', background: T.surface, cursor: page > 1 ? 'pointer' : 'default', fontSize: '0.78rem', color: page > 1 ? T.text : T.textMuted, fontFamily: 'inherit' }}>
-            Previous
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-            <button key={p} onClick={() => setPage(p)}
-              style={{ padding: '0.4rem 0.75rem', border: 'none', borderRadius: '6px', background: page === p ? T.primary : 'transparent', color: page === p ? '#fff' : T.textSub, fontWeight: page === p ? 700 : 400, cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'inherit' }}>
-              {p}
-            </button>
-          ))}
-          <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
-            style={{ padding: '0.4rem 0.75rem', border: `1px solid ${T.border}`, borderRadius: '6px', background: T.surface, cursor: page < totalPages ? 'pointer' : 'default', fontSize: '0.78rem', color: page < totalPages ? T.text : T.textMuted, fontFamily: 'inherit' }}>
-            Next
-          </button>
-        </div>
-      )}
 
       {/* Modals */}
       {modal && modalContent()}

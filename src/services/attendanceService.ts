@@ -98,7 +98,8 @@ export const getAllAttendanceRecords = async (
   limit: number = 20,
   userId?: number,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  status?: string
 ): Promise<{ success: boolean; records?: AttendanceRecord[]; pagination?: AttendanceRecordsResponse['pagination']; message?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
@@ -113,6 +114,7 @@ export const getAllAttendanceRecords = async (
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('limit', limit.toString());
+    if (status) params.append('status', status);
     if (userId) params.append('userId', userId.toString());
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
@@ -153,6 +155,60 @@ export const getAllAttendanceRecords = async (
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to fetch attendance records',
+    };
+  }
+};
+
+// Get attendance records flagged as marked present/late/half_day/early_departure
+// on a day the staff member's branch was closed, or on a holiday.
+export const getFlaggedAttendanceRecords = async (
+  page: number = 1,
+  limit: number = 50,
+  startDate?: string,
+  endDate?: string,
+  branchId?: number
+): Promise<{ success: boolean; records?: any[]; pagination?: AttendanceRecordsResponse['pagination']; message?: string }> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return {
+        success: false,
+        message: 'Authentication token not found. Please log in again.'
+      };
+    }
+
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (branchId) params.append('branchId', branchId.toString());
+
+    const response = await axios.get(`${API_ENDPOINT}/attendance/flagged-non-working?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const responseData = response.data;
+    if (!responseData.success) {
+      return {
+        success: false,
+        message: responseData.message || 'Failed to fetch flagged attendance records',
+      };
+    }
+
+    return {
+      success: true,
+      records: responseData.data.records || [],
+      pagination: responseData.data.pagination,
+    };
+  } catch (error: any) {
+    console.error('Error fetching flagged attendance records:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to fetch flagged attendance records',
     };
   }
 };
@@ -341,8 +397,10 @@ export const updateAttendanceRecord = async (
     check_out_time?: string;
     location_verified?: boolean;
     notes?: string;
+    override_non_working_day?: boolean;
+    override_reason?: string;
   }
-): Promise<{ success: boolean; record?: AttendanceRecord; message?: string }> => {
+): Promise<{ success: boolean; record?: AttendanceRecord; message?: string; requires_override?: boolean; schedule_type?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -366,6 +424,14 @@ export const updateAttendanceRecord = async (
     };
   } catch (error: any) {
     console.error('Error updating attendance record:', error);
+    if (error.response?.status === 409 && error.response?.data?.requires_override) {
+      return {
+        success: false,
+        requires_override: true,
+        schedule_type: error.response.data.schedule_type,
+        message: error.response.data.message || 'This date requires confirmation before marking the record.'
+      };
+    }
     if (error.response?.status === 401 || error.response?.status === 403) {
       return {
         success: false,
@@ -1557,5 +1623,38 @@ export const getAttendanceLeaderboardPreview = async (
       return { success: false, message: 'Access denied. You may not have permission to view this.' };
     }
     return { success: false, message: error.response?.data?.message || error.message || 'Failed to fetch leaderboard' };
+  }
+};
+
+// One-time historical cleanup for staff wrongly marked 'absent' by the
+// shift-scheduling bugs fixed this session. Always call with dryRun:true
+// first to preview what would change before applying.
+export interface AttendanceCorrectionResult {
+  totalChecked: number;
+  corrected: number;
+  changes: { userId: number; date: string; from: string; to: string }[];
+}
+
+export const correctHistoricalAttendance = async (
+  startDate: string,
+  endDate: string,
+  dryRun: boolean
+): Promise<{ success: boolean; message?: string; data?: AttendanceCorrectionResult }> => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return { success: false, message: 'Authentication token not found. Please log in again.' };
+    }
+
+    const response = await axios.post(
+      `${API_ENDPOINT}/attendance/correct-historical`,
+      { startDate, endDate, dryRun },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    return { success: true, message: response.data.message, data: response.data.data };
+  } catch (error: any) {
+    console.error('Error correcting historical attendance:', error);
+    return { success: false, message: error.response?.data?.message || error.message || 'Failed to correct attendance records' };
   }
 };
