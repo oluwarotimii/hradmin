@@ -1346,9 +1346,11 @@ const AttendanceView = () => {
               </div>
               <p className="text-sm text-muted">
                 {correctionMode === 'absent' ? (
-                  <>Scans records currently marked <strong>Absent</strong> with no check-in in the date range below,
-                  re-checks each one against the current (fixed) schedule logic, and corrects any that should
-                  actually be Weekend, Off, Leave, or Holiday. Records with a real check-in are never touched.</>
+                  <>Scans every record with <strong>no check-in at all</strong> in the date range below — whether
+                  it's currently marked Absent, or was manually/incorrectly set to Present, Late, or Early Departure
+                  with no clock-in evidence behind it — re-checks it against the current (fixed) schedule logic,
+                  and corrects any that should actually be Weekend, Off, Leave, or Holiday. Records with a real
+                  check-in are never touched.</>
                 ) : (
                   <>Scans records currently marked <strong>Present</strong>, <strong>Late</strong>, or <strong>Early
                   Departure</strong> that DO have a real check-in, and if the branch wasn't actually open that day
@@ -1374,8 +1376,8 @@ const AttendanceView = () => {
                 <div className={`p-3 rounded-lg border ${correctionApplied ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
                   <p className="text-sm font-medium">
                     {correctionApplied
-                      ? `Applied: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} ${correctionMode === 'absent' ? 'absent' : "present/late/early-departure"} records corrected.`
-                      : `Preview: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} ${correctionMode === 'absent' ? 'absent' : "present/late/early-departure"} records would be corrected.`}
+                      ? `Applied: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} ${correctionMode === 'absent' ? 'no-check-in' : "present/late/early-departure"} records corrected.`
+                      : `Preview: ${correctionPreview.corrected} of ${correctionPreview.totalChecked} ${correctionMode === 'absent' ? 'no-check-in' : "present/late/early-departure"} records would be corrected.`}
                   </p>
                   {correctionPreview.changes.length > 0 && (
                     <div style={{ maxHeight: '14rem', overflowY: 'auto', marginTop: '0.5rem' }}>
