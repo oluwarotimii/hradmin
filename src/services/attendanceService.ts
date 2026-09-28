@@ -1577,7 +1577,7 @@ export const exportAttendanceReport = async (
     });
 
     const extension = format === 'excel' ? 'xlsx' : format;
-    const blob = new Blob([response.data]);
+    const blob = response.data;
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

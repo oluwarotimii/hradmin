@@ -84,7 +84,7 @@ export interface GuarantorInput {
 // Caller is responsible for revoking the URL when done with it.
 export const getGuarantorFileBlobUrl = async (fileUrl: string): Promise<string> => {
   const response = await axios.get(fileUrl, { responseType: 'blob' });
-  return window.URL.createObjectURL(new Blob([response.data]));
+  return window.URL.createObjectURL(response.data);
 };
 
 export const guarantorService = {

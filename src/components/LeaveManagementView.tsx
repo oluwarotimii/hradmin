@@ -409,7 +409,7 @@ const LeaveManagementView = () => {
     })
       .then((response) => {
         if (cancelled) return;
-        objectUrl = window.URL.createObjectURL(new Blob([response.data]));
+        objectUrl = window.URL.createObjectURL(response.data);
         setViewingAttachmentUrl(objectUrl);
       })
       .catch(() => { /* preview stays blank; Download/Full Screen buttons still work via downloadAttachment */ });
@@ -426,7 +426,7 @@ const LeaveManagementView = () => {
         responseType: 'blob',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const blobUrl = window.URL.createObjectURL(response.data);
       const link = window.document.createElement('a');
       link.href = blobUrl;
       link.download = att.file_name || 'attachment';
@@ -1046,7 +1046,7 @@ const LeaveManagementView = () => {
                                   responseType: 'blob',
                                   headers: token ? { Authorization: `Bearer ${token}` } : undefined,
                                 });
-                                const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+                                const blobUrl = window.URL.createObjectURL(response.data);
                                 window.open(blobUrl, '_blank', 'noopener,noreferrer');
                                 setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
                               } catch { /* no-op */ }

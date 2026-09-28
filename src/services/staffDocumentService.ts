@@ -176,7 +176,7 @@ export const getDocumentBlobUrl = async (filePath: string): Promise<string> => {
     responseType: 'blob'
   });
 
-  return window.URL.createObjectURL(new Blob([response.data]));
+  return window.URL.createObjectURL(response.data);
 };
 
 /**
@@ -200,7 +200,7 @@ export const downloadStaffDocument = async (document: StaffDocument): Promise<vo
     );
 
     // Create download link
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const url = window.URL.createObjectURL(response.data);
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', document.document_name);
