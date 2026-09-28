@@ -393,8 +393,8 @@ const LeaveManagementView = () => {
   useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, filterLeaveType, selectedDepartment]);
 
   // Attachment files require auth to fetch, so a plain <img>/<iframe>/<a> at
-  // the API URL would 401 — fetch as a blob (axios attaches the auth header
-  // via the global interceptor in authService.ts) and use that URL instead.
+  // the API URL would 401 — fetch as a blob with an explicit Authorization
+  // header (not relying on the global interceptor) and use that URL instead.
   useEffect(() => {
     if (!viewingAttachment?.file_path) {
       setViewingAttachmentUrl('');
@@ -402,7 +402,11 @@ const LeaveManagementView = () => {
     }
     let cancelled = false;
     let objectUrl = '';
-    axios.get(`${API_ENDPOINT}${viewingAttachment.file_path}`, { responseType: 'blob' })
+    const token = localStorage.getItem('authToken');
+    axios.get(`${API_ENDPOINT}${viewingAttachment.file_path}`, {
+      responseType: 'blob',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
       .then((response) => {
         if (cancelled) return;
         objectUrl = window.URL.createObjectURL(new Blob([response.data]));
@@ -417,7 +421,11 @@ const LeaveManagementView = () => {
 
   const downloadAttachment = async (att: any) => {
     try {
-      const response = await axios.get(`${API_ENDPOINT}${att.file_path}`, { responseType: 'blob' });
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get(`${API_ENDPOINT}${att.file_path}`, {
+        responseType: 'blob',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
       const link = window.document.createElement('a');
       link.href = blobUrl;
@@ -1033,7 +1041,11 @@ const LeaveManagementView = () => {
                                 return;
                               }
                               try {
-                                const response = await axios.get(`${API_ENDPOINT}${filePath}`, { responseType: 'blob' });
+                                const token = localStorage.getItem('authToken');
+                                const response = await axios.get(`${API_ENDPOINT}${filePath}`, {
+                                  responseType: 'blob',
+                                  headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                                });
                                 const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
                                 window.open(blobUrl, '_blank', 'noopener,noreferrer');
                                 setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
