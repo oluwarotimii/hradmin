@@ -694,8 +694,110 @@ const AttendanceView = () => {
     return { daysInMonth, startingDay, year, month };
   };
 
+  // Quick jumps so browsing any past period never requires typing exact
+  // dates — the date range used to silently default to "this month only",
+  // which made older records disappear the moment a new month started.
+  const datePresets: { label: string; range: () => { start: string; end: string } }[] = [
+    {
+      label: 'Today', range: () => {
+        const d = new Date().toISOString().split('T')[0];
+        return { start: d, end: d };
+      }
+    },
+    {
+      label: 'This Week', range: () => {
+        const now = new Date();
+        const monday = new Date(now);
+        const dow = now.getDay();
+        monday.setDate(now.getDate() - ((dow + 6) % 7));
+        return { start: monday.toISOString().split('T')[0], end: now.toISOString().split('T')[0] };
+      }
+    },
+    {
+      label: 'This Month', range: () => ({
+        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+        end: new Date().toISOString().split('T')[0]
+      })
+    },
+    {
+      label: 'Last Month', range: () => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), 0);
+        return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
+      }
+    },
+    {
+      label: 'Last 3 Months', range: () => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        return { start: start.toISOString().split('T')[0], end: now.toISOString().split('T')[0] };
+      }
+    },
+    {
+      label: 'This Year', range: () => ({
+        start: `${new Date().getFullYear()}-01-01`,
+        end: new Date().toISOString().split('T')[0]
+      })
+    },
+    {
+      label: 'All Time', range: () => ({
+        start: '2020-01-01',
+        end: new Date().toISOString().split('T')[0]
+      })
+    },
+  ];
+
+  const isActivePreset = (label: string) => {
+    const r = datePresets.find(p => p.label === label)?.range();
+    return !!r && r.start === dateRange.start && r.end === dateRange.end;
+  };
+
   const renderListView = () => (
     <div className="space-y-6">
+      {/* Date range — always visible so staff from any past period (not just
+          the current month) are one click away. */}
+      <div className="card p-4">
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>Showing:</span>
+          {datePresets.map(preset => (
+            <button
+              key={preset.label}
+              className="btn btn-sm"
+              onClick={() => setDateRange(preset.range())}
+              style={isActivePreset(preset.label)
+                ? { backgroundColor: '#1e40af', color: '#fff', border: 'none', fontWeight: 700 }
+                : { backgroundColor: '#fff', color: '#475569', border: '1px solid #e2e8f0', fontWeight: 600 }}
+            >
+              {preset.label}
+            </button>
+          ))}
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '0.25rem' }}>
+            or pick an exact range below
+          </span>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: '#475569' }}>From</label>
+            <input
+              type="date"
+              className="input"
+              value={dateRange.start}
+              onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: '#475569' }}>To</label>
+            <input
+              type="date"
+              className="input"
+              value={dateRange.end}
+              onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Search + Filters */}
       <div className="card p-4">
         <div className="flex items-center gap-2 flex-wrap">
@@ -775,25 +877,7 @@ const AttendanceView = () => {
 
         {showAdvancedFilters && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid #e2e8f0' }}>
-            <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-5'}`}>
-              <div>
-                <label className="block text-sm font-medium mb-1">From</label>
-                <input
-                  type="date"
-                  className="input w-full"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">To</label>
-                <input
-                  type="date"
-                  className="input w-full"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                />
-              </div>
+            <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-3'}`}>
               <div>
                 <label className="block text-sm font-medium mb-1">Branch</label>
                 <select
