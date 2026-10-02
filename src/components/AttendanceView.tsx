@@ -122,6 +122,7 @@ const AttendanceView = () => {
 
   // Export modal state
   const [showExportModal, setShowExportModal] = useState(false);
+  const [exportKind, setExportKind] = useState<'detailed' | 'summary'>('detailed');
   const [exportDateRange, setExportDateRange] = useState({
     start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
@@ -656,10 +657,6 @@ const AttendanceView = () => {
     }
   };
 
-  // Export with custom date range
-  const handleExportWithRange = () => {
-    setShowExportModal(true);
-  };
 
   // View record details
   const openDetailsModal = (record: AttendanceWithStaff) => {
@@ -910,8 +907,8 @@ const AttendanceView = () => {
                   setShowAutoMarkModal(true);
                 },
               },
-              { label: 'Export Detailed Report', icon: Download, onClick: handleExportWithRange },
-              { label: 'Export Summary CSV', icon: Download, onClick: () => exportAttendanceSummaryCSV() },
+              { label: 'Export Detailed Report', icon: Download, onClick: () => { setExportKind('detailed'); setShowExportModal(true); } },
+              { label: 'Export Summary CSV', icon: Download, onClick: () => { setExportKind('summary'); setShowExportModal(true); } },
               {
                 label: 'Correct Historical Errors', icon: Wrench, onClick: () => {
                   setCorrectionPreview(null);
@@ -1314,7 +1311,7 @@ const AttendanceView = () => {
           <div className="modal-overlay" onClick={() => setShowExportModal(false)}></div>
           <div className="modal" style={{ maxWidth: '32rem' }}>
             <div className="modal-header">
-              <h3>Export Attendance Report</h3>
+              <h3>{exportKind === 'summary' ? 'Export Attendance Summary' : 'Export Attendance Report'}</h3>
               <button className="btn btn-ghost btn-icon" onClick={() => setShowExportModal(false)}>×</button>
             </div>
             <div className="modal-content space-y-4">
@@ -1408,34 +1405,46 @@ const AttendanceView = () => {
                   >
                     This Year
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn-xs btn-outline"
+                    onClick={() => setExportDateRange({ start: '2020-01-01', end: new Date().toISOString().split('T')[0] })}
+                  >
+                    All Time
+                  </button>
                 </div>
               </div>
 
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm text-blue-900">
-                  <strong>Tip:</strong> The export will include all attendance records in the selected date range, 
-                  including employee details, check-in/out times, hours worked, and status.
+                  <strong>Tip:</strong> {exportKind === 'summary'
+                    ? 'The export will include one row per staff member for the selected date range (total/present/late/absent/leave/holiday days and attendance %), grouped and subtotaled by branch.'
+                    : 'The export will include every attendance record in the selected date range (employee details, check-in/out times, hours worked, and status), grouped by branch.'}
                 </p>
               </div>
             </div>
             <div className="modal-footer">
-              <button 
-                type="button" 
-                className="btn btn-outline" 
+              <button
+                type="button"
+                className="btn btn-outline"
                 onClick={() => setShowExportModal(false)}
               >
                 Cancel
               </button>
-              <button 
-                type="button" 
-                className="btn btn-primary" 
+              <button
+                type="button"
+                className="btn btn-primary"
                 onClick={() => {
-                  exportToCSV(true, exportDateRange);
+                  if (exportKind === 'summary') {
+                    exportAttendanceSummaryCSV(exportDateRange);
+                  } else {
+                    exportToCSV(true, exportDateRange);
+                  }
                   setShowExportModal(false);
                 }}
-                disabled={exportLoading}
+                disabled={loading}
               >
-                {exportLoading ? (
+                {loading ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                     Generating Report...
