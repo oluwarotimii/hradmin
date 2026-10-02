@@ -78,8 +78,10 @@ const AttendanceView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<number | ''>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  // Defaults to "All Time" — defaulting to the current month was what made
+  // older records look "locked" the moment a new month started.
   const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    start: '2020-01-01',
     end: new Date().toISOString().split('T')[0]
   });
   const [showFilters, setShowFilters] = useState(false);
@@ -460,23 +462,43 @@ const AttendanceView = () => {
       }
 
       const headers = ['Employee', 'Email', 'Employee ID', 'Date', 'Check-in', 'Check-out', 'Hours Worked', 'Status', 'Branch', 'Department'];
-      const rows = dataToExport.map(r => [
-        r.staff_name || `User ${r.user_id}`,
-        r.staff_email || '',
-        r.employee_id || '-',
-        new Date(r.date).toLocaleDateString(),
-        r.check_in_time || '-',
-        r.check_out_time || '-',
-        r.actual_working_hours ? Number(r.actual_working_hours).toFixed(2) : '-',
-        r.status,
-        r.branch_name || '-',
-        r.department || '-'
-      ]);
+      const csvCell = (cell: unknown) => `"${String(cell ?? '').replace(/"/g, '""')}"`;
 
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
-      ].join('\n');
+      // Grouped branch by branch (alphabetical, unassigned last), newest date
+      // first within each branch — makes it possible to review one branch at
+      // a time instead of hunting through every branch interleaved together.
+      const byBranch = new Map<string, AttendanceWithStaff[]>();
+      dataToExport.forEach((r) => {
+        const key = r.branch_name || 'Unassigned';
+        if (!byBranch.has(key)) byBranch.set(key, []);
+        byBranch.get(key)!.push(r);
+      });
+      const branchNames = Array.from(byBranch.keys()).sort((a, b) =>
+        a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b)
+      );
+
+      const csvLines: string[] = [headers.join(',')];
+      for (const branchName of branchNames) {
+        const records = byBranch.get(branchName)!.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        csvLines.push(['', '', '', '', '', '', '', '', `— ${branchName} (${records.length}) —`, ''].map(csvCell).join(','));
+        for (const r of records) {
+          csvLines.push([
+            r.staff_name || `User ${r.user_id}`,
+            r.staff_email || '',
+            r.employee_id || '-',
+            new Date(r.date).toLocaleDateString(),
+            r.check_in_time || '-',
+            r.check_out_time || '-',
+            r.actual_working_hours ? Number(r.actual_working_hours).toFixed(2) : '-',
+            r.status,
+            r.branch_name || '-',
+            r.department || '-'
+          ].map(csvCell).join(','));
+        }
+        csvLines.push('');
+      }
+
+      const csvContent = csvLines.join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
@@ -564,28 +586,54 @@ const AttendanceView = () => {
         'Early %',
       ];
 
-      const rows = summaryRows.map((row) => [
-        row.employee,
-        row.email,
-        row.employeeId,
-        row.department,
-        row.branch,
-        row.totalDays,
-        row.presentDays,
-        row.lateDays,
-        row.earlyDepartures,
-        row.absentDays,
-        row.leaveDays,
-        row.holidayDays,
-        row.attendancePercentage.toFixed(2),
-        row.latePercentage.toFixed(2),
-        row.earlyPercentage.toFixed(2),
-      ]);
+      // Grouped branch by branch (alphabetical, unassigned last), with a
+      // branch header and a subtotal row closing out each group — the flat,
+      // unsorted list made it hard to compare branches against each other.
+      const byBranch = new Map<string, StaffAttendanceSummaryRow[]>();
+      summaryRows.forEach((row) => {
+        const key = row.branch || 'Unassigned';
+        if (!byBranch.has(key)) byBranch.set(key, []);
+        byBranch.get(key)!.push(row);
+      });
+      const branchNames = Array.from(byBranch.keys()).sort((a, b) =>
+        a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b)
+      );
 
-      const csvContent = [
-        headers.map(escapeCsv).join(','),
-        ...rows.map((row) => row.map(escapeCsv).join(',')),
-      ].join('\n');
+      const csvLines: string[] = [headers.map(escapeCsv).join(',')];
+      for (const branchName of branchNames) {
+        const rows = byBranch.get(branchName)!.sort((a, b) => a.employee.localeCompare(b.employee));
+        csvLines.push(['', '', '', '', `— ${branchName} (${rows.length}) —`, '', '', '', '', '', '', '', '', '', ''].map(escapeCsv).join(','));
+        for (const row of rows) {
+          csvLines.push([
+            row.employee,
+            row.email,
+            row.employeeId,
+            row.department,
+            row.branch,
+            row.totalDays,
+            row.presentDays,
+            row.lateDays,
+            row.earlyDepartures,
+            row.absentDays,
+            row.leaveDays,
+            row.holidayDays,
+            row.attendancePercentage.toFixed(2),
+            row.latePercentage.toFixed(2),
+            row.earlyPercentage.toFixed(2),
+          ].map(escapeCsv).join(','));
+        }
+        const sum = (key: keyof StaffAttendanceSummaryRow) => rows.reduce((t, r) => t + (r[key] as number), 0);
+        const avgAttendance = rows.length ? (sum('attendancePercentage') / rows.length) : 0;
+        csvLines.push([
+          '', '', '', '', `${branchName} Subtotal`,
+          sum('totalDays'), sum('presentDays'), sum('lateDays'), sum('earlyDepartures'),
+          sum('absentDays'), sum('leaveDays'), sum('holidayDays'),
+          avgAttendance.toFixed(2), '', '',
+        ].map(escapeCsv).join(','));
+        csvLines.push('');
+      }
+
+      const csvContent = csvLines.join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
