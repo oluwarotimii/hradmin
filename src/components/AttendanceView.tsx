@@ -843,6 +843,35 @@ const AttendanceView = () => {
         </div>
       </div>
 
+      {/* Status — always visible so switching between Present/Late/Absent/Off
+          etc. doesn't require opening "More Filters" first. */}
+      <div className="card p-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>Status:</span>
+          {[
+            { value: 'all', label: 'All' },
+            { value: 'present', label: 'Present' },
+            { value: 'late', label: 'Late' },
+            { value: 'absent', label: 'Absent' },
+            { value: 'off', label: 'Off' },
+            { value: 'weekend', label: 'Weekend' },
+            { value: 'leave', label: 'Leave' },
+            { value: 'holiday', label: 'Holiday' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              className="btn btn-sm"
+              onClick={() => setSelectedStatus(opt.value)}
+              style={selectedStatus === opt.value
+                ? { backgroundColor: '#1e40af', color: '#fff', border: 'none', fontWeight: 700 }
+                : { backgroundColor: '#fff', color: '#475569', border: '1px solid #e2e8f0', fontWeight: 600 }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Search + Filters */}
       <div className="card p-4">
         <div className="flex items-center gap-2 flex-wrap">
@@ -934,21 +963,6 @@ const AttendanceView = () => {
                   {branches.map(branch => (
                     <option key={branch.id} value={branch.id}>{branch.name}</option>
                   ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <select
-                  className="input w-full"
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="present">Present</option>
-                  <option value="late">Late</option>
-                  <option value="absent">Absent</option>
-                  <option value="leave">Leave</option>
-                  <option value="holiday">Holiday</option>
                 </select>
               </div>
               <div>

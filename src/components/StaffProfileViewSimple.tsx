@@ -4,7 +4,7 @@ import {
   ArrowLeft, User, Phone, Mail, MapPin, Calendar, Briefcase, FileText, Edit2, Save, X,
   CreditCard, GraduationCap, Award, Activity, AlertCircle, BookOpen, Building2, Clock,
   Shield, Stethoscope, Banknote, Target, Users, FileCheck, BadgeCheck, CalendarDays, ChevronDown,
-  Upload, Download, Trash2, Eye, File, FileType, Camera, CheckCircle, UserCheck
+  Upload, Download, Trash2, Eye, File, FileType, Camera, CheckCircle, UserCheck, CalendarClock
 } from 'lucide-react';
 import { API_ENDPOINT } from '../config/config';
 import { StaffMember, getStaffById, updateStaff } from '../services/staffManagementService';
@@ -13,12 +13,13 @@ import { getAllDepartments } from '../services/departmentManagementService';
 import { uploadStaffDocument, getStaffDocuments, deleteStaffDocument, getDocumentBlobUrl, downloadStaffDocument, StaffDocument } from '../services/staffDocumentService';
 import { getAllRoles, Role } from '../services/roleManagementService';
 import { getUserById as getUserByIdForAdmin, resetUserPassword as adminResetUserPassword, updateUserRole as adminUpdateUserRole } from '../services/userManagementService';
+import { getAllLeaveRequests } from '../services/leaveManagementService';
 import statesAndLgas from 'nigeria-state-lga-data';
 import { useAuth } from '../AuthContext';
 import { GuarantorForm } from './GuarantorForm';
 import { T } from '../theme';
 import { Avatar } from './Avatar';
-import { StatusBadge } from './StatusBadge';
+import { StatusBadge, type BadgeTone } from './StatusBadge';
 
 interface StaffProfileViewProps {
   staff: StaffMember;
@@ -30,7 +31,7 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
   const { user } = useAuth();
   const isSuperAdmin = user?.roleId === 1 || user?.role === 'admin';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'personal' | 'employment' | 'contact' | 'education' | 'emergency' | 'banking' | 'medical' | 'resignation' | 'documents' | 'guarantors'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'personal' | 'employment' | 'contact' | 'education' | 'emergency' | 'banking' | 'medical' | 'resignation' | 'documents' | 'guarantors' | 'leaveHistory'>('overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -38,6 +39,8 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
   const [editedStaff, setEditedStaff] = useState<any>(staff);
   const [documents, setDocuments] = useState<StaffDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
+  const [leaveHistoryLoading, setLeaveHistoryLoading] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -120,6 +123,8 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
     setNigerianStates(states);
     // Load staff documents
     loadDocuments();
+    // Load leave history
+    loadLeaveHistory();
   }, [staff]);
 
   // Update LGAs when state changes
@@ -222,6 +227,47 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
       console.error('Error loading documents:', err);
     } finally {
       setDocumentsLoading(false);
+    }
+  };
+
+  const loadLeaveHistory = async () => {
+    if (!staff.user_id) return;
+    setLeaveHistoryLoading(true);
+    try {
+      const response = await getAllLeaveRequests(1, 100, { userId: Number(staff.user_id) });
+      if (response.success && response.leaveRequests) {
+        const normalized = response.leaveRequests.map((req: any) => {
+          const statusRaw = (req.status || '').toLowerCase();
+          const status = statusRaw === 'approved' ? 'Approved'
+            : statusRaw === 'rejected' ? 'Rejected'
+            : statusRaw === 'cancelled' ? 'Cancelled'
+            : statusRaw === 'submitted' || statusRaw === 'pending' ? 'Pending'
+            : 'Active';
+          const startDate = req.start_date || req.startDate;
+          const endDate = req.end_date || req.endDate;
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const duration = Number(req.days_requested ?? req.daysRequested)
+            || Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+          return {
+            id: req.id,
+            leaveType: req.leave_type_name || req.leaveTypeName || 'Unknown',
+            startDate,
+            endDate,
+            duration,
+            reason: req.reason,
+            status,
+            requestedAt: req.created_at || req.createdAt,
+            reviewedAt: req.reviewed_at || req.updatedAt,
+            rejectionReason: req.rejection_reason || req.rejectionReason,
+          };
+        }).sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+        setLeaveHistory(normalized);
+      }
+    } catch (err) {
+      console.error('Error loading leave history:', err);
+    } finally {
+      setLeaveHistoryLoading(false);
     }
   };
 
@@ -738,7 +784,8 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
             { id: 'medical', label: 'Medical', icon: Stethoscope },
             { id: 'resignation', label: 'Resignation', icon: FileCheck },
             { id: 'documents', label: 'Documents', icon: FileText },
-            { id: 'guarantors', label: 'Guarantors', icon: UserCheck }
+            { id: 'guarantors', label: 'Guarantors', icon: UserCheck },
+            { id: 'leaveHistory', label: 'Leave History', icon: CalendarClock }
           ].map(tab => (
             <button
               key={tab.id}
@@ -1223,6 +1270,76 @@ export function StaffProfileView({ staff, onBack, onUpdate }: StaffProfileViewPr
               console.log('Guarantors updated');
             }} 
           />
+        )}
+
+        {/* Leave History Tab */}
+        {activeTab === 'leaveHistory' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-lg font-semibold flex items-center gap-2" style={{ color: T.text }}>
+                <CalendarClock className="w-5 h-5" style={{ color: T.primary }} />
+                Leave History
+              </h4>
+              <p style={{ fontSize: '0.82rem', color: T.textMuted, margin: 0 }}>
+                {leaveHistory.length} request{leaveHistory.length !== 1 ? 's' : ''} total
+              </p>
+            </div>
+
+            {leaveHistoryLoading ? (
+              <div className="text-center py-16">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 mx-auto" style={{ borderColor: T.primary }}></div>
+                <p style={{ color: T.textMuted, marginTop: '1rem' }}>Loading leave history...</p>
+              </div>
+            ) : leaveHistory.length === 0 ? (
+              <div className="text-center py-16" style={{ backgroundColor: T.surfaceAlt, borderRadius: '1rem' }}>
+                <CalendarClock className="w-12 h-12 mx-auto mb-3" style={{ color: T.textMuted }} />
+                <p style={{ fontWeight: 600, color: T.text, margin: 0 }}>No leave requests yet</p>
+                <p style={{ fontSize: '0.85rem', color: T.textMuted, marginTop: '0.25rem' }}>
+                  Every leave request this staff member submits will show up here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {leaveHistory.map((req) => {
+                  const tone: BadgeTone = req.status === 'Approved' ? 'success'
+                    : req.status === 'Rejected' ? 'danger'
+                    : req.status === 'Pending' ? 'warning'
+                    : req.status === 'Cancelled' ? 'neutral'
+                    : 'primary';
+                  return (
+                    <div key={req.id} className="p-4" style={{ backgroundColor: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: '0.65rem' }}>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <p style={{ fontWeight: 700, color: T.text, margin: 0, fontSize: '0.92rem' }}>{req.leaveType} Leave</p>
+                          <p style={{ fontSize: '0.8rem', color: T.textSub, margin: '0.2rem 0 0' }}>
+                            {new Date(req.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {' → '}
+                            {new Date(req.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {' · '}{req.duration} day{req.duration > 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <StatusBadge label={req.status} tone={tone} />
+                      </div>
+                      {req.reason && (
+                        <p style={{ fontSize: '0.84rem', color: T.textSub, marginTop: '0.6rem', marginBottom: 0 }}>
+                          <strong style={{ color: T.text }}>Reason:</strong> {req.reason}
+                        </p>
+                      )}
+                      {req.status === 'Rejected' && req.rejectionReason && (
+                        <p style={{ fontSize: '0.84rem', color: T.danger, marginTop: '0.4rem', marginBottom: 0 }}>
+                          <strong>Rejection reason:</strong> {req.rejectionReason}
+                        </p>
+                      )}
+                      <p style={{ fontSize: '0.72rem', color: T.textMuted, marginTop: '0.5rem', marginBottom: 0 }}>
+                        Requested {req.requestedAt ? new Date(req.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        {req.status !== 'Pending' && req.reviewedAt ? ` · Reviewed ${new Date(req.reviewedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Documents Tab */}

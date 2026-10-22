@@ -418,7 +418,8 @@ export const getAllLeaveRequests = async (page: number = 1, limit: number = 20, 
   status?: string;
   leaveType?: string;
   search?: string;
-}): Promise<{ 
+  userId?: number;
+}): Promise<{
   success: boolean; 
   leaveRequests?: LeaveRequest[]; 
   pagination?: {
@@ -447,6 +448,7 @@ export const getAllLeaveRequests = async (page: number = 1, limit: number = 20, 
     if (filters?.status) params.append('status', filters.status);
     if (filters?.leaveType) params.append('leaveType', filters.leaveType);
     if (filters?.search) params.append('search', filters.search);
+    if (filters?.userId) params.append('userId', filters.userId.toString());
 
     console.log(`Fetching leave requests from: ${API_ENDPOINT}/leave?${params.toString()}`);
     console.log('Auth token present:', !!token);

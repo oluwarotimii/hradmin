@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye, Paperclip, ExternalLink, Image, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Calendar, Download, Filter, Check, X, Clock, User, Building, FileText, TrendingUp, AlertCircle, CalendarDays, Info, CheckCircle, Eye, Paperclip, ExternalLink, Image, ChevronDown, ChevronRight, Copy, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/components/ui/utils';
 import { API_ENDPOINT } from '../config/config';
 import {
@@ -199,6 +199,12 @@ const LeaveManagementView = () => {
   const [showCreateLeaveTypeModal, setShowCreateLeaveTypeModal] = useState(false);
   const [showEditLeaveTypeModal, setShowEditLeaveTypeModal] = useState(false);
   const [showCleanupModal, setShowCleanupModal] = useState(false);
+  // "Who's off" WhatsApp-copy tool
+  const [showWhoIsOffModal, setShowWhoIsOffModal] = useState(false);
+  const [whoIsOffDate, setWhoIsOffDate] = useState(new Date().toISOString().split('T')[0]);
+  const [whoIsOffLoading, setWhoIsOffLoading] = useState(false);
+  const [whoIsOffList, setWhoIsOffList] = useState<{ name: string; leaveType: string }[]>([]);
+  const [whoIsOffCopied, setWhoIsOffCopied] = useState(false);
   const [cleanupStatus, setCleanupStatus] = useState<any | null>(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
@@ -516,6 +522,54 @@ const LeaveManagementView = () => {
     finally { setLoading(false); }
   };
 
+  // Builds the "who's off" list for a given day — every approved leave
+  // request whose range covers that date — so it can be pasted straight
+  // into WhatsApp instead of someone reading it off the screen by hand.
+  const loadWhoIsOff = async (date: string) => {
+    setWhoIsOffLoading(true);
+    setWhoIsOffCopied(false);
+    try {
+      const response = await getAllLeaveRequests(1, 500, { status: 'approved' });
+      if (response.success && response.leaveRequests) {
+        const target = new Date(date).getTime();
+        const onLeave = response.leaveRequests
+          .filter((req: any) => {
+            const start = new Date(req.start_date || req.startDate).getTime();
+            const end = new Date(req.end_date || req.endDate).getTime();
+            return target >= start && target <= end;
+          })
+          .map((req: any) => ({
+            name: req.user_name || req.full_name || req.staffName || `User ${req.user_id ?? req.userId ?? ''}`,
+            leaveType: req.leave_type_name || req.leaveTypeName || 'Leave',
+          }))
+          .sort((a: any, b: any) => a.name.localeCompare(b.name));
+        setWhoIsOffList(onLeave);
+      } else {
+        setWhoIsOffList([]);
+      }
+    } catch {
+      setWhoIsOffList([]);
+    } finally {
+      setWhoIsOffLoading(false);
+    }
+  };
+
+  const whoIsOffText = () => {
+    const header = `List of Staff Off Duty on ${new Date(whoIsOffDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+    if (whoIsOffList.length === 0) return `${header}\n\nNo one is on approved leave this day.`;
+    return [header, '', ...whoIsOffList.map(p => `${p.name} - ${p.leaveType}`)].join('\n');
+  };
+
+  const copyWhoIsOff = async () => {
+    try {
+      await navigator.clipboard.writeText(whoIsOffText());
+      setWhoIsOffCopied(true);
+      setTimeout(() => setWhoIsOffCopied(false), 2500);
+    } catch {
+      setError('Could not copy to clipboard — your browser may be blocking it.');
+    }
+  };
+
   const handleLeaveCleanup = async () => {
     try {
       setCleanupLoading(true); setError(null);
@@ -608,6 +662,35 @@ const LeaveManagementView = () => {
             <Filter size={13}/>{showFilters?'Hide Filters':'More Filters'}
           </button>
           <button style={btnOutline}><Download size={13}/> Export</button>
+          <button
+            style={btnOutline}
+            onClick={() => { setShowWhoIsOffModal(true); loadWhoIsOff(whoIsOffDate); }}
+          >
+            <Copy size={13}/> Copy Who's Off
+          </button>
+        </div>
+
+        {/* Always-visible status pills — the old dropdown was buried inside
+            "More Filters" and there was no way to filter to just Approved or
+            just Rejected at all (only a one-off Pending shortcut). */}
+        <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', marginTop:'0.75rem' }}>
+          {([
+            { value: 'all', label: 'All' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'declined', label: 'Rejected' },
+            { value: 'active', label: 'Active' },
+          ] as const).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setFilterStatus(opt.value)}
+              style={filterStatus === opt.value
+                ? { ...btnOutline, background: T.primary, color: '#fff', border: 'none', fontWeight: 700 }
+                : btnOutline}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
         {showFilters && (
@@ -1436,6 +1519,46 @@ const LeaveManagementView = () => {
                   <button style={btnOutline} onClick={()=>setShowCleanupModal(false)} disabled={cleanupLoading}>Cancel</button>
                   <button style={btnPrimary} onClick={handleLeaveCleanup} disabled={cleanupLoading}>
                     {cleanupLoading?<><Clock size={14} style={{animation:'lmvspin 0.7s linear infinite'}}/> Running…</>:<><Check size={14}/> Run Cleanup Now</>}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Copy Who's Off Modal ─────────────────────────────── */}
+          {showWhoIsOffModal && (
+            <>
+              <div style={overlayS} onClick={() => setShowWhoIsOffModal(false)} />
+              <div style={modalShell('30rem')} onClick={e => e.stopPropagation()}>
+                <MHead icon={Copy} title="Copy Who's Off" sub="Paste straight into WhatsApp" color={T.primary} onClose={() => setShowWhoIsOffModal(false)} />
+                <div style={mBody}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: T.textSub, marginBottom: '0.35rem' }}>Date</label>
+                      <input
+                        type="date"
+                        className="lmv-inp"
+                        style={inputS}
+                        value={whoIsOffDate}
+                        onChange={e => { setWhoIsOffDate(e.target.value); loadWhoIsOff(e.target.value); }}
+                      />
+                    </div>
+
+                    <div style={{ padding: '0.875rem 1rem', background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: '9px', minHeight: '8rem' }}>
+                      {whoIsOffLoading ? (
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: T.textMuted }}>Loading…</p>
+                      ) : (
+                        <pre style={{ margin: 0, fontSize: '0.85rem', color: T.text, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                          {whoIsOffText()}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div style={mFoot}>
+                  <button style={btnOutline} onClick={() => setShowWhoIsOffModal(false)}>Close</button>
+                  <button style={btnPrimary} onClick={copyWhoIsOff} disabled={whoIsOffLoading}>
+                    {whoIsOffCopied ? <><ClipboardCheck size={14} /> Copied!</> : <><Copy size={14} /> Copy to Clipboard</>}
                   </button>
                 </div>
               </div>
