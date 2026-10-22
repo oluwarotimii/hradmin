@@ -202,8 +202,9 @@ const LeaveManagementView = () => {
   // "Who's off" WhatsApp-copy tool
   const [showWhoIsOffModal, setShowWhoIsOffModal] = useState(false);
   const [whoIsOffDate, setWhoIsOffDate] = useState(new Date().toISOString().split('T')[0]);
+  const [whoIsOffIncludeTomorrow, setWhoIsOffIncludeTomorrow] = useState(false);
   const [whoIsOffLoading, setWhoIsOffLoading] = useState(false);
-  const [whoIsOffList, setWhoIsOffList] = useState<{ name: string; leaveType: string }[]>([]);
+  const [whoIsOffDays, setWhoIsOffDays] = useState<{ date: string; entries: { name: string; leaveType: string }[] }[]>([]);
   const [whoIsOffCopied, setWhoIsOffCopied] = useState(false);
   const [cleanupStatus, setCleanupStatus] = useState<any | null>(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
@@ -522,17 +523,43 @@ const LeaveManagementView = () => {
     finally { setLoading(false); }
   };
 
-  // Builds the "who's off" list for a given day — every approved leave
-  // request whose range covers that date — so it can be pasted straight
-  // into WhatsApp instead of someone reading it off the screen by hand.
-  const loadWhoIsOff = async (date: string) => {
+  // The leave list endpoint caps `limit` at 100 and 400s above that — the
+  // first version of this feature asked for 500 in one shot, which meant
+  // the request itself was silently failing (hence "came out empty" even
+  // with obvious approved leave on the books). Page through in 100s instead.
+  const fetchAllApprovedLeave = async (): Promise<any[]> => {
+    const all: any[] = [];
+    let page = 1;
+    while (page <= 5) {
+      const res = await getAllLeaveRequests(page, 100, { status: 'approved' });
+      if (!res.success || !res.leaveRequests || res.leaveRequests.length === 0) break;
+      all.push(...res.leaveRequests);
+      const totalPages = res.pagination?.totalPages || 1;
+      if (page >= totalPages) break;
+      page++;
+    }
+    return all;
+  };
+
+  const addDays = (dateStr: string, days: number) => {
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  };
+
+  // Builds the "who's off" list for a given day (or that day + the next,
+  // when requested) — every approved leave request whose range covers the
+  // date — so it can be pasted straight into WhatsApp instead of someone
+  // reading it off the screen by hand.
+  const loadWhoIsOff = async (date: string, includeTomorrow: boolean = whoIsOffIncludeTomorrow) => {
     setWhoIsOffLoading(true);
     setWhoIsOffCopied(false);
     try {
-      const response = await getAllLeaveRequests(1, 500, { status: 'approved' });
-      if (response.success && response.leaveRequests) {
-        const target = new Date(date).getTime();
-        const onLeave = response.leaveRequests
+      const requests = await fetchAllApprovedLeave();
+      const dates = includeTomorrow ? [date, addDays(date, 1)] : [date];
+      const days = dates.map((d) => {
+        const target = new Date(d).getTime();
+        const entries = requests
           .filter((req: any) => {
             const start = new Date(req.start_date || req.startDate).getTime();
             const end = new Date(req.end_date || req.endDate).getTime();
@@ -543,21 +570,32 @@ const LeaveManagementView = () => {
             leaveType: req.leave_type_name || req.leaveTypeName || 'Leave',
           }))
           .sort((a: any, b: any) => a.name.localeCompare(b.name));
-        setWhoIsOffList(onLeave);
-      } else {
-        setWhoIsOffList([]);
-      }
+        return { date: d, entries };
+      });
+      setWhoIsOffDays(days);
     } catch {
-      setWhoIsOffList([]);
+      setWhoIsOffDays([]);
     } finally {
       setWhoIsOffLoading(false);
     }
   };
 
+  const formatWhoIsOffDay = (date: string) =>
+    new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
   const whoIsOffText = () => {
-    const header = `List of Staff Off Duty on ${new Date(whoIsOffDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-    if (whoIsOffList.length === 0) return `${header}\n\nNo one is on approved leave this day.`;
-    return [header, '', ...whoIsOffList.map(p => `${p.name} - ${p.leaveType}`)].join('\n');
+    if (whoIsOffDays.length === 0) return 'No data loaded yet.';
+    if (whoIsOffDays.length === 1) {
+      const { date, entries } = whoIsOffDays[0];
+      const header = `List of Staff Off Duty on ${formatWhoIsOffDay(date)}`;
+      if (entries.length === 0) return `${header}\n\nNo one is on approved leave this day.`;
+      return [header, '', ...entries.map(p => `${p.name} - ${p.leaveType}`)].join('\n');
+    }
+    const blocks = whoIsOffDays.map(({ date, entries }) => {
+      const body = entries.length === 0 ? 'No one is on approved leave this day.' : entries.map(p => `${p.name} - ${p.leaveType}`).join('\n');
+      return `${formatWhoIsOffDay(date)}\n${body}`;
+    });
+    return `List of Staff Off Duty\n\n${blocks.join('\n\n')}`;
   };
 
   const copyWhoIsOff = async () => {
@@ -1543,6 +1581,15 @@ const LeaveManagementView = () => {
                         onChange={e => { setWhoIsOffDate(e.target.value); loadWhoIsOff(e.target.value); }}
                       />
                     </div>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', color: T.textSub, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={whoIsOffIncludeTomorrow}
+                        onChange={e => { setWhoIsOffIncludeTomorrow(e.target.checked); loadWhoIsOff(whoIsOffDate, e.target.checked); }}
+                      />
+                      Also include tomorrow
+                    </label>
 
                     <div style={{ padding: '0.875rem 1rem', background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: '9px', minHeight: '8rem' }}>
                       {whoIsOffLoading ? (
