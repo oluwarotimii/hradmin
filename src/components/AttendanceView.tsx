@@ -76,6 +76,13 @@ const AttendanceView = () => {
 
   // Filter state
   const [searchTerm, setSearchTerm] = useState('');
+  // Debounced so typing doesn't fire a fetch per keystroke, plus a wider
+  // one-off fetch while searching — the normal page fetch only ever holds
+  // one page's worth of records, so searching for someone not on the
+  // currently-loaded page used to silently find nothing.
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [rawSearchRecords, setRawSearchRecords] = useState<AttendanceRecord[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<number | ''>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   // Defaults to "All Time" — defaulting to the current month was what made
@@ -233,6 +240,46 @@ const AttendanceView = () => {
       loadData();
     }
   }, [dateRange.start, dateRange.end, selectedStatus]);
+
+  // Debounce the raw input so a wide search fetch doesn't fire on every
+  // keystroke — only once typing pauses.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchTerm(searchTerm.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // While actively searching, pull a much larger batch (matching the current
+  // date range/status) so matches outside the currently-loaded page actually
+  // show up. This never touches `loading`/the main table spinner — it fills
+  // in quietly, keeping whatever is on screen until the new batch arrives.
+  useEffect(() => {
+    if (!debouncedSearchTerm) {
+      setRawSearchRecords([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setSearchLoading(true);
+      try {
+        const res = await getAllAttendanceRecords(
+          1,
+          1000,
+          undefined,
+          dateRange.start,
+          dateRange.end,
+          selectedStatus !== 'all' ? selectedStatus : undefined
+        );
+        if (!cancelled) {
+          setRawSearchRecords(res.success && res.records ? res.records : []);
+        }
+      } catch {
+        if (!cancelled) setRawSearchRecords([]);
+      } finally {
+        if (!cancelled) setSearchLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [debouncedSearchTerm, dateRange.start, dateRange.end, selectedStatus]);
 
   const loadData = async () => {
     setLoading(true);
@@ -688,11 +735,16 @@ const AttendanceView = () => {
     }
   };
 
+  // While searching, enrich the wide one-off batch instead of the current
+  // page — otherwise matches outside today's page would never appear.
+  const isSearching = debouncedSearchTerm.length > 0;
+
   // Re-enrich records with staff/branch info whenever any of the three change —
   // decoupled from the fetch itself so it's always correct regardless of which
   // of rawRecords/staffMembers/branches finished loading first.
   const attendanceRecords: AttendanceWithStaff[] = useMemo(() => {
-    return rawRecords.map((record) => {
+    const source = isSearching ? rawSearchRecords : rawRecords;
+    return source.map((record) => {
       const staff = staffMembers.find((s) => s.userId === record.user_id);
       const branch = branches.find((b) => Number(b.id) === Number(staff?.branch_id));
       return {
@@ -704,12 +756,13 @@ const AttendanceView = () => {
         branch_name: branch?.name,
       };
     });
-  }, [rawRecords, staffMembers, branches]);
+  }, [isSearching, rawSearchRecords, rawRecords, staffMembers, branches]);
 
-  // Search/Branch/Department aren't supported as server-side filters by the
-  // attendance API, so they only narrow down the records already on this page
+  // Branch/Department aren't supported as server-side filters by the
+  // attendance API, so they only narrow down the records already loaded
   // (date range and status ARE applied server-side in loadData, covering the
-  // full dataset). "More Filters" panel explains this scope to the admin.
+  // full dataset — search additionally pulls a wide batch above so it isn't
+  // limited to just the current page).
   const filteredRecords = attendanceRecords.filter(record => {
     const matchesSearch = searchTerm === '' ||
       record.staff_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -876,7 +929,11 @@ const AttendanceView = () => {
       <div className="card p-4">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative" style={{ flex: '1 1 260px', minWidth: '200px' }}>
-            <Search className="w-4 h-4" style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+            {searchLoading ? (
+              <RefreshCw className="w-4 h-4 animate-spin" style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', color: '#1e40af', pointerEvents: 'none' }} />
+            ) : (
+              <Search className="w-4 h-4" style={{ position: 'absolute', left: '0.7rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+            )}
             <input
               type="text"
               className="input"
@@ -1053,18 +1110,22 @@ const AttendanceView = () => {
         <div className="p-4" style={{ borderBottom: '1px solid #e2e8f0' }}>
           <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Attendance Records</h3>
           <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
-            {dateRange.start} to {dateRange.end}
+            {isSearching
+              ? `${filteredRecords.length} match${filteredRecords.length === 1 ? '' : 'es'} for "${searchTerm}" — ${dateRange.start} to ${dateRange.end}`
+              : `${dateRange.start} to ${dateRange.end}`}
           </p>
         </div>
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalRecords}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-          itemLabel="records"
-        />
+        {isSearching ? null : (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalRecords}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            itemLabel="records"
+          />
+        )}
         <div className="overflow-x-auto">
           <table className="table min-w-full">
             <thead className="table-header">
@@ -1082,12 +1143,21 @@ const AttendanceView = () => {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && !isSearching ? (
                 <tr>
                   <td colSpan={colSpanCount} className="px-6 py-12 text-center">
                     <div className="flex justify-center items-center gap-2">
                       <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
                       <span className="text-gray-600">Loading attendance records...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : isSearching && searchLoading && filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={colSpanCount} className="px-6 py-12 text-center">
+                    <div className="flex justify-center items-center gap-2">
+                      <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+                      <span className="text-gray-600">Searching...</span>
                     </div>
                   </td>
                 </tr>
@@ -1098,7 +1168,9 @@ const AttendanceView = () => {
                       <Calendar className="w-8 h-8 text-blue-500" />
                     </div>
                     <p className="text-gray-500 font-medium mb-1">No attendance records found</p>
-                    <p className="text-gray-400 text-sm">Adjust filters to see records</p>
+                    <p className="text-gray-400 text-sm">
+                      {isSearching ? 'No one matches this search in the selected date range' : 'Adjust filters to see records'}
+                    </p>
                   </td>
                 </tr>
               ) : (
