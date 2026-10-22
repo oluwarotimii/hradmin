@@ -171,6 +171,15 @@ const leaveTone = (status: string): BadgeTone => {
 // ─── Main component ──────────────────────────────────────────────────────
 const LeaveManagementView = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  // Typing used to trigger a fresh fetch on every keystroke, which re-rendered
+  // the list mid-word and made it feel like the input was swallowing
+  // characters. Debounce the value actually used to fetch; the input itself
+  // still binds to the immediate searchTerm so typing is never blocked.
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchTerm(searchTerm), 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
   const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'declined' | 'active' | 'pending'>('all');
   const [filterLeaveType, setFilterLeaveType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -223,7 +232,7 @@ const LeaveManagementView = () => {
       filters.status = backendStatus;
     }
     if (filterLeaveType !== 'all') filters.leaveType = filterLeaveType;
-    if (searchTerm) filters.search = searchTerm;
+    if (debouncedSearchTerm) filters.search = debouncedSearchTerm;
 
     const [policyPromise, typesPromise, requestsPromise, balancesPromise] = await Promise.all([
       getLeavePolicy().catch(() => null),
@@ -314,7 +323,7 @@ const LeaveManagementView = () => {
 
   useEffect(() => {
     refreshAllData();
-  }, [currentPage, itemsPerPage, filterStatus, filterLeaveType, searchTerm]);
+  }, [currentPage, itemsPerPage, filterStatus, filterLeaveType, debouncedSearchTerm]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -390,7 +399,7 @@ const LeaveManagementView = () => {
   const filteredRequests = leaveRequests;
   const paginatedRequests = filteredRequests;
 
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, filterLeaveType, selectedDepartment]);
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearchTerm, filterStatus, filterLeaveType, selectedDepartment]);
 
   // Attachment files require auth to fetch, so a plain <img>/<iframe>/<a> at
   // the API URL would 401 — fetch as a blob with an explicit Authorization
