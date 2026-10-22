@@ -54,6 +54,7 @@ export interface CreateLeaveTypeRequest {
   carryoverLimit?: number | null; // Changed from number to number | null
   accrualMethod?: string;
   accrualRate?: number;
+  bypassesLeaveCap?: boolean;
 }
 
 export interface UpdateLeaveTypeRequest {
@@ -67,6 +68,7 @@ export interface UpdateLeaveTypeRequest {
   accrualRate?: number;
   expiryRuleId?: number | null;
   isActive?: boolean;
+  bypassesLeaveCap?: boolean;
 }
 
 export interface CreateLeaveRequest {
@@ -256,7 +258,8 @@ export const createLeaveType = async (leaveTypeData: CreateLeaveTypeRequest): Pr
       is_paid: leaveTypeData.isPaid,
       allow_carryover: leaveTypeData.allowCarryover,
       carryover_limit: leaveTypeData.allowCarryover && leaveTypeData.carryoverLimit !== null ? leaveTypeData.carryoverLimit : 0,
-      expiry_rule_id: null
+      expiry_rule_id: null,
+      bypasses_leave_cap: leaveTypeData.bypassesLeaveCap ?? false
     };
 
     const response = await axios.post(`${API_ENDPOINT}/leave/types`, payload, {
@@ -337,6 +340,7 @@ export const updateLeaveType = async (leaveTypeId: number, leaveTypeData: Update
     if (leaveTypeData.carryoverLimit !== undefined) payload.carryover_limit = leaveTypeData.carryoverLimit;
     if (leaveTypeData.expiryRuleId !== undefined) payload.expiry_rule_id = leaveTypeData.expiryRuleId;
     if (leaveTypeData.isActive !== undefined) payload.is_active = Boolean(leaveTypeData.isActive);
+    if (leaveTypeData.bypassesLeaveCap !== undefined) payload.bypasses_leave_cap = Boolean(leaveTypeData.bypassesLeaveCap);
 
     const response = await axios.put(`${API_ENDPOINT}/leave/types/${leaveTypeId}`, payload, {
       headers: {

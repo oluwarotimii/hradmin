@@ -4,6 +4,7 @@ import { API_ENDPOINT } from '../config/config';
 export interface LeavePolicySettings {
   id?: number;
   exclude_sundays_from_leave: boolean;
+  daily_leave_cap?: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -35,17 +36,23 @@ export const getLeavePolicy = async (): Promise<{ success: boolean; settings?: L
   }
 };
 
-export const updateLeavePolicy = async (excludeSundaysFromLeave: boolean): Promise<{ success: boolean; settings?: LeavePolicySettings; message?: string }> => {
+export const updateLeavePolicy = async (
+  excludeSundaysFromLeave: boolean,
+  dailyLeaveCap?: number | null
+): Promise<{ success: boolean; settings?: LeavePolicySettings; message?: string }> => {
   try {
     const token = localStorage.getItem('authToken');
     if (!token) {
       return { success: false, message: 'Authentication token not found. Please log in again.' };
     }
 
+    const settings: Record<string, unknown> = {
+      exclude_sundays_from_leave: excludeSundaysFromLeave,
+    };
+    if (dailyLeaveCap !== undefined) settings.daily_leave_cap = dailyLeaveCap;
+
     const response = await axios.patch(`${API_ENDPOINT}/leave-policy`, {
-      settings: {
-        exclude_sundays_from_leave: excludeSundaysFromLeave,
-      },
+      settings,
     }, {
       headers: {
         Authorization: `Bearer ${token}`,

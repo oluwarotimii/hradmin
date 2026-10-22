@@ -309,8 +309,9 @@ const SettingsView = () => {
   const [workingDaysLoading, setWorkingDaysLoading] = useState(false);
   const [leavePolicyLoading, setLeavePolicyLoading] = useState(false);
   const [leavePolicySaving, setLeavePolicySaving] = useState(false);
-  const [leavePolicy, setLeavePolicy] = useState({
+  const [leavePolicy, setLeavePolicy] = useState<{ exclude_sundays_from_leave: boolean; daily_leave_cap: number | null }>({
     exclude_sundays_from_leave: false,
+    daily_leave_cap: null,
   });
   const [globalSettings, setGlobalSettings] = useState({
     last_saturday_resumption_time: '10:30',
@@ -411,6 +412,7 @@ const SettingsView = () => {
       if (response.success && response.settings) {
         setLeavePolicy({
           exclude_sundays_from_leave: !!response.settings.exclude_sundays_from_leave,
+          daily_leave_cap: response.settings.daily_leave_cap ?? null,
         });
       }
     } catch (err) {
@@ -480,7 +482,7 @@ const SettingsView = () => {
     setLeavePolicySaving(true);
     setError(null);
     try {
-      const response = await updateLeavePolicy(leavePolicy.exclude_sundays_from_leave);
+      const response = await updateLeavePolicy(leavePolicy.exclude_sundays_from_leave, leavePolicy.daily_leave_cap);
       if (response.success) {
         setSuccessMessage('Leave policy saved successfully');
         setTimeout(() => setSuccessMessage(null), 3000);
@@ -665,6 +667,35 @@ const SettingsView = () => {
               />
               <p style={{ margin: '0.75rem 0 0', fontSize: '0.78rem', color: T.textMuted, lineHeight: 1.5 }}>
                 {leavePolicyLoading ? 'Loading leave policy...' : 'This is a global setting and applies to all leave requests.'}
+              </p>
+            </Section>
+
+            <Section title="Capacity" desc="Company-wide limit on how many staff can be on leave at once.">
+              <Field label="Daily Leave Cap" hint="Maximum number of staff who can be on approved or pending leave on any single day. New requests for a day that's already full are rejected automatically. Leave it blank to disable this limit.">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <input
+                    className="sv-inp"
+                    type="number"
+                    min="1"
+                    placeholder="No limit"
+                    value={leavePolicy.daily_leave_cap ?? ''}
+                    onChange={e => setLeavePolicy({ ...leavePolicy, daily_leave_cap: e.target.value ? parseInt(e.target.value) : null })}
+                    style={{ ...inputS, maxWidth: '140px' }}
+                  />
+                  <span style={{ fontSize: '0.85rem', color: T.textSub, fontWeight: 500 }}>staff per day</span>
+                  {leavePolicy.daily_leave_cap !== null && (
+                    <button
+                      type="button"
+                      onClick={() => setLeavePolicy({ ...leavePolicy, daily_leave_cap: null })}
+                      style={{ background: 'none', border: 'none', color: T.primary, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                    >
+                      Clear (no limit)
+                    </button>
+                  )}
+                </div>
+              </Field>
+              <p style={{ margin: '0.75rem 0 0', fontSize: '0.78rem', color: T.textMuted, lineHeight: 1.5 }}>
+                Leave types marked to "bypass the daily cap" (e.g. sick leave) in Leave Types are never counted against this limit.
               </p>
             </Section>
 

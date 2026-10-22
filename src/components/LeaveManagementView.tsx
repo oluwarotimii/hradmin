@@ -141,10 +141,11 @@ const MHead = ({ icon: Icon, title, sub, color, onClose }: any) => (
   </div>
 );
 
-const FF = ({ label, required, children }: any) => (
+const FF = ({ label, required, hint, children }: any) => (
   <div>
     <label style={labelS}>{label}{required && <span style={{ color: T.danger, marginLeft: 2 }}>*</span>}</label>
     {children}
+    {hint && <p style={{ margin: '0.3rem 0 0', fontSize: '0.72rem', color: T.textMuted, lineHeight: 1.4 }}>{hint}</p>}
   </div>
 );
 
@@ -224,11 +225,11 @@ const LeaveManagementView = () => {
   const [pendingTotal, setPendingTotal] = useState(0);
   const [createLeaveTypeForm, setCreateLeaveTypeForm] = useState({
     name: '', description: '', daysPerYear: null, isPaid: true,
-    allowCarryover: false, carryoverLimit: null, expiryRuleId: null
+    allowCarryover: false, carryoverLimit: null, expiryRuleId: null, bypassesLeaveCap: false
   });
   const [editLeaveTypeForm, setEditLeaveTypeForm] = useState({
     id: null, name: '', description: '', daysPerYear: null,
-    isPaid: true, allowCarryover: false, carryoverLimit: null, expiryRuleId: null
+    isPaid: true, allowCarryover: false, carryoverLimit: null, expiryRuleId: null, bypassesLeaveCap: false
   });
 
   const refreshAllData = async () => {
@@ -341,7 +342,7 @@ const LeaveManagementView = () => {
   const openEditLeaveTypeModal = (displayType: any) => {
     const rawType = rawLeaveTypes.find(t => t.id === displayType.id);
     if (!rawType) return;
-    setEditLeaveTypeForm({ id:rawType.id, name:rawType.name, description:rawType.description||'', daysPerYear:rawType.days_per_year||null, isPaid:rawType.is_paid||false, allowCarryover:rawType.allow_carryover||false, carryoverLimit:rawType.carryover_limit||null, expiryRuleId:rawType.expiry_rule_id||null });
+    setEditLeaveTypeForm({ id:rawType.id, name:rawType.name, description:rawType.description||'', daysPerYear:rawType.days_per_year||null, isPaid:rawType.is_paid||false, allowCarryover:rawType.allow_carryover||false, carryoverLimit:rawType.carryover_limit||null, expiryRuleId:rawType.expiry_rule_id||null, bypassesLeaveCap:rawType.bypasses_leave_cap||false });
     setShowEditLeaveTypeModal(true);
   };
 
@@ -631,7 +632,7 @@ const LeaveManagementView = () => {
   const handleCreateLeaveType = async () => {
     try {
       setLoading(true); setError(null);
-      const response = await createLeaveType({ name:createLeaveTypeForm.name, description:createLeaveTypeForm.description, daysPerYear:createLeaveTypeForm.daysPerYear, isPaid:createLeaveTypeForm.isPaid, allowCarryover:createLeaveTypeForm.allowCarryover, carryoverLimit:createLeaveTypeForm.allowCarryover?createLeaveTypeForm.carryoverLimit:undefined, accrualMethod:undefined, accrualRate:undefined });
+      const response = await createLeaveType({ name:createLeaveTypeForm.name, description:createLeaveTypeForm.description, daysPerYear:createLeaveTypeForm.daysPerYear, isPaid:createLeaveTypeForm.isPaid, allowCarryover:createLeaveTypeForm.allowCarryover, carryoverLimit:createLeaveTypeForm.allowCarryover?createLeaveTypeForm.carryoverLimit:undefined, accrualMethod:undefined, accrualRate:undefined, bypassesLeaveCap:createLeaveTypeForm.bypassesLeaveCap });
       if (response.success) { setShowCreateLeaveTypeModal(false); setCreateLeaveTypeForm({name:'',description:'',daysPerYear:null,isPaid:true,allowCarryover:false,carryoverLimit:null,expiryRuleId:null}); setSuccessMessage('Leave type created successfully!'); setTimeout(()=>setSuccessMessage(null),3000); await refreshAllData(); }
       else throw new Error(response.message||'Failed to create leave type');
     } catch (err) { setError(err instanceof Error?err.message:'An error occurred'); setTimeout(()=>setError(null),5000); }
@@ -642,9 +643,9 @@ const LeaveManagementView = () => {
     try {
       setLoading(true); setError(null);
       const { updateLeaveType } = await import('../services/leaveManagementService');
-      const response = await updateLeaveType(editLeaveTypeForm.id!, { name:editLeaveTypeForm.name, description:editLeaveTypeForm.description, daysPerYear:editLeaveTypeForm.daysPerYear, isPaid:editLeaveTypeForm.isPaid, allowCarryover:editLeaveTypeForm.allowCarryover, carryoverLimit:editLeaveTypeForm.allowCarryover?editLeaveTypeForm.carryoverLimit:undefined, accrualMethod:undefined, accrualRate:undefined });
+      const response = await updateLeaveType(editLeaveTypeForm.id!, { name:editLeaveTypeForm.name, description:editLeaveTypeForm.description, daysPerYear:editLeaveTypeForm.daysPerYear, isPaid:editLeaveTypeForm.isPaid, allowCarryover:editLeaveTypeForm.allowCarryover, carryoverLimit:editLeaveTypeForm.allowCarryover?editLeaveTypeForm.carryoverLimit:undefined, accrualMethod:undefined, accrualRate:undefined, bypassesLeaveCap:editLeaveTypeForm.bypassesLeaveCap });
       if (response.success) {
-        setShowEditLeaveTypeModal(false); setEditLeaveTypeForm({id:null,name:'',description:'',daysPerYear:null,isPaid:true,allowCarryover:false,carryoverLimit:null,expiryRuleId:null});
+        setShowEditLeaveTypeModal(false); setEditLeaveTypeForm({id:null,name:'',description:'',daysPerYear:null,isPaid:true,allowCarryover:false,carryoverLimit:null,expiryRuleId:null,bypassesLeaveCap:false});
         setSuccessMessage('Leave type updated successfully!'); setTimeout(()=>setSuccessMessage(null),3000);
         await refreshAllData();
       } else throw new Error(response.message||'Failed to update leave type');
@@ -1435,6 +1436,12 @@ const LeaveManagementView = () => {
                     <FF label="Expiry Rule ID">
                       <input className="lmv-inp" type="number" value={createLeaveTypeForm.expiryRuleId||''} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,expiryRuleId:e.target.value?parseInt(e.target.value):null})} min="1" style={inputS}/>
                     </FF>
+                    <FF label="Bypass Daily Leave Cap" hint="For leave types that can't be planned around in advance, like sick leave or bereavement.">
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginTop:'0.25rem' }}>
+                        <input type="checkbox" className="toggle" checked={createLeaveTypeForm.bypassesLeaveCap} onChange={e=>setCreateLeaveTypeForm({...createLeaveTypeForm,bypassesLeaveCap:e.target.checked})} style={{ accentColor:T.primary, width:16, height:16 }}/>
+                        <span style={{ fontSize:'0.875rem', color:T.textSub }}>{createLeaveTypeForm.bypassesLeaveCap?'Yes — ignores the daily cap':'No — counts toward the daily cap'}</span>
+                      </div>
+                    </FF>
                   </div>
                 </div>
                 <div style={mFoot}>
@@ -1488,6 +1495,12 @@ const LeaveManagementView = () => {
                     </div>
                     <FF label="Expiry Rule ID">
                       <input className="lmv-inp" type="number" value={editLeaveTypeForm.expiryRuleId||''} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,expiryRuleId:e.target.value?parseInt(e.target.value):null})} min="1" style={inputS}/>
+                    </FF>
+                    <FF label="Bypass Daily Leave Cap" hint="For leave types that can't be planned around in advance, like sick leave or bereavement.">
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginTop:'0.25rem' }}>
+                        <input type="checkbox" className="toggle" checked={editLeaveTypeForm.bypassesLeaveCap} onChange={e=>setEditLeaveTypeForm({...editLeaveTypeForm,bypassesLeaveCap:e.target.checked})} style={{ accentColor:T.primary, width:16, height:16 }}/>
+                        <span style={{ fontSize:'0.875rem', color:T.textSub }}>{editLeaveTypeForm.bypassesLeaveCap?'Yes — ignores the daily cap':'No — counts toward the daily cap'}</span>
+                      </div>
                     </FF>
                   </div>
                 </div>
